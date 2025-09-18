@@ -29,10 +29,9 @@
     <script>
         // --- 請將此處的網址，換成您自己部署後的 GAS 網址！ ---
         const GAS_URL = 'https://script.google.com/macros/s/AKfycby_axLV3uESJlTq_pZRszFPQs4jjwvSTU1z-FM5nWJjqwIJTX_VrzynL1CX8ApWVHnwsw/exec';
-        const ADMIN_PASSWORD = '1234'; // 設定一個簡單的管理密碼
+        const ADMIN_PASSWORD = '1234';
 
         window.addEventListener('DOMContentLoaded', () => {
-            // 頁面載入時，跳出密碼輸入框
             const password = prompt('請輸入管理密碼:', '');
             if (password === ADMIN_PASSWORD) {
                 fetchPendingBookings();
@@ -44,9 +43,7 @@
         async function fetchPendingBookings() {
             const container = document.getElementById('booking-list-container');
             container.innerHTML = '<p class="loader">正在載入待審核清單...</p>';
-
             try {
-                // 呼叫帶有 ?page=admin 參數的 API
                 const response = await fetch(`${GAS_URL}?page=admin`);
                 if (!response.ok) throw new Error('網路回應錯誤');
                 const data = await response.json();
@@ -64,7 +61,8 @@
 
         function renderBookingList(bookings) {
             const container = document.getElementById('booking-list-container');
-            let html = `
+            let html = `<table><thead>...</thead><tbody>`; // 表頭省略
+            html = `
                 <table>
                     <thead>
                         <tr>
@@ -75,22 +73,61 @@
                     </thead>
                     <tbody>
             `;
-
             bookings.forEach(booking => {
                 html += `
                     <tr id="row-${booking.bookingId}">
                         <td>${booking.classInfo}</td>
                         <td>${booking.userName}</td>
                         <td class="actions">
-                            <button class="approve-btn" onclick="alert('核准功能將在下一步實作！')">核准</button>
-                            <button class="reject-btn" onclick="alert('駁回功能將在下一步實作！')">駁回</button>
+                            <!-- *** 修改 onclick 事件，呼叫新的 reviewBooking 函式 *** -->
+                            <button class="approve-btn" onclick="reviewBooking('${booking.bookingId}', 'approve', this)">核准</button>
+                            <button class="reject-btn" onclick="reviewBooking('${booking.bookingId}', 'reject', this)">駁回</button>
                         </td>
                     </tr>
                 `;
             });
-
             html += '</tbody></table>';
             container.innerHTML = html;
+        }
+
+        async function reviewBooking(bookingId, decision, element) {
+            // 暫時禁用兩個按鈕，防止重複點擊
+            element.parentElement.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    },
+                    body: JSON.stringify({
+                        action: 'reviewBooking',
+                        data: {
+                            bookingId: bookingId,
+                            decision: decision
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                alert(result.message); // 顯示後端回傳的操作結果
+
+                if (result.status === 'success') {
+                    // 操作成功後，直接從畫面上移除這一行，給予即時反饋
+                    document.getElementById(`row-${bookingId}`).remove();
+                    // 檢查表格是否空了
+                    if (document.querySelector('#booking-list-container tbody').rows.length === 0) {
+                        document.getElementById('booking-list-container').innerHTML = '<p class="empty">已全部審核完畢！</p>';
+                    }
+                }
+
+            } catch (error) {
+                console.error('審核操作時發生錯誤:', error);
+                alert('操作失敗，請稍後再試。');
+                // 恢復按鈕
+                element.parentElement.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
         }
     </script>
 
