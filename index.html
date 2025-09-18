@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>健身房課程表</title>
+    <!-- 載入 LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 1.5em; background-color: #f8f9fa; }
         h1 { color: #343a40; }
@@ -13,6 +15,7 @@
         tr:nth-child(even) { background-color: #f2f2f2; }
         button { padding: 8px 12px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.9em; }
         button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
     </style>
@@ -21,44 +24,67 @@
     <h1>健身房課程表</h1>
 
     <div id="schedule-container">
-        <p class="loader">課程資料載入中...</p>
+        <p class="loader">正在初始化並載入課程資料...</p>
     </div>
 
     <script>
-        // *** 最重要的步驟：請將此處的網址，換成您自己部署後【全新】且【成功】的 GAS 網址！ ***
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycby_axLV3uESJlTq_pZRszFPQs4jjwvSTU1z-FM5nWJjqwIJTX_VrzynL1CX8ApWVHnwsw/exec';
+        // --- 請將以下兩個變數，換成您自己的資訊！ ---
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycby_axLV3uESJlTq_pZRszFPQs4jjwvSTU1z-FM5nWJjqwIJTX_VrzynL1CX8ApWVHnwsw/exec'; // Phase 1 的 GAS 網址
+        const LIFF_ID = '2008135811-vNO5bYyx'; // Phase 2 建立的 LIFF ID
 
-        // 當整個網頁文件都載入完成後，執行裡面的程式
-        window.addEventListener('DOMContentLoaded', () => {
-            fetchSchedule();
-        });
+        // 全域變數，用來存放使用者資訊
+        let userProfile = null;
 
-        function fetchSchedule() {
+        async function main() {
+            try {
+                // 初始化 LIFF
+                await liff.init({ liffId: LIFF_ID });
+
+                // 檢查使用者是否登入
+                if (!liff.isLoggedIn()) {
+                    // 如果沒登入，引導使用者登入
+                    liff.login();
+                    return; // 結束執行，直到使用者登入後重定向回來
+                }
+
+                // 取得使用者個人資料
+                userProfile = await liff.getProfile();
+                
+                // 成功取得資料後，再去抓取課程表
+                await fetchSchedule();
+
+            } catch (err) {
+                console.error('LIFF Initialization failed', err);
+                document.getElementById('schedule-container').innerHTML = '<p class="error">LIFF 初始化失敗，請在 LINE App 中開啟此頁面。</p>';
+            }
+        }
+        
+        // 執行主函式
+        main();
+
+        async function fetchSchedule() {
             const container = document.getElementById('schedule-container');
-
-            fetch(GAS_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('網路回應錯誤，狀態碼: ' + response.status);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data && data.classes && data.classes.length > 0) {
-                        renderSchedule(data.classes);
-                    } else {
-                        container.innerHTML = '<p>目前沒有開放中的課程。</p>';
-                    }
-                })
-                .catch(error => {
-                    console.error('讀取課程資料時發生錯誤:', error);
-                    container.innerHTML = '<p class="error">載入課程失敗，請檢查 GAS 網址是否正確或稍後再試。</p>';
-                });
+            container.innerHTML = '<p class="loader">課程資料載入中...</p>';
+            try {
+                const response = await fetch(GAS_URL);
+                if (!response.ok) throw new Error('網路回應錯誤');
+                const data = await response.json();
+                
+                if (data && data.classes && data.classes.length > 0) {
+                    renderSchedule(data.classes);
+                } else {
+                    container.innerHTML = '<p>目前沒有開放中的課程。</p>';
+                }
+            } catch (error) {
+                console.error('讀取課程資料時發生錯誤:', error);
+                container.innerHTML = '<p class="error">載入課程失敗，請稍後再試。</p>';
+            }
         }
 
         function renderSchedule(classes) {
             const container = document.getElementById('schedule-container');
-            let html = `
+            let html = `<table><thead>...</thead><tbody>`; // 表格頭部省略
+             html = `
                 <table>
                     <thead>
                         <tr>
@@ -71,7 +97,6 @@
                     </thead>
                     <tbody>
             `;
-
             classes.forEach(cls => {
                 html += `
                     <tr>
@@ -80,14 +105,54 @@
                         <td>${cls.coachName}</td>
                         <td>${cls.remaining}</td>
                         <td>
-                            <button onclick="alert('預約功能將在 Phase 2 實作！ ClassID: ${cls.classId}')">預約</button>
+                            <!-- 剩餘名額 > 0 才顯示按鈕，並將 classId 作為參數傳入 -->
+                            ${cls.remaining > 0 ? `<button onclick="bookClass('${cls.classId}')">預約</button>` : '<span>已額滿</span>'}
                         </td>
                     </tr>
                 `;
             });
-
             html += '</tbody></table>';
             container.innerHTML = html;
+        }
+
+        async function bookClass(classId) {
+            const button = event.target;
+            button.disabled = true; // 防止重複點擊
+            button.innerText = '處理中...';
+
+            try {
+                // 發送 POST 請求到 GAS
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8', // GAS doPost 的特殊要求
+                    },
+                    body: JSON.stringify({
+                        action: 'createBooking',
+                        data: {
+                            classId: classId,
+                            liffData: userProfile // 附上在 main() 函式中取得的使用者資訊
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                alert(result.message); // 顯示後端回傳的訊息 (成功或失敗)
+
+                // 預約成功後重新載入課程表，更新剩餘名額
+                if (result.status === 'success') {
+                    fetchSchedule();
+                }
+
+            } catch (error) {
+                console.error('預約時發生錯誤:', error);
+                alert('預約失敗，請稍後再試。');
+            } finally {
+                // 無論成功失敗，都恢復按鈕狀態
+                button.disabled = false;
+                button.innerText = '預約';
+            }
         }
     </script>
 
