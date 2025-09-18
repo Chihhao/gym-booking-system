@@ -4,14 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>教練審核後台</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 1.5em; background-color: #f8f9fa; }
+        h1 { color: #343a40; }
+        table { width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 1em; }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+        th { background-color: #e9ecef; color: #495057; }
+        .actions button { margin-right: 5px; }
+        .approve-btn { background-color: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+        .approve-btn:hover { background-color: #218838; }
+        .reject-btn { background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+        .reject-btn:hover { background-color: #c82333; }
+        .loader, .error, .empty { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
+        .error { color: #dc3545; }
+    </style>
 </head>
 <body>
     <h1>教練審核後台</h1>
-    <p>待審核的預約清單載入中...</p>
 
-    <div id="booking-list">
-        <!-- 待審核預約會顯示在這裡 -->
+    <div id="booking-list-container">
+        <p class="loader">正在驗證並載入資料...</p>
     </div>
+
+    <script>
+        // --- 請將此處的網址，換成您自己部署後的 GAS 網址！ ---
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycby_axLV3uESJlTq_pZRszFPQs4jjwvSTU1z-FM5nWJjqwIJTX_VrzynL1CX8ApWVHnwsw/exec';
+        const ADMIN_PASSWORD = '1234'; // 設定一個簡單的管理密碼
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // 頁面載入時，跳出密碼輸入框
+            const password = prompt('請輸入管理密碼:', '');
+            if (password === ADMIN_PASSWORD) {
+                fetchPendingBookings();
+            } else {
+                document.getElementById('booking-list-container').innerHTML = '<p class="error">密碼錯誤，拒絕存取。</p>';
+            }
+        });
+
+        async function fetchPendingBookings() {
+            const container = document.getElementById('booking-list-container');
+            container.innerHTML = '<p class="loader">正在載入待審核清單...</p>';
+
+            try {
+                // 呼叫帶有 ?page=admin 參數的 API
+                const response = await fetch(`${GAS_URL}?page=admin`);
+                if (!response.ok) throw new Error('網路回應錯誤');
+                const data = await response.json();
+
+                if (data && data.bookings && data.bookings.length > 0) {
+                    renderBookingList(data.bookings);
+                } else {
+                    container.innerHTML = '<p class="empty">目前沒有待審核的預約。</p>';
+                }
+            } catch (error) {
+                console.error('讀取待審核清單時發生錯誤:', error);
+                container.innerHTML = '<p class="error">載入清單失敗，請稍後再試。</p>';
+            }
+        }
+
+        function renderBookingList(bookings) {
+            const container = document.getElementById('booking-list-container');
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>預約資訊</th>
+                            <th>用戶</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            bookings.forEach(booking => {
+                html += `
+                    <tr id="row-${booking.bookingId}">
+                        <td>${booking.classInfo}</td>
+                        <td>${booking.userName}</td>
+                        <td class="actions">
+                            <button class="approve-btn" onclick="alert('核准功能將在下一步實作！')">核准</button>
+                            <button class="reject-btn" onclick="alert('駁回功能將在下一步實作！')">駁回</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+    </script>
 
 </body>
 </html>
