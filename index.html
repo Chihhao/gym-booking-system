@@ -27,39 +27,51 @@
         <p class="loader">正在初始化並載入課程資料...</p>
     </div>
 
-    <script>
-        // --- 請將以下兩個變數，換成您自己的資訊！ ---
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwreFAyjL7eXtrNcYvN2QUtg1IWhJEowWYNVSbKQ5PaYLR2o4X2UcLghHl6DMQBufbkKg/exec'; // Phase 1 的 GAS 網址
-        const LIFF_ID = '2008135811-vNO5bYyx'; // Phase 2 建立的 LIFF ID
+    <script>      
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwreFAyjL7eXtrNcYvN2QUtg1IWhJEowWYNVSbKQ5PaYLR2o4X2UcLghHl6DMQBufbkKg/exec';
+        const LIFF_ID = '2008135811-vNO5bYyx'; 
 
+        // 【開發模式開關】
+        // 在 PC 上 Debug 時，請將此設為 true。
+        // 要在手機上正式使用時，請改回 false。
+        const DEV_MODE = true; 
+        
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
 
         async function main() {
+            const container = document.getElementById('schedule-container');
             try {
-                // 初始化 LIFF
-                await liff.init({ liffId: LIFF_ID });
-
-                // 檢查使用者是否登入
-                if (!liff.isLoggedIn()) {
-                    // 如果沒登入，引導使用者登入
-                    liff.login();
-                    return; // 結束執行，直到使用者登入後重定向回來
+                if (DEV_MODE) {
+                    // --- 開發模式 ---
+                    console.warn("注意：目前處於開發模式！");
+                    // 在開發模式下，我們偽造一個 userProfile 物件
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001', // 偽造的 User ID
+                        displayName: '開發者小明', // 偽造的暱稱
+                    };
+                    console.log("偽造的使用者資訊:", userProfile);
+                    container.innerHTML = '<h1>健身房課程表 (開發模式)</h1>'; // 標題提示
+                    
+                } else {
+                    // --- 正式模式 (在 LINE App 中) ---
+                    await liff.init({ liffId: LIFF_ID });
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return;
+                    }
+                    userProfile = await liff.getProfile();
                 }
-
-                // 取得使用者個人資料
-                userProfile = await liff.getProfile();
                 
-                // 成功取得資料後，再去抓取課程表
+                // 無論是開發模式還是正式模式，最後都會執行 fetchSchedule
                 await fetchSchedule();
-
+    
             } catch (err) {
-                console.error('LIFF Initialization failed', err);
-                document.getElementById('schedule-container').innerHTML = '<p class="error">LIFF 初始化失敗，請在 LINE App 中開啟此頁面。</p>';
+                console.error('初始化失敗', err);
+                container.innerHTML = '<p class="error">初始化失敗，請在 LINE App 中開啟此頁面或檢查主控台。</p>';
             }
         }
         
-        // 執行主函式
         main();
 
         async function fetchSchedule() {
@@ -119,9 +131,11 @@
             const button = event.target;
             button.disabled = true;
             button.innerText = '處理中...';
-        
+
+            console.log("準備預約課程:", classId);
+            console.log("發送的使用者資訊:", userProfile);
+            
             try {
-                // 【關鍵修正】: 我們將 fetch 的 options 簡化到最少
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
                     // 我們完全移除了 headers 和 redirect 設定
@@ -133,6 +147,8 @@
                         }
                     })
                 });
+
+                console.log("收到來自 GAS 的原始回應:", response);
         
                 // 檢查回應是否成功，如果不是，就拋出錯誤讓 catch 捕捉
                 if (!response.ok) {
@@ -140,8 +156,13 @@
                     const errorText = await response.text();
                     throw new Error(`網路回應錯誤: ${response.status} ${errorText}`);
                 }
+
+                // 我們先把回應當成純文字印出來看看
+                const resultText = await response.text();
+                console.log("收到來自 GAS 的回應 (純文字):", resultText);
         
                 const result = await response.json();
+                console.log("解析後的 JSON 結果:", result);
                 alert(result.message); // 顯示後端回傳的訊息 (成功或失敗)
         
                 if (result.status === 'success') {
