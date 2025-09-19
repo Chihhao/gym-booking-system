@@ -22,7 +22,12 @@
 </head>
 <body>
     <!--h1>健身房課程表</h1-->
-
+    
+    <!-- 新增一個獨立的頁首容器 -->
+    <div id="header-container">
+        <!-- 標題和使用者資訊將會顯示在這裡 -->
+    </div>
+    
     <div id="schedule-container">
         <p class="loader">正在初始化並載入課程資料...</p>
     </div>
@@ -31,44 +36,49 @@
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxDeUvMH7y_OlMqDrZIwylgOtcCE0HwbOIpQkABj7Sa7KtD5Pd5ndjwInrL9OE3Ngo/exec';
         const LIFF_ID = '2008135811-vNO5bYyx'; 
 
-        // 【開發模式開關】
-        // 在 PC 上 Debug 時，請將此設為 true。
-        // 要在手機上正式使用時，請改回 false。
-        const DEV_MODE = false; 
-        
+     
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
 
         async function main() {
-            const container = document.getElementById('schedule-container');
+            const headerContainer = document.getElementById('header-container');
+            const scheduleContainer = document.getElementById('schedule-container');
+
             try {
-                if (DEV_MODE) {
-                    // --- 開發模式 ---
-                    console.warn("注意：目前處於開發模式！");
-                    // 在開發模式下，我們偽造一個 userProfile 物件
-                    userProfile = {
-                        userId: 'U_DEV_000000000000000000000000001', // 偽造的 User ID
-                        displayName: '開發者小明', // 偽造的暱稱
-                    };
-                    console.log("偽造的使用者資訊:", userProfile);
-                    container.innerHTML = '<h1>健身房課程表 (開發模式)</h1>'; // 標題提示
-                    
-                } else {
+                // 首先，無論在哪個環境都初始化 LIFF
+                await liff.init({ liffId: LIFF_ID });
+
+                // 接著，使用 liff.isInClient() 自動判斷是否在 LINE App 環境中
+                if (liff.isInClient()) {
                     // --- 正式模式 (在 LINE App 中) ---
-                    await liff.init({ liffId: LIFF_ID });
                     if (!liff.isLoggedIn()) {
-                        liff.login();
+                        liff.login(); // 如果未登入，引導登入
                         return;
                     }
-                    userProfile = await liff.getProfile();
+                    userProfile = await liff.getProfile(); // 取得使用者資訊
+                    // 在頁首顯示歡迎訊息
+                    headerContainer.innerHTML = `<h1>健身房課程表</h1><p>歡迎您, ${userProfile.displayName}</p>`;
+
+                } else {
+                    // --- 開發模式 (在 PC 等外部瀏覽器中) ---
+                    console.warn("注意：目前為外部瀏覽器開發模式！");
+                    // 偽造一個 userProfile 物件以供測試
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001',
+                        displayName: '開發者小明',
+                    };
+                    console.log("偽造的使用者資訊:", userProfile);
+                    // 在頁首顯示開發模式的標題和使用者
+                    headerContainer.innerHTML = `<h1>健身房課程表 (開發模式)</h1><p>目前測試使用者: ${userProfile.displayName}</p>`;
                 }
                 
-                // 無論是開發模式還是正式模式，最後都會執行 fetchSchedule
+                // 無論在哪種模式，初始化成功後都去抓取課程表
                 await fetchSchedule();
     
             } catch (err) {
                 console.error('初始化失敗', err);
-                container.innerHTML = '<p class="error">初始化失敗，請在 LINE App 中開啟此頁面或檢查主控台。</p>';
+                headerContainer.innerHTML = '<h1>錯誤</h1>';
+                scheduleContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
         }
         
