@@ -127,7 +127,6 @@
             container.innerHTML = html;
         }
 
-        // 請用這個版本替換您 index.html 中的 bookClass 函式
         async function bookClass(classId) {
             const button = event.target;
             button.disabled = true;
@@ -145,18 +144,32 @@
                     })
                 });
         
-                // 【關鍵修正】: 我們現在只接收純文字
-                const responseText = await response.text();
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`網路回應錯誤: ${response.status} ${errorText}`);
+                }
         
-                // 直接在 Console 和 alert 中顯示從 GAS 收到的原始內容
-                console.log("收到來自 GAS 的原始回應 (純文字):", responseText);
-                alert("從 GAS 收到的原始回應:\n\n" + responseText);
+                const result = await response.json(); // 我们现在可以自信地使用 .json()
+                console.log("收到的预约结果:", result);
+        
+                if (result && result.message) {
+                    alert(result.message);
+                } else {
+                    throw new Error('收到了无效的回应格式。');
+                }
+        
+                // 只有在明确成功时才刷新列表
+                if (result.status === 'success') {
+                    fetchSchedule();
+                } else {
+                    // 如果是已知的失败 (如已额满)，则恢复按钮
+                    button.disabled = false;
+                    button.innerText = '預約';
+                }
         
             } catch (error) {
-                console.error('預約時發生嚴重錯誤:', error);
-                alert('預約失敗，請打開 Console 查看詳細錯誤。');
-            } finally {
-                // 無論如何都恢復按鈕
+                console.error('预约时发生严重错误:', error);
+                alert('预约失败，请稍后重试。');
                 button.disabled = false;
                 button.innerText = '預約';
             }
