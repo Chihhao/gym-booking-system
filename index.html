@@ -34,7 +34,7 @@
         // 【開發模式開關】
         // 在 PC 上 Debug 時，請將此設為 true。
         // 要在手機上正式使用時，請改回 false。
-        const DEV_MODE = true; 
+        const DEV_MODE = false; 
         
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
@@ -174,70 +174,6 @@
                 button.innerText = '預約';
             }
         }
-
-        
-        async function bookClassOld(classId) {
-            const button = event.target;
-            button.disabled = true;
-            button.innerText = '處理中...';
-
-            console.log("準備預約課程:", classId);
-            console.log("發送的使用者資訊:", userProfile);
-            
-            try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    // 我們完全移除了 headers 和 redirect 設定
-                    body: JSON.stringify({
-                        action: 'createBooking',
-                        data: {
-                            classId: classId,
-                            liffData: userProfile
-                        }
-                    })
-                });
-
-                console.log("收到來自 GAS 的原始回應:", response);
-        
-                // 檢查回應是否成功，如果不是，就拋出錯誤讓 catch 捕捉
-                if (!response.ok) {
-                    // 嘗試讀取錯誤訊息，如果有的話
-                    const errorText = await response.text();
-                    throw new Error(`網路回應錯誤: ${response.status} ${errorText}`);
-                }
-
-                // 我們先把回應當成純文字印出來看看
-                const resultText = await response.text();
-                console.log("收到來自 GAS 的回應 (純文字):", resultText);
-        
-                const result = JSON.parse(resultText); 
-                console.log("解析後的 JSON 結果:", result);
-                
-                // 检查 result 是否是我们期望的格式
-                if (result && result.message) {
-                    alert(result.message);
-                } else {
-                    // 如果收到了像 {} 这样的空物件，给出一个提示
-                    alert('收到来自服务器的未知回应，请检查 GAS Log。');
-                    console.error("未知的回应格式:", result);
-                }
-        
-                if (result.status === 'success') {
-                    fetchSchedule();
-                } else {
-                    button.disabled = false;
-                    button.innerText = '預約';
-                }
-        
-            } catch (error) {
-                console.error('預約时发生严重错误:', error);
-                alert('預約失败，请打开浏览器开发者工具(F12)的 Console 查看详细错误。');
-                button.disabled = false;
-                button.innerText = '預約';
-            }
-            // 我們不再需要 finally 區塊，因為成功和失敗的路徑都處理了按鈕狀態
-        }
-
         
     </script>
 
