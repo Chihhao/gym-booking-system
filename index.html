@@ -45,34 +45,37 @@
             const scheduleContainer = document.getElementById('schedule-container');
 
             try {
-                // 首先，無論在哪個環境都初始化 LIFF
-                await liff.init({ liffId: LIFF_ID });
-
-                // 接著，使用 liff.isInClient() 自動判斷是否在 LINE App 環境中
-                if (liff.isInClient()) {
+                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
+                if (!liff.isInClient()) {
+                    // --- 開發模式 (在 PC 等外部瀏覽器中) ---
+                    console.warn("注意：目前為外部瀏覽器開發模式！");
+                    
+                    // 因為不在 LINE 環境，完全不需要 liff.init()
+                    // 直接偽造一個 userProfile 物件以供測試
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001',
+                        displayName: '開發者小明',
+                    };
+                    
+                    console.log("偽造的使用者資訊:", userProfile);
+                    // 在頁首顯示開發模式的標題和使用者
+                    headerContainer.innerHTML = `<p>(開發模式)目前測試使用者: ${userProfile.displayName}</p>`;
+                    
+                } else {
                     // --- 正式模式 (在 LINE App 中) ---
+                    // 只有在 LINE App 環境內，才執行 liff.init() 和後續操作
+                    await liff.init({ liffId: LIFF_ID });
+                    
                     if (!liff.isLoggedIn()) {
                         liff.login(); // 如果未登入，引導登入
                         return;
                     }
                     userProfile = await liff.getProfile(); // 取得使用者資訊
                     // 在頁首顯示歡迎訊息
-                    headerContainer.innerHTML = `<h1>健身房課程表</h1><p>歡迎您, ${userProfile.displayName}</p>`;
-
-                } else {
-                    // --- 開發模式 (在 PC 等外部瀏覽器中) ---
-                    console.warn("注意：目前為外部瀏覽器開發模式！");
-                    // 偽造一個 userProfile 物件以供測試
-                    userProfile = {
-                        userId: 'U_DEV_000000000000000000000000001',
-                        displayName: '開發者小明',
-                    };
-                    console.log("偽造的使用者資訊:", userProfile);
-                    // 在頁首顯示開發模式的標題和使用者
-                    headerContainer.innerHTML = `<h1>健身房課程表 (開發模式)</h1><p>目前測試使用者: ${userProfile.displayName}</p>`;
+                    headerContainer.innerHTML = `<p>歡迎您, ${userProfile.displayName}</p>`;
                 }
                 
-                // 無論在哪種模式，初始化成功後都去抓取課程表
+                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
                 await fetchSchedule();
     
             } catch (err) {
