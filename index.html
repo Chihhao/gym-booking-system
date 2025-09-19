@@ -161,22 +161,28 @@
                 const resultText = await response.text();
                 console.log("收到來自 GAS 的回應 (純文字):", resultText);
         
-                const result = await response.json();
+                const result = JSON.parse(resultText); 
                 console.log("解析後的 JSON 結果:", result);
-                alert(result.message); // 顯示後端回傳的訊息 (成功或失敗)
+                
+                // 检查 result 是否是我们期望的格式
+                if (result && result.message) {
+                    alert(result.message);
+                } else {
+                    // 如果收到了像 {} 这样的空物件，给出一个提示
+                    alert('收到来自服务器的未知回应，请检查 GAS Log。');
+                    console.error("未知的回应格式:", result);
+                }
         
                 if (result.status === 'success') {
                     fetchSchedule();
                 } else {
-                    // 如果後端回傳的是已知的錯誤 (例如已額滿)，也恢復按鈕狀態
                     button.disabled = false;
                     button.innerText = '預約';
                 }
         
             } catch (error) {
-                console.error('預約時發生錯誤:', error);
-                alert('預約失敗，請檢查主控台訊息或稍後再試。');
-                // 確保按鈕在發生網路層級錯誤時也能恢復
+                console.error('預約时发生严重错误:', error);
+                alert('預約失败，请打开浏览器开发者工具(F12)的 Console 查看详细错误。');
                 button.disabled = false;
                 button.innerText = '預約';
             }
