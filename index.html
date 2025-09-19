@@ -117,43 +117,52 @@
 
         async function bookClass(classId) {
             const button = event.target;
-            button.disabled = true; // 防止重複點擊
+            button.disabled = true;
             button.innerText = '處理中...';
-
+        
             try {
-                // 發送 POST 請求到 GAS
+                // 【關鍵修正】: 我們將 fetch 的 options 簡化到最少
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
-                    redirect: "follow",
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8', // GAS doPost 的特殊要求
-                    },
+                    // 我們完全移除了 headers 和 redirect 設定
                     body: JSON.stringify({
                         action: 'createBooking',
                         data: {
                             classId: classId,
-                            liffData: userProfile // 附上在 main() 函式中取得的使用者資訊
+                            liffData: userProfile
                         }
                     })
                 });
-
+        
+                // 檢查回應是否成功，如果不是，就拋出錯誤讓 catch 捕捉
+                if (!response.ok) {
+                    // 嘗試讀取錯誤訊息，如果有的話
+                    const errorText = await response.text();
+                    throw new Error(`網路回應錯誤: ${response.status} ${errorText}`);
+                }
+        
                 const result = await response.json();
                 alert(result.message); // 顯示後端回傳的訊息 (成功或失敗)
-
-                // 預約成功後重新載入課程表，更新剩餘名額
+        
                 if (result.status === 'success') {
                     fetchSchedule();
+                } else {
+                    // 如果後端回傳的是已知的錯誤 (例如已額滿)，也恢復按鈕狀態
+                    button.disabled = false;
+                    button.innerText = '預約';
                 }
-
+        
             } catch (error) {
                 console.error('預約時發生錯誤:', error);
-                alert('預約失敗，請稍後再試。');
-            } finally {
-                // 無論成功失敗，都恢復按鈕狀態
+                alert('預約失敗，請檢查主控台訊息或稍後再試。');
+                // 確保按鈕在發生網路層級錯誤時也能恢復
                 button.disabled = false;
                 button.innerText = '預約';
             }
+            // 我們不再需要 finally 區塊，因為成功和失敗的路徑都處理了按鈕狀態
         }
+
+        
     </script>
 
 </body>
