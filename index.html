@@ -127,7 +127,43 @@
             container.innerHTML = html;
         }
 
+        // 請用這個版本替換您 index.html 中的 bookClass 函式
         async function bookClass(classId) {
+            const button = event.target;
+            button.disabled = true;
+            button.innerText = '處理中...';
+        
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'createBooking',
+                        data: {
+                            classId: classId,
+                            liffData: userProfile
+                        }
+                    })
+                });
+        
+                // 【關鍵修正】: 我們現在只接收純文字
+                const responseText = await response.text();
+        
+                // 直接在 Console 和 alert 中顯示從 GAS 收到的原始內容
+                console.log("收到來自 GAS 的原始回應 (純文字):", responseText);
+                alert("從 GAS 收到的原始回應:\n\n" + responseText);
+        
+            } catch (error) {
+                console.error('預約時發生嚴重錯誤:', error);
+                alert('預約失敗，請打開 Console 查看詳細錯誤。');
+            } finally {
+                // 無論如何都恢復按鈕
+                button.disabled = false;
+                button.innerText = '預約';
+            }
+        }
+
+        
+        async function bookClassOld(classId) {
             const button = event.target;
             button.disabled = true;
             button.innerText = '處理中...';
