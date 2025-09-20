@@ -3,32 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>健身房課程表</title>
+    <title>課程預約</title>
     <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 1.5em; background-color: #f8f9fa; }
-        h1 { color: #343a40; }
-        table { width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
-        th { background-color: #e9ecef; color: #495057; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-        button { padding: 8px 12px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.9em; }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #header-container { margin-bottom: 1.5em; }
+        #header-container p { margin: 0; font-size: 1.1em; color: #495057; }
+        
+        /* 新增課程卡片樣式 */
+        .course-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 手機上預設單欄 */
+            gap: 1rem;
+        }
+        .course-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .course-card h2 { margin-top: 0; color: #343a40; }
+
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
     </style>
 </head>
 <body>
-    <!--h1>健身房課程表</h1-->
-    
     <!-- 新增一個獨立的頁首容器 -->
     <div id="header-container">
         <!-- 標題和使用者資訊將會顯示在這裡 -->
     </div>
     
-    <div id="schedule-container">
+    <div id="content-container">
         <p class="loader">正在初始化並載入課程資料...</p>
     </div>
 
@@ -44,7 +58,7 @@
 
         async function main() {
             const headerContainer = document.getElementById('header-container');
-            const scheduleContainer = document.getElementById('schedule-container');
+            const contentContainer = document.getElementById('content-container');
 
             try {
                 // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
@@ -78,132 +92,72 @@
                 }
                 
                 // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
-                await fetchSchedule();
+                await fetchCourses();
     
             } catch (err) {
                 console.error('初始化失敗', err);
                 headerContainer.innerHTML = '<h1>錯誤</h1>';
-                scheduleContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
+                contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
         }
         
         main();
 
-        async function fetchSchedule() {
-            const container = document.getElementById('schedule-container');
+        async function fetchCourses() {
+            const container = document.getElementById('content-container');
             container.innerHTML = '<p class="loader">課程資料載入中...</p>';
             try {
                 const response = await fetch(GAS_URL);
                 if (!response.ok) throw new Error('網路回應錯誤');
                 const data = await response.json();
                 
-                if (data && data.classes && data.classes.length > 0) {
-                    renderSchedule(data.classes);
+                // 從所有課程中，整理出不重複的課程類型
+                if (data && data.classes) {
+                    const courseMap = new Map();
+                    data.classes.forEach(cls => {
+                        if (!courseMap.has(cls.className)) {
+                            // 我們暫時用 className 當作 courseId，並儲存第一個遇到的 classId
+                            courseMap.set(cls.className, {
+                                id: cls.className, // 暫用名稱當ID
+                                name: cls.className
+                            });
+                        }
+                    });
+                    const uniqueCourses = Array.from(courseMap.values());
+
+                    if (uniqueCourses.length > 0) {
+                        renderCourses(uniqueCourses);
+                    } else {
+                        container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
+                    }
                 } else {
-                    container.innerHTML = '<p>目前沒有開放中的課程。</p>';
+                    container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
                 }
             } catch (error) {
                 console.error('讀取課程資料時發生錯誤:', error);
                 container.innerHTML = '<p class="error">載入課程失敗，請稍後再試。</p>';
             }
         }
-
-        function formatDisplayTime(dateString) {
-          if (!dateString) return '';
-          try {
-            const date = new Date(dateString);
-            const hours = ('0' + date.getHours()).slice(-2);
-            const minutes = ('0' + date.getMinutes()).slice(-2);
-            return `${hours}:${minutes}`;
-          } catch (e) {
-            return dateString;
-          }
-        }
-
-        function renderSchedule(classes) {
-            const container = document.getElementById('schedule-container');
-            let html = `<table><thead>...</thead><tbody>`; // 表格頭部省略
-             html = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>課程名稱</th>
-                            <th>日期</th>
-                            <th>時間</th>
-                            <th>教練</th>
-                            <th>剩餘名額</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            classes.forEach(cls => {
+        
+        function renderCourses(courses) {
+            const container = document.getElementById('content-container');
+            let html = '<div class="course-grid">';
+            courses.forEach(course => {
                 html += `
-                    <tr>
-                        <td>${cls.className}</td>
-                        <td>
-                         ${new Date(cls.date).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
-                        </td>
-                        <td>${formatDisplayTime(cls.startTime)}-${formatDisplayTime(cls.endTime)}</td>
-                        <td>${cls.coachName}</td>
-                        <td>${cls.remaining}</td>
-                        <td>
-                            <!-- 剩餘名額 > 0 才顯示按鈕，並將 classId 作為參數傳入 -->
-                            ${cls.remaining > 0 ? `<button onclick="bookClass('${cls.classId}')">預約</button>` : '<span>已額滿</span>'}
-                        </td>
-                    </tr>
+                    <div class="course-card" onclick="selectCourse('${course.id}')">
+                        <h2>${course.name}</h2>
+                    </div>
                 `;
             });
-            html += '</tbody></table>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
-        async function bookClass(classId) {
-            const button = event.target;
-            button.disabled = true;
-            button.innerText = '處理中...';
-        
-            try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'createBooking',
-                        data: {
-                            classId: classId,
-                            liffData: userProfile
-                        }
-                    })
-                });
-        
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`網路回應錯誤: ${response.status} ${errorText}`);
-                }
-        
-                const result = await response.json(); // 我们现在可以自信地使用 .json()
-                console.log("收到的预约结果:", result);
-        
-                if (result && result.message) {
-                    alert(result.message);
-                } else {
-                    throw new Error('收到了无效的回应格式。');
-                }
-        
-                // 只有在明确成功时才刷新列表
-                if (result.status === 'success') {
-                    fetchSchedule();
-                } else {
-                    // 如果是已知的失败 (如已额满)，则恢复按钮
-                    button.disabled = false;
-                    button.innerText = '預約';
-                }
-        
-            } catch (error) {
-                console.error('预约时发生严重错误:', error);
-                alert('预约失败，请稍后重试。');
-                button.disabled = false;
-                button.innerText = '預約';
-            }
+        function selectCourse(courseId) {
+            // 將課程 ID 進行 URL 編碼，以處理中文等特殊字元
+            const encodedCourseId = encodeURIComponent(courseId);
+            // 跳轉到時段選擇頁面，並將課程 ID 作為查詢參數傳遞
+            window.location.href = `schedule.html?courseId=${encodedCourseId}`;
         }
         
     </script>
