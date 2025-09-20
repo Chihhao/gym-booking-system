@@ -33,7 +33,7 @@
     </div>
 
     <script>      
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxDeUvMH7y_OlMqDrZIwylgOtcCE0HwbOIpQkABj7Sa7KtD5Pd5ndjwInrL9OE3Ngo/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycby697ii6EZ-NrP8NEPLcO-CRdf7Eoc3XXn0rL_kMt7MqJqEZAv6Q-G5vCelhdzSg9OZ/exec';
         const LIFF_ID = '2008135811-vNO5bYyx'; 
 
      
@@ -54,7 +54,7 @@
                     // 直接偽造一個 userProfile 物件以供測試
                     userProfile = {
                         userId: 'U_DEV_000000000000000000000000001',
-                        displayName: '開發者小明',
+                        displayName: '開發者AA',
                     };
                     
                     console.log("偽造的使用者資訊:", userProfile);
@@ -113,6 +113,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>課程名稱</th>
                             <th>日期</th>
                             <th>時間</th>
                             <th>教練</th>
@@ -125,6 +126,7 @@
             classes.forEach(cls => {
                 html += `
                     <tr>
+                        <td>${cls.className}</td>
                         <td>${cls.date}</td>
                         <td>${cls.startTime} - ${cls.endTime}</td>
                         <td>${cls.coachName}</td>

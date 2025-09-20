@@ -20,10 +20,52 @@ function doGet(e) {
   if (page === 'admin') {
     // 如果參數是 'admin'，就執行提供待審核清單的邏輯
     return getPendingBookings();
+  } else if (page === 'test') {
+    // 測試資料讀取
+    return testDataRead();
   } else {
     // 否則，執行原本的提供課程表的邏輯
     return getClassSchedule();
   }
+}
+
+// 測試資料讀取
+function testDataRead() {
+  try {
+    const classData = CLASS_SHEET.getDataRange().getValues();
+    return ContentService
+      .createTextOutput(JSON.stringify({ 
+        success: true, 
+        dataLength: classData.length,
+        firstRow: classData[0],
+        secondRow: classData[1]
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ 
+        success: false, 
+        error: error.toString() 
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// 檢查資料格式的函式
+function checkDataFormat() {
+  const classData = CLASS_SHEET.getDataRange().getValues();
+  const coachData = COACH_SHEET.getDataRange().getValues();
+  
+  const result = {
+    classData: classData,
+    coachData: coachData,
+    classDataLength: classData.length,
+    coachDataLength: coachData.length
+  };
+  
+  return ContentService
+    .createTextOutput(JSON.stringify(result, null, 2))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function buildClassMap_() {
@@ -42,8 +84,8 @@ function buildClassMap_() {
     const row = classData[i];
     const classId = row[0];
     if (classId) {
-      const classDate = Utilities.formatDate(new Date(row[2]), "GMT+8", "yyyy-MM-dd");
-      const startTime = Utilities.formatDate(new Date(row[3]), "GMT+8", "HH:mm");
+      const classDate = Utilities.formatDate(new Date(row[3]), "GMT+8", "yyyy-MM-dd");
+      const startTime = Utilities.formatDate(new Date(row[4]), "GMT+8", "HH:mm");
       const coachName = coachMap[row[1]] || '未知教練';
       // 讓 classMap 儲存更完整的資訊，方便各處使用
       classMap[classId] = `${classDate} ${startTime} (${coachName})`;
@@ -103,14 +145,15 @@ function getClassSchedule() {
     const row = classData[i];
     const classId = row[0];
     
-    if (classId && row[7] === '開放中') { // [7] is status
+    if (classId && row[8] === '開放中') {
       schedule.push({
         classId: classId,
+        className: row[2] || '未命名課程',
         coachName: coachMap[row[1]] || '未知教練',
-        date: Utilities.formatDate(new Date(row[2]), "GMT+8", "yyyy-MM-dd"),
-        startTime: Utilities.formatDate(new Date(row[3]), "GMT+8", "HH:mm"),
-        endTime: Utilities.formatDate(new Date(row[4]), "GMT+8", "HH:mm"),
-        remaining: row[5] - row[6],
+        date: row[3],
+        startTime: row[4],
+        endTime: row[5],
+        remaining: row[6] - row[7],
       });
     }
   }
@@ -192,7 +235,7 @@ function createBooking(data) {
     for (let i = 1; i < classValues.length; i++) {
       if (classValues[i][0] === classId) {
         targetClassRow = i + 1;
-        classInfo = { max: classValues[i][5], current: classValues[i][6] };
+        classInfo = { max: classValues[i][6], current: classValues[i][7] };
         break;
       }
     }
@@ -202,7 +245,7 @@ function createBooking(data) {
       return { status: 'error', message: '課程已額滿或不存在' };
     }
 
-    CLASS_SHEET.getRange(targetClassRow, 7).setValue(classInfo.current + 1);
+    CLASS_SHEET.getRange(targetClassRow, 8).setValue(classInfo.current + 1);
     const userValues = USER_SHEET.getDataRange().getValues();
     let userExists = false;
     for (let i = 1; i < userValues.length; i++) {
@@ -264,12 +307,12 @@ function reviewBooking(data) {
       for (let i = 1; i < classValues.length; i++) {
         if (classValues[i][0] === classId) {
           targetClassRow = i + 1;
-          currentStudents = classValues[i][6];
+          currentStudents = classValues[i][7];
           break;
         }
       }
       if (targetClassRow !== -1 && currentStudents > 0) {
-        CLASS_SHEET.getRange(targetClassRow, 7).setValue(currentStudents - 1);
+        CLASS_SHEET.getRange(targetClassRow, 8).setValue(currentStudents - 1);
       }
     }
     
@@ -356,8 +399,8 @@ function getBookingHistory(userId) {
       const row = classData[i];
       const classId = row[0];
       if (classId) {
-        const classDate = Utilities.formatDate(new Date(row[2]), "GMT+8", "yyyy-MM-dd");
-        const startTime = Utilities.formatDate(new Date(row[3]), "GMT+8", "HH:mm");
+        const classDate = Utilities.formatDate(new Date(row[3]), "GMT+8", "yyyy-MM-dd");
+        const startTime = Utilities.formatDate(new Date(row[4]), "GMT+8", "HH:mm");
         const coachName = coachMap[row[1]] || '未知教練';
         classMap[classId] = `${classDate} ${startTime} (${coachName})`;
       }
