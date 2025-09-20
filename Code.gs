@@ -6,6 +6,7 @@ const SPREADSHEET = SpreadsheetApp.getActiveSpreadsheet();
 const USER_SHEET = SPREADSHEET.getSheetByName("Users");
 const COACH_SHEET = SPREADSHEET.getSheetByName("Coaches");
 const CLASS_SHEET = SPREADSHEET.getSheetByName("Classes");
+const COURSE_SHEET = SPREADSHEET.getSheetByName("Courses"); // 新增 Courses 工作表
 const BOOKING_SHEET = SPREADSHEET.getSheetByName("Bookings");
 
 const CHANNEL_ACCESS_TOKEN = '6HTikANeIpIjHqztdhXHorN8XehTVjYJLHmbgTSWK/GuaKVztsg65IkK/JC7sRDi47nayqJPlr0wGHeZJSx/YOvWEjypEdMpwR0Mqb71JhhOumQ8Dj4PXIkxVX5cjIDtkDktRdwZcLwyUdXgiuLSTQdB04t89/1O/w1cDnyilFU=';
@@ -52,9 +53,9 @@ function doGet(e) {
       // 測試用
       case 'test':
         return testDataRead();
-      // 預設行為：取得所有課程列表 (給 index.html 使用)
+      // 預設行為：取得所有課程型錄 (給 index.html 使用)
       default:
-        return getClassSchedule();
+        return getCourses();
     }
   } catch (error) {
     return createJsonResponse({ status: 'error', message: '處理 GET 請求時發生錯誤: ' + error.toString() });
@@ -163,6 +164,28 @@ function getPendingBookings() {
     .createTextOutput(JSON.stringify({ bookings: pendingBookings }))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+/**
+ * [新功能] 取得所有有效的課程型錄資訊
+ * @returns {object} - 包含所有課程資訊的 JSON 物件
+ */
+function getCourses() {
+  if (!COURSE_SHEET) {
+    return createJsonResponse({ status: 'error', message: '找不到名為 "Courses" 的工作表' });
+  }
+  const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+  const activeCourses = [];
+
+  courseObjects.forEach(course => {
+    // 只回傳狀態為 Active 的課程
+    if (course.course_id && course.status === 'Active') {
+      activeCourses.push(course);
+    }
+  });
+  
+  return createJsonResponse({ courses: activeCourses });
+}
+
 
 function getClassSchedule() {
   const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());

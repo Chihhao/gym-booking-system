@@ -20,17 +20,28 @@
         .course-card {
             background-color: white;
             border-radius: 8px;
+            overflow: hidden; /* 讓圖片的圓角生效 */
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1.5rem;
-            text-align: center;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; /* 改為 flex 佈局 */
+            flex-direction: column;
         }
         .course-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-        .course-card h2 { margin-top: 0; color: #343a40; }
+        .course-card img {
+            width: 100%;
+            height: 180px; /* 固定圖片高度 */
+            object-fit: cover; /* 讓圖片不變形地填滿容器 */
+        }
+        .course-card-content {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .course-card h2 { margin: 0 0 0.5rem 0; color: #343a40; }
+        .course-card p { margin: 0; color: #6c757d; }
 
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
@@ -50,6 +61,7 @@
         const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
         const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
         const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+        const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/image/';
         const LIFF_ID = '2008135811-vNO5bYyx'; 
 
      
@@ -111,24 +123,12 @@
                 if (!response.ok) throw new Error('網路回應錯誤');
                 const data = await response.json();
                 
-                // 從所有課程中，整理出不重複的課程類型
+                // 直接使用後端回傳的課程列表
                 if (data && data.classes) {
-                    const courseMap = new Map();
-                    data.classes.forEach(cls => {
-                        if (!courseMap.has(cls.className)) {
-                            // 我們暫時用 className 當作 courseId，並儲存第一個遇到的 classId
-                            courseMap.set(cls.className, {
-                                id: cls.className, // 暫用名稱當ID
-                                name: cls.className
-                            });
-                        }
-                    });
-                    const uniqueCourses = Array.from(courseMap.values());
-
-                    if (uniqueCourses.length > 0) {
-                        renderCourses(uniqueCourses);
+                    if (data.courses.length > 0) {
+                        renderCourses(data.courses);
                     } else {
-                        container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
+                        container.innerHTML = '<p>目前沒有可用的課程。</p>';
                     }
                 } else {
                     container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
@@ -143,21 +143,25 @@
             const container = document.getElementById('content-container');
             let html = '<div class="course-grid">';
             courses.forEach(course => {
+                // 組合出完整的圖片 URL
+                const imageUrl = course.image_url ? `${IMAGE_BASE_URL}${course.image_url}` : 'https://via.placeholder.com/400x180.png?text=No+Image';
                 html += `
-                    <div class="course-card" onclick="selectCourse('${course.id}')">
-                        <h2>${course.name}</h2>
+                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${course.course_name}')">
+                        <img src="${imageUrl}" alt="${course.course_name}">
+                        <div class="course-card-content">
+                            <h2>${course.course_name}</h2>
+                            <p>${course.short_description || ''}</p>
+                        </div>
                     </div>
                 `;
             });
             html += '</div>';
             container.innerHTML = html;
         }
-
-        function selectCourse(courseId) {
-            // 將課程 ID 進行 URL 編碼，以處理中文等特殊字元
-            const encodedCourseId = encodeURIComponent(courseId);
-            // 跳轉到時段選擇頁面，並將課程 ID 作為查詢參數傳遞
-            window.location.href = `schedule.html?courseId=${encodedCourseId}`;
+        function selectCourse(courseId, courseName) {
+            // 我們傳遞 courseName 給下一個頁面，因為 schedule.html 目前是依賴名稱來查詢
+            const encodedCourseName = encodeURIComponent(courseName);
+            window.location.href = `schedule.html?courseId=${encodedCourseName}`;
         }
         
     </script>

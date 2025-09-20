@@ -6,6 +6,15 @@ points
 line_id
 phone_number
 
+[Courses]
+course_id
+course_name
+short_description
+long_description
+image_url
+price
+status
+
 [Coaches]						
 coach_id
 coach_name
@@ -15,6 +24,7 @@ phone_number
 
 [Classes]
 class_id	
+course_id
 coach_id	
 class_name	
 class_date	
