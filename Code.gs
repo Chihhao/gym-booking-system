@@ -1,5 +1,5 @@
 // --- 全域變數設定 ---
-const VERSION = "2.0";
+const VERSION = "2.1";
 const DEPLOYMENT_ID = "AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G"; // 固定的部署ID
 // 之後會將 Google Sheet 的各個工作表定義在這裡，方便管理
 const SPREADSHEET = SpreadsheetApp.getActiveSpreadsheet(); 
@@ -15,6 +15,28 @@ const CHANNEL_ACCESS_TOKEN = '6HTikANeIpIjHqztdhXHorN8XehTVjYJLHmbgTSWK/GuaKVzts
 // https://script.google.com/macros/s/AKfycbxDeUvMH7y_OlMqDrZIwylgOtcCE0HwbOIpQkABj7Sa7KtD5Pd5ndjwInrL9OE3Ngo/exec
 
 // https://liff.line.me/2008135811-vNO5bYyx
+
+/**
+ * [核心輔助函式] 將工作表的二維陣列資料轉換為物件陣列。
+ * @param {Array<Array<any>>} data - 從 sheet.getDataRange().getValues() 得到的資料。
+ * @returns {Array<Object>} - 物件陣列，例如 [{header1: value1, header2: value2}, ...]。
+ */
+function sheetDataToObjects_(data) {
+  if (!data || data.length < 2) {
+    return [];
+  }
+  const headers = data[0].map(header => header.trim()); // 取得標頭並去除前後空白
+  return data.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      // 只有當標頭名稱非空時才加入物件
+      if (header) {
+        obj[header] = row[index];
+      }
+    });
+    return obj;
+  });
+}
 
 function doGet(e) {
   const page = e.parameter.page;
@@ -82,57 +104,51 @@ function checkDataFormat() {
 }
 
 function buildClassMap_() {
-  const classData = CLASS_SHEET.getDataRange().getValues();
-  const coachData = COACH_SHEET.getDataRange().getValues();
+  const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+  const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
   
   const coachMap = {};
-  for(let i=1; i<coachData.length; i++){
-      if(coachData[i][0]){
-          coachMap[coachData[i][0]] = coachData[i][1];
-      }
-  }
+  coachObjects.forEach(coach => {
+    if (coach.coach_id) {
+      coachMap[coach.coach_id] = coach.coach_name;
+    }
+  });
 
   const classMap = {};
-  for (let i = 1; i < classData.length; i++) {
-    const row = classData[i];
-    const classId = row[0];
-    if (classId) {
-      const classDate = Utilities.formatDate(new Date(row[3]), "GMT+8", "yyyy-MM-dd");
-      const startTime = Utilities.formatDate(new Date(row[4]), "GMT+8", "HH:mm");
-      const coachName = coachMap[row[1]] || '未知教練';
+  classObjects.forEach(cls => {
+    if (cls.class_id) {
+      const classDate = Utilities.formatDate(new Date(cls.class_date), "GMT+8", "yyyy-MM-dd");
+      const startTime = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:mm");
+      const coachName = coachMap[cls.coach_id] || '未知教練';
       // 讓 classMap 儲存更完整的資訊，方便各處使用
-      classMap[classId] = `${classDate} ${startTime} (${coachName})`;
+      classMap[cls.class_id] = `${classDate} ${startTime} (${coachName})`;
     }
-  }
+  });
   return classMap;
 }
 
 function getPendingBookings() {
   const classMap = buildClassMap_(); // 直接呼叫輔助函式
 
-  const userData = USER_SHEET.getDataRange().getValues();
+  const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
   const userMap = {};
-  for(let i=1; i<userData.length; i++){
-      if(userData[i][0]){
-          userMap[userData[i][0]] = userData[i][1];
-      }
-  }
+  userObjects.forEach(user => {
+    if (user.line_user_id) {
+      userMap[user.line_user_id] = user.line_display_name;
+    }
+  });
   
-  const bookingData = BOOKING_SHEET.getDataRange().getValues();
+  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
   const pendingBookings = [];
 
-  for (let i = bookingData.length - 1; i > 0; i--) {
-    const row = bookingData[i];
-    const status = row[4];
-
-    if (status === '待審核') {
-      const bookingId = row[0];
-      const classId = row[1];
-      const userId = row[2];
+  // 從後往前遍歷以獲得最新的預約
+  for (let i = bookingObjects.length - 1; i >= 0; i--) {
+    const booking = bookingObjects[i];
+    if (booking.status === '待審核') {
       pendingBookings.push({
-        bookingId: bookingId,
-        classInfo: classMap[classId] || `未知課程(ID: ${classId})`, // 使用新的 classMap
-        userName: userMap[userId] || '未知用戶'
+        bookingId: booking.booking_id,
+        classInfo: classMap[booking.class_id] || `未知課程(ID: ${booking.class_id})`,
+        userName: userMap[booking.line_user_id] || '未知用戶'
       });
     }
   }
@@ -143,33 +159,30 @@ function getPendingBookings() {
 }
 
 function getClassSchedule() {
-  const coachData = COACH_SHEET.getDataRange().getValues();
+  const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
   const coachMap = {};
-  for (let i = 1; i < coachData.length; i++) {
-    if (coachData[i][0]) {
-      coachMap[coachData[i][0]] = coachData[i][1];
+  coachObjects.forEach(coach => {
+    if (coach.coach_id) {
+      coachMap[coach.coach_id] = coach.coach_name;
     }
-  }
+  });
 
-  const classData = CLASS_SHEET.getDataRange().getValues();
+  const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
   const schedule = [];
 
-  for (let i = 1; i < classData.length; i++) {
-    const row = classData[i];
-    const classId = row[0];
-    
-    if (classId && row[8] === '開放中') {
+  classObjects.forEach(cls => {
+    if (cls.class_id && cls.status === '開放中') {
       schedule.push({
-        classId: classId,
-        className: row[2] || '未命名課程',
-        coachName: coachMap[row[1]] || '未知教練',
-        date: row[3],
-        startTime: row[4],
-        endTime: row[5],
-        remaining: row[6] - row[7],
+        classId: cls.class_id,
+        className: cls.class_name || '未命名課程',
+        coachName: coachMap[cls.coach_id] || '未知教練',
+        date: cls.class_date,
+        startTime: cls.start_time,
+        endTime: cls.end_time,
+        remaining: cls.max_students - cls.current_students,
       });
     }
-  }
+  });
   
   return ContentService
     .createTextOutput(JSON.stringify({ classes: schedule }))
@@ -226,16 +239,14 @@ function createBooking(data) {
   const { classId, liffData } = data;
   const { userId, displayName } = liffData;
 
-  const bookingValues = BOOKING_SHEET.getDataRange().getValues();
-  for (let i = 1; i < bookingValues.length; i++) {
-    const bookedUserId = bookingValues[i][2];
-    const bookedClassId = bookingValues[i][1];
-    const bookingStatus = bookingValues[i][4];
-    
-    if (bookedUserId === userId && bookedClassId === classId && (bookingStatus === '待審核' || bookingStatus === '已確認')) {
-      // 【修改】只回傳純粹的 JS 物件
+  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
+  const hasBooked = bookingObjects.some(booking => 
+    booking.line_user_id === userId && 
+    booking.class_id === classId && 
+    (booking.status === '待審核' || booking.status === '已確認'));
+
+  if (hasBooked) {
       return { status: 'error', message: '您已預約過此課程，請勿重複預約。' };
-    }
   }
 
   const lock = LockService.getScriptLock();
@@ -243,41 +254,56 @@ function createBooking(data) {
 
   try {
     const classValues = CLASS_SHEET.getDataRange().getValues();
+    const classHeaders = classValues[0];
+    const currentStudentsColIndex = classHeaders.indexOf('current_students') + 1;
+
     let targetClassRow = -1;
     let classInfo = {};
+
     for (let i = 1; i < classValues.length; i++) {
-      if (classValues[i][0] === classId) {
+      // class_id is in the first column (index 0)
+      if (classValues[i][classHeaders.indexOf('class_id')] === classId) {
         targetClassRow = i + 1;
-        classInfo = { max: classValues[i][6], current: classValues[i][7] };
+        classInfo = { 
+          max: classValues[i][classHeaders.indexOf('max_students')], 
+          current: classValues[i][classHeaders.indexOf('current_students')] 
+        };
         break;
       }
     }
 
     if (targetClassRow === -1 || classInfo.current >= classInfo.max) {
-      // 【修改】只回傳純粹的 JS 物件
       return { status: 'error', message: '課程已額滿或不存在' };
     }
 
-    CLASS_SHEET.getRange(targetClassRow, 8).setValue(classInfo.current + 1);
-    const userValues = USER_SHEET.getDataRange().getValues();
-    let userExists = false;
-    for (let i = 1; i < userValues.length; i++) {
-      if (userValues[i][0] === userId) {
-        userExists = true;
-        break;
-      }
-    }
-    if (!userExists) {
-      USER_SHEET.appendRow([userId, displayName, new Date()]);
-    }
-    const bookingId = "BK" + new Date().getTime();
-    BOOKING_SHEET.appendRow([bookingId, classId, userId, new Date(), '待審核']);
+    // 更新已報名人數
+    CLASS_SHEET.getRange(targetClassRow, currentStudentsColIndex).setValue(classInfo.current + 1);
+    
+    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    const userExists = userObjects.some(user => user.line_user_id === userId);
 
-    // 【修改】只回傳純粹的 JS 物件
+    if (!userExists) {
+      // 注意：這裡的 appendRow 順序必須和 Users 工作表欄位完全一致
+      USER_SHEET.appendRow([userId, displayName, new Date(), 0, '', '']); // points, line_id, phone_number
+    }
+
+    const bookingId = "BK" + new Date().getTime();
+    // 注意：這裡的 appendRow 順序必須和 Bookings 工作表欄位完全一致
+    BOOKING_SHEET.appendRow([
+      bookingId, 
+      classId, 
+      userId, 
+      new Date(), 
+      '待審核',
+      new Date(), // create_time
+      displayName, // create_user
+      '', // update_time
+      '' // update_user
+    ]);
+
     return { status: 'success', message: '預約成功，待教練審核！' };
 
   } catch (error) {
-    // 【修改】只回傳純粹的 JS 物件
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
@@ -297,43 +323,51 @@ function reviewBooking(data) {
 
   try {
     const bookingValues = BOOKING_SHEET.getDataRange().getValues();
+    const bookingHeaders = bookingValues[0];
+    const statusColIndex = bookingHeaders.indexOf('status') + 1;
+    const updateTimeColIndex = bookingHeaders.indexOf('update_time') + 1;
+    const updateUserColIndex = bookingHeaders.indexOf('update_user') + 1;
+
     let targetBookingRow = -1;
     let classId = '';
     for (let i = 1; i < bookingValues.length; i++) {
-      if (bookingValues[i][0] === bookingId) {
+      if (bookingValues[i][bookingHeaders.indexOf('booking_id')] === bookingId) {
         targetBookingRow = i + 1;
-        classId = bookingValues[i][1];
+        classId = bookingValues[i][bookingHeaders.indexOf('class_id')];
         break;
       }
     }
 
     if (targetBookingRow === -1) {
-      throw new Error('找不到該筆預約紀錄');
+      return { status: 'error', message: '找不到該筆預約紀錄' };
     }
 
-    BOOKING_SHEET.getRange(targetBookingRow, 5).setValue(newStatus);
+    // 更新預約狀態、更新時間、更新者
+    BOOKING_SHEET.getRange(targetBookingRow, statusColIndex).setValue(newStatus);
+    BOOKING_SHEET.getRange(targetBookingRow, updateTimeColIndex).setValue(new Date());
+    BOOKING_SHEET.getRange(targetBookingRow, updateUserColIndex).setValue('Admin'); // 假設是管理者操作
 
     if (decision === 'reject') {
       const classValues = CLASS_SHEET.getDataRange().getValues();
+      const classHeaders = classValues[0];
+      const currentStudentsColIndex = classHeaders.indexOf('current_students') + 1;
       let targetClassRow = -1;
       let currentStudents = 0;
       for (let i = 1; i < classValues.length; i++) {
-        if (classValues[i][0] === classId) {
+        if (classValues[i][classHeaders.indexOf('class_id')] === classId) {
           targetClassRow = i + 1;
-          currentStudents = classValues[i][7];
+          currentStudents = classValues[i][classHeaders.indexOf('current_students')];
           break;
         }
       }
       if (targetClassRow !== -1 && currentStudents > 0) {
-        CLASS_SHEET.getRange(targetClassRow, 8).setValue(currentStudents - 1);
+        CLASS_SHEET.getRange(targetClassRow, currentStudentsColIndex).setValue(currentStudents - 1);
       }
     }
     
-    // 【修改】只回傳純粹的 JS 物件
     return { status: 'success', message: `操作成功：${newStatus}` };
 
   } catch (error) {
-    // 【修改】只回傳純粹的 JS 物件
     return { status: 'error', message: '處理時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
@@ -402,22 +436,20 @@ function getBookingHistory(userId) {
     Logger.log('快取未命中，從 Google Sheet 重新建立 classMap');
     
     // 建立課程 ID -> 課程日期+時間+教練 的對照表
-    const classData = CLASS_SHEET.getDataRange().getValues();
-    const coachData = COACH_SHEET.getDataRange().getValues();
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
     const coachMap = {};
-    for(let i=1; i<coachData.length; i++){ coachMap[coachData[i][0]] = coachData[i][1]; }
+    coachObjects.forEach(coach => { coachMap[coach.coach_id] = coach.coach_name; });
     
     classMap = {}; // 初始化
-    for (let i = 1; i < classData.length; i++) {
-      const row = classData[i];
-      const classId = row[0];
-      if (classId) {
-        const classDate = Utilities.formatDate(new Date(row[3]), "GMT+8", "yyyy-MM-dd");
-        const startTime = Utilities.formatDate(new Date(row[4]), "GMT+8", "HH:mm");
-        const coachName = coachMap[row[1]] || '未知教練';
-        classMap[classId] = `${classDate} ${startTime} (${coachName})`;
+    classObjects.forEach(cls => {
+      if (cls.class_id) {
+        const classDate = Utilities.formatDate(new Date(cls.class_date), "GMT+8", "yyyy-MM-dd");
+        const startTime = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:mm");
+        const coachName = coachMap[cls.coach_id] || '未知教練';
+        classMap[cls.class_id] = `${classDate} ${startTime} (${coachName})`;
       }
-    }
+    });
     
     // --- 優化步驟 2: 將新建立的 classMap 存入快取，設定 10 分鐘 (600秒) 的有效期 ---
     // 這樣 10 分鐘內的下一次請求就能直接使用快取了
@@ -425,16 +457,16 @@ function getBookingHistory(userId) {
   }
 
   // --- 後續邏輯不變，但現在 classMap 的取得速度非常快 ---
-  const bookingValues = BOOKING_SHEET.getDataRange().getValues();
+  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
   const userRecords = [];
-  for (let i = 1; i < bookingValues.length; i++) {
-    if (bookingValues[i][2] === userId) { // [2] is line_user_id
+  bookingObjects.forEach(booking => {
+    if (booking.line_user_id === userId) {
       userRecords.push({
-        classInfo: classMap[bookingValues[i][1]] || '未知課程',
-        status: bookingValues[i][4] // [4] is status
+        classInfo: classMap[booking.class_id] || '未知課程',
+        status: booking.status
       });
     }
-  }
+  });
 
   if (userRecords.length === 0) {
     return '您目前沒有任何預約紀錄喔！';
@@ -591,8 +623,3 @@ function deleteRichMenu(richMenuIdToDelete) {
     Logger.log('刪除失敗: ' + e.toString());
   }
 }
-
-
-
-
-
