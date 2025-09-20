@@ -1,5 +1,6 @@
 // --- 全域變數設定 ---
 const VERSION = "2.0";
+const DEPLOYMENT_ID = "AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G"; // 固定的部署ID
 // 之後會將 Google Sheet 的各個工作表定義在這裡，方便管理
 const SPREADSHEET = SpreadsheetApp.getActiveSpreadsheet(); 
 const USER_SHEET = SPREADSHEET.getSheetByName("Users");
