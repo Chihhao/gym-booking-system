@@ -8,7 +8,6 @@ const COACH_SHEET = SPREADSHEET.getSheetByName("Coaches");
 const CLASS_SHEET = SPREADSHEET.getSheetByName("Classes");
 const BOOKING_SHEET = SPREADSHEET.getSheetByName("Bookings");
 
-// 這裡未來會放置 LINE Bot 的 Channel Access Token
 const CHANNEL_ACCESS_TOKEN = '6HTikANeIpIjHqztdhXHorN8XehTVjYJLHmbgTSWK/GuaKVztsg65IkK/JC7sRDi47nayqJPlr0wGHeZJSx/YOvWEjypEdMpwR0Mqb71JhhOumQ8Dj4PXIkxVX5cjIDtkDktRdwZcLwyUdXgiuLSTQdB04t89/1O/w1cDnyilFU=';
 
 // GAS URL:
@@ -39,19 +38,26 @@ function sheetDataToObjects_(data) {
 }
 
 function doGet(e) {
-  const page = e.parameter.page;
+  // 新的 API 路由器
+  const action = e.parameter.action;
 
-  if (page === 'admin') {
-    // 如果參數是 'admin'，就執行提供待審核清單的邏輯
-    return getPendingBookings();
-  } else if (page === 'test') {
-    // 測試資料讀取
-    return testDataRead();
-  } else if (page === 'deployment_info') {
-    return getDeploymentInfo();
-  } else {
-    // 否則，執行原本的提供課程表的邏輯
-    return getClassSchedule();
+  try {
+    switch (action) {
+      case 'getSchedule':
+        return createJsonResponse(getWeeklySchedule(e.parameter));
+      // 為了管理頁面保留的舊邏輯
+      case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
+      case 'getPendingBookings':
+        return getPendingBookings();
+      // 測試用
+      case 'test':
+        return testDataRead();
+      // 預設行為：取得所有課程列表 (給 index.html 使用)
+      default:
+        return getClassSchedule();
+    }
+  } catch (error) {
+    return createJsonResponse({ status: 'error', message: '處理 GET 請求時發生錯誤: ' + error.toString() });
   }
 }
 
@@ -189,6 +195,65 @@ function getClassSchedule() {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/**
+ * [新功能] 根據課程名稱，取得未來一週的時間表網格資料
+ * @param {object} params - 包含 courseName 的請求參數
+ * @returns {object} - 符合前端網格需求的資料結構
+ */
+function getWeeklySchedule(params) {
+  const courseName = params.courseName;
+  if (!courseName) {
+    throw new Error("缺少 courseName 參數");
+  }
+
+  // 1. 準備時間範圍和基本資料結構
+  const scheduleData = {};
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // 標準化到當天零點
+  const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
+
+  // 初始化未來七天的網格，全部預設為 'no_class'
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    const dateString = Utilities.formatDate(date, "GMT+8", "yyyy-MM-dd");
+    
+    scheduleData[dateString] = {};
+    hours.forEach(hour => {
+      scheduleData[dateString][hour] = { status: 'no_class' };
+    });
+  }
+
+  // 2. 讀取所有課程資料
+  const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+  const sevenDaysLater = new Date(today);
+  sevenDaysLater.setDate(today.getDate() + 7);
+
+  // 3. 遍歷課程，將符合條件的課程填入網格
+  classObjects.forEach(cls => {
+    // 篩選條件：課程名稱相符、狀態為開放中、在未來七天內
+    const classDate = new Date(cls.class_date);
+    if (cls.class_name === courseName && cls.status === '開放中' && classDate >= today && classDate < sevenDaysLater) {
+      const dateString = Utilities.formatDate(classDate, "GMT+8", "yyyy-MM-dd");
+      const startTimeString = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:00"); // 只取整點小時
+
+      // 確保日期和時間存在於我們的網格結構中
+      if (scheduleData[dateString] && scheduleData[dateString][startTimeString]) {
+        const remaining = cls.max_students - cls.current_students;
+        const status = remaining > 0 ? 'available' : 'full';
+
+        scheduleData[dateString][startTimeString] = {
+          status: status,
+          schedule_id: cls.class_id // 前端預約時需要這個 ID
+        };
+      }
+    }
+  });
+
+  return scheduleData;
+}
+
+
 function doPost(e) {
   const quickReply = ContentService.createTextOutput(JSON.stringify({'status': 'ok'}));
 
@@ -212,7 +277,7 @@ function doPost(e) {
     }
   } catch (err) {
     // 如果解析或處理過程中出錯，可以在日誌中記錄錯誤
-    // 但仍然回傳一個成功的 quickReply 給 LINE，避免 LINE 不斷重試
+    // 仍然回傳一個成功的 quickReply 給 LINE，避免 LINE 不斷重試
     console.error(err.toString());
   }
   
@@ -232,7 +297,7 @@ function handleWebAppActions(request) {
 }
 
 /**
- * 處理新增預約的核心函式 (*** 已修正回傳值的格式 ***)
+ * 處理新增預約的核心函式
  * @param {object} data - 包含 classId 和 liffData (使用者資訊)
  */
 function createBooking(data) {
@@ -311,7 +376,7 @@ function createBooking(data) {
 }
 
 /**
- * 處理審核預約的核心函式 (*** 已修正回傳值的格式 ***)
+ * 處理審核預約的核心函式
  * @param {object} data - 包含 bookingId 和 decision ('approve' or 'reject')
  */
 function reviewBooking(data) {
@@ -374,7 +439,7 @@ function reviewBooking(data) {
   }
 }
 
-// 新增一個輔助函式，方便建立 JSON 回應 ---
+// 輔助函式，方便建立 JSON 回應
 function createJsonResponse(obj) {
     return ContentService
         .createTextOutput(JSON.stringify(obj))
