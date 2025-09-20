@@ -7,48 +7,67 @@
     <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f8f9fa; }
-        .header { padding: 1.5em; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .header h1 { margin: 0; font-size: 1.5em; color: #343a40; }
-        .header p { margin: 5px 0 0; color: #6c757d; }
+        /* --- 1. 暗色主題 --- */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            margin: 0; 
+            background-color: #212529; 
+            color: #e0e0e0; 
+        }
+        .header { 
+            padding: 1.5em; 
+            background-color: #343a40; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+        }
+        .header h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
+        .header p { margin: 5px 0 0; color: #b0b0b0; }
 
+        /* --- 2. 恢復為大表格佈局 --- */
         .schedule-wrapper {
-            padding: 1.5em;
-            overflow-x: auto; /* 關鍵：讓表格可以水平滾動 */
+            padding: 5px;
+            overflow-x: auto; /* 允許表格水平滾動 */
         }
 
         .schedule-grid {
-            width: 100%;
-            min-width: 800px; /* 確保表格有足夠寬度來觸發滾動 */
+            width: 100%; /* 讓表格寬度填滿容器 */
             border-collapse: collapse;
             text-align: center;
             table-layout: fixed;
+            border-style: hidden; /* 隱藏外邊框 */
         }
 
         .schedule-grid th, .schedule-grid td {
-            border: 1px solid #dee2e6;
+            border: 1px solid #495057; /* 暗色邊框 */
             padding: 8px;
-            height: 50px;
+            height: 30px;
         }
 
         .schedule-grid thead th {
-            background-color: #e9ecef;
+            background-color: #495057; /* 暗色表頭 */
+            font-weight: normal;
+            font-size: 0.9em; /* 微調字體大小 */
+            padding: 0; 
+            color: #ffffff;
+        }
+
+        .schedule-grid thead tr:nth-child(2) th {
+            background-color: #343a40; /* 與儲存格同色 */
+            color: #b0b0b0; /* 較柔和的文字顏色 */
             font-weight: normal;
             font-size: 0.9em;
-            padding: 12px 8px;
+            padding: 0;
         }
-        
+
         .schedule-grid .time-label {
-            background-color: #f8f9fa;
-            font-size: 0.8em;
-            color: #6c757d;
-            width: 70px;
+            background-color: #343a40; /* 暗色時間標籤 */
+            font-size: 0.9em;
+            color: #b0b0b0; /* 與星期列文字同色 */
         }
 
         .schedule-grid td {
-            background-color: #fff;
+            background-color: #343a40; /* 暗色儲存格 */
         }
-
+        
         /* 時段狀態樣式 */
         .slot {
             font-size: 1.5em;
@@ -59,10 +78,7 @@
             cursor: pointer;
         }
         .slot.full {
-            color: #ced4da;
-        }
-        .slot.no-class {
-            background-color: #f8f9fa;
+            color: #868e96;
         }
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
@@ -171,16 +187,22 @@
                 container.innerHTML = '<p>此課程目前沒有可預約的時段。</p>';
                 return;
             }
-            const dates = Object.keys(scheduleData);
+            const dates = Object.keys(scheduleData).sort();
             const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
 
-            let headerHtml = '<tr><th></th>'; // 左上角空格
+            // 產生兩列表頭
+            let dateRow = `<tr><th>日期</th>`;
+            let dayRow = `<tr><th>星期</th>`;
+
             dates.forEach(dateStr => {
                 const d = new Date(dateStr);
                 const day = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-                headerHtml += `<th>${(d.getMonth() + 1)}/${d.getDate()}<br>(${day})</th>`;
+                dateRow += `<th>${(d.getMonth() + 1)}/${d.getDate()}</th>`; // 第一列：日期
+                dayRow += `<th>${day}</th>`; // 3. 星期不需要括號
             });
-            headerHtml += '</tr>';
+            dateRow += '</tr>';
+            dayRow += '</tr>';
+            const headerHtml = dateRow + dayRow;
 
             let bodyHtml = '';
             hours.forEach(hour => {
@@ -190,11 +212,11 @@
                     const slotData = (scheduleData[date] && scheduleData[date][hour]) 
                                      ? scheduleData[date][hour] 
                                      : { status: 'no_class' };
-
+                    
                     let slotClass = 'slot';
                     let slotContent = '';
                     let onClickAction = '';
-
+                    
                     if (slotData.status === 'available') {
                         slotClass += ' available';
                         slotContent = '🟢';
@@ -202,8 +224,6 @@
                     } else if (slotData.status === 'full') {
                         slotClass += ' full';
                         slotContent = '❌';
-                    } else {
-                        slotClass += ' no-class';
                     }
                     bodyHtml += `<td class="${slotClass}" ${onClickAction}>${slotContent}</td>`;
                 });
