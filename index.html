@@ -10,10 +10,11 @@
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
             margin: 1.5em; 
-            background-color: #fafaf8; 
+            background-color: #212529; /* 1. 調整為較柔和的深灰色 */
+            color: #e0e0e0; /* 1. 預設淺色文字 */
         }
         #header-container { margin-bottom: 1.5em; }
-        #header-container p { margin: 0; font-size: 1.1em; color: #495057; }
+        #header-container p { margin: 0; font-size: 1.1em; color: #e0e0e0; }
         
         .course-grid {
             display: grid;
@@ -21,47 +22,57 @@
             gap: 1rem;
         }
         .course-card {
-            background-color: white;
+            background-color: #343a40; /* 1. 調整為較淺的卡片背景 */
             border-radius: 8px;
             overflow: hidden; /* 讓圖片的圓角生效 */
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: row; /* 改為水平排列 */
             align-items: center; /* 垂直置中 */
-            padding: 10px;
+            height: 140px; /* 3. 卡片的高度是 140 */
+            padding-left: 10px; /* 4. 圖片靠左，距離左邊有10px間距 */
         }
         .course-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
         .course-card img {
-            width: 120px; /* 固定圖片寬度 */
-            height: 120px; /* 固定圖片高度，形成正方形 */
+            width: 120px; /* 2. 我希望圖片是120x120 */
+            height: 120px; /* 2. 我希望圖片是120x120 */
             object-fit: cover; /* 讓圖片不變形地填滿容器 */
             flex-shrink: 0; /* 防止圖片被壓縮 */
-            margin-right: 20px; /* 增加右邊距 */
+            border-radius: 4px; /* 圖片圓角 */
         }
         .course-card-content {
-            /*padding: 1rem 1.5rem; */ /* 調整內距 */
-            padding-right: 1.0rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 6. 圖片右側的文字，整個區塊上下置中 */
+            padding: 0 1rem; /* 調整左右內距 */
+            gap: 0.25rem; /* 增加文字行之間的間距 */
             text-align: left; /* 文字靠左 */
             flex-grow: 1; /* 佔滿剩餘空間 */
+            overflow: hidden; /* 為了讓文字截斷生效 */
         }
         .course-card h2 { 
-            margin: 0 0 0.5rem 0; 
-            color: #343a40; 
+            margin: 0; /* 移除所有外部間距 */
+            color: #ffffff; /* 1. 標題亮白色 */
         }
         .course-card .description { 
-            margin: 0; 
-            color: #6c757d; 
+            margin: 0; /* 移除所有外部間距 */
+            color: #b0b0b0; /* 1. 描述文字淺灰色 */
             font-size: 0.9em;
+            /* 3. 處理文字過多，最多顯示兩行 */
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .course-card .price {
-            margin-top: 0.75rem;
+            margin: 0; /* 移除所有外部間距 */
             font-weight: bold;
-            color: #007bff;
+            color: #4dabf7; /* 1. 價格亮藍色 */
             font-size: 1.1em;
         }
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
@@ -94,35 +105,23 @@
             const contentContainer = document.getElementById('content-container');
 
             try {
+                let welcomeName = '';
                 // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
                 if (!liff.isInClient()) {
-                    // --- 開發模式 (在 PC 等外部瀏覽器中) ---
-                    console.warn("注意：目前為外部瀏覽器開發模式！");
-                    
-                    // 因為不在 LINE 環境，完全不需要 liff.init()
-                    // 直接偽造一個 userProfile 物件以供測試
-                    userProfile = {
-                        userId: 'U_DEV_000000000000000000000000001',
-                        displayName: '開發者AA',
-                    };
-                    
-                    console.log("偽造的使用者資訊:", userProfile);
-                    // 在頁首顯示開發模式的標題和使用者
-                    headerContainer.innerHTML = `<p>(開發模式)目前測試使用者: ${userProfile.displayName}</p>`;
-                    
+                    // 7. 如果是開發模式，那麼XXX=小明
+                    welcomeName = '小明';
                 } else {
-                    // --- 正式模式 (在 LINE App 中) ---
-                    // 只有在 LINE App 環境內，才執行 liff.init() 和後續操作
                     await liff.init({ liffId: LIFF_ID });
                     
                     if (!liff.isLoggedIn()) {
-                        liff.login(); // 如果未登入，引導登入
+                        liff.login();
                         return;
                     }
-                    userProfile = await liff.getProfile(); // 取得使用者資訊
-                    // 在頁首顯示歡迎訊息
-                    headerContainer.innerHTML = `<p>歡迎您, ${userProfile.displayName}</p>`;
+                    userProfile = await liff.getProfile();
+                    welcomeName = userProfile.displayName;
                 }
+                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
+                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
                 
                 // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
                 await fetchCourses();
@@ -172,7 +171,7 @@
                         <div class="course-card-content">
                             <h2>${course.course_name}</h2>
                             <p class="description">${course.short_description || ''}</p>
-                            <p class="price">$${course.price}</p>
+                            <p class="price">每小時 $${course.price}</p>
                         </div>
                     </div>
                 `;
