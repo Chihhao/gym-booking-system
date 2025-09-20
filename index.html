@@ -33,7 +33,9 @@
     </div>
 
     <script>      
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycby697ii6EZ-NrP8NEPLcO-CRdf7Eoc3XXn0rL_kMt7MqJqEZAv6Q-G5vCelhdzSg9OZ/exec';
+        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
         const LIFF_ID = '2008135811-vNO5bYyx'; 
 
      
@@ -127,7 +129,9 @@
                 html += `
                     <tr>
                         <td>${cls.className}</td>
-                        <td>${cls.date}</td>
+                        <td>
+                         ${new Date(cls.date).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
+                        </td>
                         <td>${cls.startTime} - ${cls.endTime}</td>
                         <td>${cls.coachName}</td>
                         <td>${cls.remaining}</td>

@@ -27,8 +27,11 @@
     </div>
 
     <script>
-        // --- 請將此處的網址，換成您自己部署後的 GAS 網址！ ---
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycby697ii6EZ-NrP8NEPLcO-CRdf7Eoc3XXn0rL_kMt7MqJqEZAv6Q-G5vCelhdzSg9OZ/exec';
+        // --- 動態設定 GAS URL ---
+        // 在本地開發時，使用下面的 DEV_GAS_URL；在線上部署後，GAS 會自動替換 <?= ... ?> 的部分。
+        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
         const ADMIN_PASSWORD = '1234';
 
         window.addEventListener('DOMContentLoaded', () => {

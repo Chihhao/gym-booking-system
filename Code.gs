@@ -1,4 +1,5 @@
 // --- 全域變數設定 ---
+const VERSION = "2.0";
 // 之後會將 Google Sheet 的各個工作表定義在這裡，方便管理
 const SPREADSHEET = SpreadsheetApp.getActiveSpreadsheet(); 
 const USER_SHEET = SPREADSHEET.getSheetByName("Users");
@@ -23,10 +24,21 @@ function doGet(e) {
   } else if (page === 'test') {
     // 測試資料讀取
     return testDataRead();
+  } else if (page === 'deployment_info') {
+    return getDeploymentInfo();
   } else {
     // 否則，執行原本的提供課程表的邏輯
     return getClassSchedule();
   }
+}
+
+function getDeploymentInfo() {
+  return ContentService
+    .createTextOutput(JSON.stringify({ 
+      version: VERSION,
+      deploymentTime: new Date().toISOString()
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // 測試資料讀取
