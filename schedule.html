@@ -135,16 +135,17 @@
 
                 // 2. 從 URL 取得課程 ID
                 const urlParams = new URLSearchParams(window.location.search);
-                const courseId = urlParams.get('courseId');
+                const courseId = urlParams.get('id');
+                const courseName = urlParams.get('name');
 
-                if (!courseId) {
+                if (!courseId || !courseName) {
                     document.getElementById('schedule-container').innerHTML = '<p class="error">錯誤：未指定課程 ID。</p>';
                     document.getElementById('course-name-title').innerText = '錯誤';
                     return;
                 }
 
                 // 3. 更新頁面標題並載入時段資料
-                document.getElementById('course-name-title').innerText = courseId;
+                document.getElementById('course-name-title').innerText = decodeURIComponent(courseName);
                 await fetchSchedule(courseId);
 
             } catch (err) {
@@ -155,9 +156,8 @@
 
         async function fetchSchedule(courseId) {
             const container = document.getElementById('schedule-container');
-            // 為了將課程名稱作為 URL 參數傳遞，需要進行編碼
-            const encodedCourseName = encodeURIComponent(courseId);
-            const url = `${GAS_URL}?action=getSchedule&courseName=${encodedCourseName}`;
+            // 使用 courseId 查詢
+            const url = `${GAS_URL}?action=getSchedule&courseId=${courseId}`;
 
             try {
                 const response = await fetch(url);

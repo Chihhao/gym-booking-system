@@ -151,7 +151,8 @@ function getPendingBookings() {
   // 從後往前遍歷以獲得最新的預約
   for (let i = bookingObjects.length - 1; i >= 0; i--) {
     const booking = bookingObjects[i];
-    if (booking.status === '待審核') {
+    // 使用 .trim() 移除前後空白，讓比對更穩健
+    if (booking.status && booking.status.trim() === '已預約') { // 撈取新狀態 "已預約" 的單據
       pendingBookings.push({
         bookingId: booking.booking_id,
         classInfo: classMap[booking.class_id] || `未知課程(ID: ${booking.class_id})`,
@@ -219,14 +220,14 @@ function getClassSchedule() {
 }
 
 /**
- * [新功能] 根據課程名稱，取得未來一週的時間表網格資料
- * @param {object} params - 包含 courseName 的請求參數
+ * [新功能] 根據課程 ID，取得未來一週的時間表網格資料
+ * @param {object} params - 包含 courseId 的請求參數
  * @returns {object} - 符合前端網格需求的資料結構
  */
 function getWeeklySchedule(params) {
-  const courseName = params.courseName;
-  if (!courseName) {
-    throw new Error("缺少 courseName 參數");
+  const courseId = params.courseId;
+  if (!courseId) {
+    throw new Error("缺少 courseId 參數");
   }
 
   // 1. 準備時間範圍和基本資料結構
@@ -254,9 +255,9 @@ function getWeeklySchedule(params) {
 
   // 3. 遍歷課程，將符合條件的課程填入網格
   classObjects.forEach(cls => {
-    // 篩選條件：課程名稱相符、狀態為開放中、在未來七天內
+    // 篩選條件：課程 ID 相符、狀態為開放中、在未來七天內
     const classDate = new Date(cls.class_date);
-    if (cls.class_name === courseName && cls.status === '開放中' && classDate >= today && classDate < sevenDaysLater) {
+    if (cls.course_id === courseId && cls.status === '開放中' && classDate >= today && classDate < sevenDaysLater) {
       const dateString = Utilities.formatDate(classDate, "GMT+8", "yyyy-MM-dd");
       const startTimeString = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:00"); // 只取整點小時
 
@@ -330,11 +331,11 @@ function createBooking(data) {
   const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
   const hasBooked = bookingObjects.some(booking => 
     booking.line_user_id === userId && 
-    booking.class_id === classId && 
-    (booking.status === '待審核' || booking.status === '已確認'));
+    booking.class_id === classId &&
+    (booking.status === '已預約' || booking.status === '已扣款')); // 檢查新狀態
 
   if (hasBooked) {
-      return { status: 'error', message: '您已預約過此課程，請勿重複預約。' };
+      return { status: 'error', message: '您已預約此課程，請勿重複預約。' };
   }
 
   const lock = LockService.getScriptLock();
@@ -382,14 +383,14 @@ function createBooking(data) {
       classId, 
       userId, 
       new Date(), 
-      '待審核',
+      '已預約', // 狀態直接設為 "已預約"
       new Date(), // create_time
       displayName, // create_user
       '', // update_time
       '' // update_user
     ]);
 
-    return { status: 'success', message: '預約成功，待教練審核！' };
+    return { status: 'success', message: '預約成功！' };
 
   } catch (error) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
@@ -404,7 +405,10 @@ function createBooking(data) {
  */
 function reviewBooking(data) {
   const { bookingId, decision } = data;
-  const newStatus = (decision === 'approve') ? '已確認' : '已駁回';
+  // 對應新的狀態流程
+  // approve -> 已扣款
+  // reject -> 已取消
+  const newStatus = (decision === 'approve') ? '已扣款' : '已取消';
 
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
@@ -417,9 +421,15 @@ function reviewBooking(data) {
     const updateUserColIndex = bookingHeaders.indexOf('update_user') + 1;
 
     let targetBookingRow = -1;
+    let currentStatus = '';
     let classId = '';
     for (let i = 1; i < bookingValues.length; i++) {
       if (bookingValues[i][bookingHeaders.indexOf('booking_id')] === bookingId) {
+        currentStatus = bookingValues[i][statusColIndex - 1];
+        // 防止重複操作已取消或已扣款的單據
+        if (currentStatus !== '已預約') {
+          return { status: 'error', message: `此預約狀態為「${currentStatus}」，無法執行此操作。` };
+        }
         targetBookingRow = i + 1;
         classId = bookingValues[i][bookingHeaders.indexOf('class_id')];
         break;
@@ -435,7 +445,8 @@ function reviewBooking(data) {
     BOOKING_SHEET.getRange(targetBookingRow, updateTimeColIndex).setValue(new Date());
     BOOKING_SHEET.getRange(targetBookingRow, updateUserColIndex).setValue('Admin'); // 假設是管理者操作
 
-    if (decision === 'reject') {
+    // 如果是「取消預約」，則需要將課程名額釋放 (current_students - 1)
+    if (decision === 'reject') { // 'reject' 對應到 '已取消'
       const classValues = CLASS_SHEET.getDataRange().getValues();
       const classHeaders = classValues[0];
       const currentStudentsColIndex = classHeaders.indexOf('current_students') + 1;
