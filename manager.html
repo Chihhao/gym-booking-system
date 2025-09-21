@@ -20,6 +20,14 @@
             --danger-hover: #c82333;
             --secondary-color: #6c757d;
             --secondary-hover: #5a6268;
+            /* 新增：狀態標籤專用顏色 */
+            --success-bg-light: #d1e7dd; /* 加深淡綠色背景 */
+            --success-text-dark: #1d643b;
+            --secondary-bg-light: #e1e2e4;
+            --secondary-text-dark: #383d41; /* 新增：搭配淡灰背景的深灰文字 */
+            /* 新增：預約狀態專用顏色 */
+            --info-bg-light: #cce5ff;
+            --info-text-dark: #004085;
         }
 
         body {
@@ -154,7 +162,12 @@
         }
 
         th {
-            background-color: var(--bg-color);
+            background-color: #e9ecef; /* 統一所有表格的表頭顏色 */
+        }
+
+        /* 為所有表格的偶數行加上斑馬條紋 */
+        tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
         }
         
         th.sortable {
@@ -187,6 +200,13 @@
         .action-buttons {
             display: flex;
             gap: 0.5rem; /* 增加按鈕間距 */
+        }
+
+        /* 新增：用於設定緊湊欄位的樣式 */
+        .col-tight {
+            width: 1%;
+            white-space: nowrap;
+            text-align: center; /* 水平置中 */
         }
 
         /* --- Phase 2: 課表管理樣式 --- */
@@ -379,6 +399,39 @@
             justify-content: flex-end;
             gap: 0.5rem;
         }
+
+        /* --- Phase 3: 狀態標籤樣式 (新版：柔和藥丸樣式) --- */
+        .status-badge {
+            display: inline-block;
+            padding: 0.3em 0.7em; /* 使用 em 單位，讓 padding 隨字體大小縮放 */
+            font-size: 0.85em;
+            font-weight: 700; /* 加粗字體 */
+            line-height: 1; /* 標準行高 */
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-radius: 10rem; /* 圓潤的膠囊形狀 */
+        }
+
+        /* 課程型錄狀態 */
+        .status-badge.active,
+        .status-badge.paid { /* 已扣款 */
+            color: var(--success-text-dark);
+            background-color: var(--success-bg-light);
+        }
+
+        /* 預約狀態 */
+        .status-badge.booked { /* 已預約 */
+            color: var(--info-text-dark);
+            background-color: var(--info-bg-light);
+        }
+
+        /* 通用停用/取消狀態 */
+        .status-badge.inactive,
+        .status-badge.cancelled { /* 已取消 */
+            color: var(--secondary-text-dark);
+            background-color: var(--secondary-bg-light);
+        }
     </style>
 </head>
 <body>
@@ -432,8 +485,11 @@
         </section>
 
         <section id="courses" class="content-section">
-            <h1>課程型錄</h1>
-            <p>功能開發中...</p>
+            <h1>課程型錄管理</h1>
+            <div class="filter-controls">
+                <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
+            </div>
+            <div id="courses-table-container"></div>
         </section>
 
         <section id="users" class="content-section">
@@ -476,10 +532,52 @@
                 </div>
                 <div class="form-group">
                     <label for="form-max-students">人數上限</label>
-                    <input type="number" id="form-max-students" min="1" value="10" required>
+                    <input type="number" id="form-max-students" min="1" value="4" required>
                 </div>
                 <div class="modal-actions">
                     <button type="button" id="delete-class-btn" class="btn btn-danger">刪除課堂</button>
+                    <button type="submit" class="btn btn-success">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 新增/編輯課程型錄的 Modal -->
+    <div id="course-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeCourseModal()">&times;</button>
+            <h2 id="course-modal-title">課程型錄資訊</h2>
+            <form id="course-form">
+                <input type="hidden" id="form-course-id-hidden">
+                <div class="form-group">
+                    <label for="form-course-name">課程名稱</label>
+                    <input type="text" id="form-course-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="form-course-price">價格</label>
+                    <input type="text" id="form-course-price" required>
+                </div>
+                <div class="form-group">
+                    <label for="form-course-status">狀態</label>
+                    <select id="form-course-status" required>
+                        <option value="Active">啟用 (Active)</option>
+                        <option value="Inactive">停用 (Inactive)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="form-course-short-desc">簡短描述</label>
+                    <input type="text" id="form-course-short-desc">
+                </div>
+                <div class="form-group">
+                    <label for="form-course-long-desc">詳細說明</label>
+                    <input type="text" id="form-course-long-desc">
+                </div>
+                <div class="form-group">
+                    <label for="form-course-image">圖片檔名</label>
+                    <input type="text" id="form-course-image" placeholder="例如：crs001.jpg">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="delete-course-btn" class="btn btn-danger">刪除課程</button>
                     <button type="submit" class="btn btn-success">儲存</button>
                 </div>
             </form>
@@ -494,6 +592,8 @@
         // 全域變數，用於儲存當前顯示的資料和排序狀態
         let currentBookings = [];
         let sortState = { column: 'bookingTime', direction: 'desc' };
+        let currentCourses = [];
+        let courseSortState = { column: 'course_id', direction: 'asc' };
         let currentManagerDate = new Date(); // 用於課表管理的目前日期
         let managerFormData = null; // 儲存課程和教練列表
 
@@ -519,6 +619,65 @@
 
             // 5. 綁定 Modal 內的刪除按鈕事件
             document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
+
+            // 6. 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
+            document.getElementById('form-course-id').addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const classNameInput = document.getElementById('form-class-name');
+                if (selectedOption && selectedOption.value) {
+                    // 選項文字格式為 "課程名稱 (課程ID)"，我們只取前面的名稱
+                    const courseName = selectedOption.text.split(' (')[0];
+                    classNameInput.value = courseName;
+                } else {
+                    classNameInput.value = '';
+                }
+            });
+
+            // 7. 綁定課程型錄 Modal 的關閉與提交事件
+            document.getElementById('course-modal').addEventListener('click', function(event) {
+                if (event.target === this) closeCourseModal();
+            });
+            document.getElementById('course-form').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = '儲存中...';
+
+                const data = {
+                    courseId: document.getElementById('form-course-id-hidden').value,
+                    courseName: document.getElementById('form-course-name').value,
+                    price: document.getElementById('form-course-price').value,
+                    status: document.getElementById('form-course-status').value,
+                    shortDesc: document.getElementById('form-course-short-desc').value,
+                    longDesc: document.getElementById('form-course-long-desc').value,
+                    image: document.getElementById('form-course-image').value
+                };
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'saveCourse', data: data })
+                    });
+
+                    const result = await response.json();
+                    alert(result.message);
+
+                    if (result.status === 'success') {
+                        closeCourseModal();
+                        loadCourses(); // 重新載入課程列表
+                    }
+
+                } catch (error) {
+                    console.error('儲存課程型錄時發生錯誤:', error);
+                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            });
         });
 
         // --- 側邊欄收合功能 ---
@@ -561,6 +720,8 @@
                 loadBookings();
             } else if (targetId === 'schedule') {
                 loadManagerSchedule();
+            } else if (targetId === 'courses') {
+                loadCourses();
             }
         } // handleNavigation 函式定義結束
 
@@ -743,14 +904,33 @@
                             <th class="sortable" onclick="handleSort('classTime')">上課時間</th>
                             <th class="sortable" onclick="handleSort('userName')">學員</th>
                             <th class="sortable" onclick="handleSort('bookingTime')">預約時間</th>
-                            <th class="sortable" onclick="handleSort('status')">狀態</th>
-                            <th>操作</th>
+                            <th class="sortable col-tight" onclick="handleSort('status')">狀態</th>
+                            <th class="col-tight">操作</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
             bookings.forEach(booking => {
+                let statusBadge = '';
+                let statusClass = '';
+                switch (booking.status) {
+                    case '已預約':
+                        statusClass = 'booked';
+                        break;
+                    case '已扣款':
+                        statusClass = 'paid';
+                        break;
+                    case '已取消':
+                        statusClass = 'cancelled';
+                        break;
+                }
+                if (statusClass) {
+                    statusBadge = `<span class="status-badge ${statusClass}">${booking.status}</span>`;
+                } else {
+                    statusBadge = booking.status; // 如果有未定義的狀態，則顯示純文字
+                }
+
                 let actionButtons = '';
                 // 根據狀態決定顯示的按鈕
                 if (booking.status && booking.status.trim() === '已預約') {
@@ -771,9 +951,9 @@
                         <td>${booking.coachName}</td>
                         <td>${booking.classTime}</td>
                         <td>${booking.userName}</td>
-                        <td>${booking.bookingTime}</td>
-                        <td>${booking.status}</td>
-                        <td>${actionButtons}</td>
+                        <td class="col-tight">${booking.bookingTime}</td>
+                        <td class="col-tight">${statusBadge}</td>
+                        <td class="col-tight">${actionButtons}</td>
                     </tr>
                 `;
             });
@@ -1006,6 +1186,182 @@
                 coachSelect.add(option);
             });
         }
+
+        // --- Phase 3: 課程型錄管理函式 ---
+
+        function handleCourseSort(column) {
+            if (courseSortState.column === column) {
+                courseSortState.direction = courseSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                courseSortState.column = column;
+                courseSortState.direction = 'asc'; // 預設升序
+            }
+            sortAndRenderCourses();
+        }
+
+        function sortAndRenderCourses() {
+            const { column, direction } = courseSortState;
+
+            currentCourses.sort((a, b) => {
+                // 針對 price 欄位進行數字排序
+                if (column === 'price') {
+                    const valA = Number(a[column]) || 0;
+                    const valB = Number(b[column]) || 0;
+                    return direction === 'asc' ? valA - valB : valB - valA;
+                }
+
+                // 其他欄位使用字串排序
+                const valA = String(a[column] || '').toLowerCase();
+                const valB = String(b[column] || '').toLowerCase();
+                return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
+            renderCoursesTable(currentCourses);
+        }
+
+        async function loadCourses() {
+            const container = document.getElementById('courses-table-container');
+            container.innerHTML = '<p>正在載入課程型錄...</p>';
+
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getAllCoursesForManager');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                currentCourses = result.courses;
+                sortAndRenderCourses();
+
+            } catch (error) {
+                console.error('載入課程型錄失敗:', error);
+                container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
+            }
+        }
+
+        function renderCoursesTable(courses) {
+            const container = document.getElementById('courses-table-container');
+            if (!courses || courses.length === 0) {
+                container.innerHTML = '<p>目前沒有任何課程型錄。</p>';
+                return;
+            }
+
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="handleCourseSort('course_id')">課程ID</th>
+                            <th class="sortable" onclick="handleCourseSort('course_name')">課程名稱</th>
+                            <th class="sortable" onclick="handleCourseSort('price')">價格</th>
+                            <th class="sortable col-tight" onclick="handleSort('status')">狀態</th>
+                            <th class="col-tight">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            courses.forEach(course => {
+                const statusClass = course.status === 'Active' ? 'active' : 'inactive';
+                const statusBadge = `<span class="status-badge ${statusClass}">${course.status}</span>`;
+
+                tableHtml += `
+                    <tr>
+                        <td>${course.course_id}</td>
+                        <td>${course.course_name}</td>
+                        <td>${course.price}</td>
+                        <td class="col-tight">${statusBadge}</td>
+                        <td class="col-tight"><button class="btn btn-secondary" onclick="openCourseModal('${course.course_id}')">編輯</button></td>
+                    </tr>`;
+            });
+
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+
+        async function openCourseModal(courseId) {
+            const modal = document.getElementById('course-modal');
+            const form = document.getElementById('course-form');
+            form.reset();
+
+            if (courseId) {
+                // --- 編輯模式 ---
+                document.getElementById('course-modal-title').textContent = `編輯課程型錄 (ID: ${courseId})`;
+                document.getElementById('delete-course-btn').style.display = 'inline-block';
+                document.getElementById('form-course-id-hidden').value = courseId;
+                
+                try {
+                    const url = new URL(GAS_URL);
+                    url.searchParams.append('action', 'getCourseDetailsForManager');
+                    url.searchParams.append('courseId', courseId);
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    if (result.status !== 'success') throw new Error(result.message);
+
+                    const d = result.details;
+                    document.getElementById('form-course-name').value = d.course_name || '';
+                    document.getElementById('form-course-price').value = d.price || '';
+                    document.getElementById('form-course-status').value = d.status || 'Active';
+                    document.getElementById('form-course-short-desc').value = d.short_description || '';
+                    document.getElementById('form-course-long-desc').value = d.long_description || '';
+                    document.getElementById('form-course-image').value = d.image_url || '';
+                } catch (error) {
+                    alert(`載入課程資料失敗: ${error.message}`);
+                    closeCourseModal();
+                    return; // 載入失敗則不顯示 Modal
+                }
+            } else {
+                // --- 新增模式 ---
+                document.getElementById('course-modal-title').textContent = '新增課程型錄';
+                document.getElementById('delete-course-btn').style.display = 'none';
+                document.getElementById('form-course-id-hidden').value = '';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('course-modal').classList.remove('active');
+        }
+
+        // 佔位函式，為未來實作刪除功能預留
+        document.getElementById('delete-course-btn').addEventListener('click', async () => {
+            const courseId = document.getElementById('form-course-id-hidden').value;
+            if (!courseId) {
+                alert('錯誤：找不到課程 ID。');
+                return;
+            }
+
+            if (!confirm(`您確定要刪除這個課程型錄嗎？\n此操作無法復原。`)) {
+                return;
+            }
+
+            const deleteBtn = document.getElementById('delete-course-btn');
+            const originalBtnText = deleteBtn.textContent;
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '刪除中...';
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'deleteCourse', data: { courseId } })
+                });
+                const result = await response.json();
+                alert(result.message);
+
+                if (result.status === 'success') {
+                    closeCourseModal();
+                    loadCourses(); // 重新載入課程列表
+                }
+            } catch (error) {
+                console.error('刪除課程型錄時發生錯誤:', error);
+                alert('操作失敗，請檢查網路或聯繫開發者。');
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = originalBtnText;
+            }
+        });
     </script>
 
 </body>

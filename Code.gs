@@ -59,6 +59,10 @@ function doGet(e) {
         return createJsonResponse(getManagerFormData());
       case 'getClassDetails': // 新增：管理後台獲取單一課堂詳細資料的 API
         return createJsonResponse(getClassDetails(e.parameter));
+      case 'getAllCoursesForManager': // 新增：管理後台獲取所有課程型錄的 API
+        return createJsonResponse(getAllCoursesForManager());
+      case 'getCourseDetailsForManager': // 新增：管理後台獲取單一課程型錄詳情的 API
+        return createJsonResponse(getCourseDetailsForManager(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -401,6 +405,10 @@ function handleWebAppActions(request) {
         return saveClass(request.data);
       case 'reviewBooking':
         return reviewBooking(request.data);
+      case 'saveCourse': // 新增：管理後台儲存課程型錄 (新增/更新)
+        return saveCourse(request.data);
+      case 'deleteCourse': // 新增：管理後台刪除課程型錄
+        return deleteCourse(request.data);
       case 'deleteClass': // 新增：管理後台刪除課堂
         return deleteClass(request.data);
       default:
@@ -482,6 +490,187 @@ function createBooking(data) {
 
   } catch (error) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 刪除一筆課程型錄資料
+ * @param {object} data - 包含 courseId 的物件
+ * @returns {object} - 操作結果
+ */
+function deleteCourse(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const { courseId } = data;
+    if (!courseId) {
+      throw new Error("缺少 courseId");
+    }
+
+    // 1. 安全檢查：檢查是否有任何課堂(Classes)正在使用此課程型錄
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const isCourseInUse = classObjects.some(cls => cls.course_id === courseId);
+
+    if (isCourseInUse) {
+      return { status: 'error', message: '無法刪除：此課程型錄已被用於排課。請先刪除所有相關的課堂安排。' };
+    }
+
+    // 2. 尋找並刪除課程型錄
+    const courseValues = COURSE_SHEET.getDataRange().getValues();
+    const courseIdColIndex = courseValues[0].indexOf('course_id');
+    let targetRow = -1;
+    for (let i = 1; i < courseValues.length; i++) {
+      if (courseValues[i][courseIdColIndex] === courseId) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+
+    if (targetRow !== -1) {
+      COURSE_SHEET.deleteRow(targetRow);
+      return { status: 'success', message: '課程型錄刪除成功！' };
+    } else {
+      return { status: 'error', message: '找不到要刪除的課程型錄。' };
+    }
+  } catch (error) {
+    Logger.log('deleteCourse 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '刪除課程型錄時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 取得所有課程型錄資料 (包含非啟用)
+ * @returns {object} - 包含所有課程型錄的物件
+ */
+function getAllCoursesForManager() {
+  try {
+    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    // 管理後台需要看到所有課程，所以不過濾狀態
+    return { status: 'success', courses: courseObjects.reverse() }; // 讓最新的在最上面
+  } catch (error) {
+    Logger.log('getAllCoursesForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取課程型錄資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 取得單一課程型錄的詳細資料
+ * @param {object} params - 包含 courseId 的請求參數
+ * @returns {object} - 包含課程詳細資訊的物件
+ */
+function getCourseDetailsForManager(params) {
+  try {
+    const { courseId } = params;
+    if (!courseId) {
+      throw new Error("缺少 courseId 參數");
+    }
+
+    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    const targetCourse = courseObjects.find(c => c.course_id === courseId);
+
+    if (!targetCourse) {
+      return { status: 'error', message: '找不到指定的課程型錄' };
+    }
+
+    return { status: 'success', details: targetCourse };
+  } catch (error) {
+    Logger.log('getCourseDetailsForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取課程型錄詳細資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 新增或更新一筆課程型錄資料
+ * @param {object} data - 包含課程型錄資訊的物件
+ * @returns {object} - 操作結果
+ */
+function saveCourse(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const courseValues = COURSE_SHEET.getDataRange().getValues();
+    const headers = courseValues[0];
+    const courseIdColIndex = headers.indexOf('course_id');
+
+    // 從 data 中解構出所有欄位
+    const { courseId, courseName, price, status, shortDesc, longDesc, image } = data;
+
+    if (!courseName || !price || !status) {
+      throw new Error("缺少必要的課程資訊 (名稱、價格、狀態)");
+    }
+
+    if (courseId) {
+      // --- 更新模式 ---
+      let targetRow = -1;
+      for (let i = 1; i < courseValues.length; i++) {
+        if (courseValues[i][courseIdColIndex] === courseId) {
+          targetRow = i + 1;
+          break;
+        }
+      }
+
+      if (targetRow === -1) {
+        return { status: 'error', message: '找不到要更新的課程型錄' };
+      }
+
+      // 建立一個要更新的欄位和值的對應
+      const updates = {
+        'course_name': courseName,
+        'price': price,
+        'status': status,
+        'short_description': shortDesc,
+        'long_description': longDesc,
+        'image_url': image
+      };
+
+      // 遍歷 headers 來設定對應欄位的值
+      headers.forEach((header, index) => {
+        if (updates.hasOwnProperty(header)) { // 使用 hasOwnProperty 更嚴謹
+          COURSE_SHEET.getRange(targetRow, index + 1).setValue(updates[header]);
+        }
+      });
+
+      return { status: 'success', message: '課程型錄更新成功！' };
+
+    } else {
+      // --- 新增模式 ---
+      // 找出目前最大的課程ID數字部分
+      const courseIds = courseValues.slice(1).map(row => row[courseIdColIndex]);
+      let maxNum = 0;
+      courseIds.forEach(id => {
+        if (id && typeof id === 'string' && id.startsWith('CRS')) {
+          const numPart = parseInt(id.substring(3), 10);
+          if (!isNaN(numPart) && numPart > maxNum) {
+            maxNum = numPart;
+          }
+        }
+      });
+
+      // 新的ID數字為最大值+1
+      const newNum = maxNum + 1;
+      if (newNum > 999) {
+        return { status: 'error', message: '課程ID已達上限 (999)，無法新增。' };
+      }
+
+      // 格式化為三位數流水號，例如 "CRS001"
+      const newCourseId = "CRS" + String(newNum).padStart(3, '0');
+      
+      // 注意：appendRow 的順序必須和 Courses 工作表欄位完全一致
+      COURSE_SHEET.appendRow([
+        newCourseId, courseName, shortDesc, longDesc, image, price, status
+      ]);
+
+      return { status: 'success', message: '課程型錄新增成功！' };
+    }
+  } catch (error) {
+    Logger.log('saveCourse 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '儲存課程型錄時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
   }
