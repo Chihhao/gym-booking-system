@@ -16,6 +16,9 @@ const CHANNEL_ACCESS_TOKEN = '6HTikANeIpIjHqztdhXHorN8XehTVjYJLHmbgTSWK/GuaKVzts
 
 // https://liff.line.me/2008135811-vNO5bYyx
 
+// 佈署命令
+// clasp push && clasp deploy --deploymentId AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G
+
 /**
  * [核心輔助函式] 將工作表的二維陣列資料轉換為物件陣列。
  * @param {Array<Array<any>>} data - 從 sheet.getDataRange().getValues() 得到的資料。
@@ -50,6 +53,12 @@ function doGet(e) {
         return createJsonResponse(getBookingDetails(e.parameter));
       case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
         return createJsonResponse(getAllBookings(e.parameter));
+      case 'getClassesForManager': // 新增：管理後台獲取課表資料的 API
+        return createJsonResponse(getClassesForManager(e.parameter));
+      case 'getManagerFormData': // 新增：管理後台獲取表單資料的 API
+        return createJsonResponse(getManagerFormData());
+      case 'getClassDetails': // 新增：管理後台獲取單一課堂詳細資料的 API
+        return createJsonResponse(getClassDetails(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -388,8 +397,12 @@ function handleWebAppActions(request) {
     switch (request.action) {
       case 'createBooking':
         return createBooking(request.data);
+      case 'saveClass': // 新增：管理後台儲存課堂 (新增/更新)
+        return saveClass(request.data);
       case 'reviewBooking':
         return reviewBooking(request.data);
+      case 'deleteClass': // 新增：管理後台刪除課堂
+        return deleteClass(request.data);
       default:
         return { status: 'error', message: '無效的網頁操作' };
     }
@@ -471,6 +484,45 @@ function createBooking(data) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 取得單一課堂的詳細資料，用於編輯表單
+ * @param {object} params - 包含 classId 的請求參數
+ * @returns {object} - 包含課堂詳細資訊的物件
+ */
+function getClassDetails(params) {
+  try {
+    const { classId } = params;
+    if (!classId) {
+      throw new Error("缺少 classId 參數");
+    }
+
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const targetClass = classObjects.find(c => c.class_id === classId);
+
+    if (!targetClass) {
+      return { status: 'error', message: '找不到指定的課堂' };
+    }
+
+    // 格式化日期和時間以符合前端需求
+    const classDate = Utilities.formatDate(new Date(targetClass.class_date), "GMT+8", "yyyy-MM-dd");
+    const startTime = Utilities.formatDate(new Date(targetClass.start_time), "GMT+8", "HH:00");
+
+    const classDetails = {
+      classId: targetClass.class_id,
+      courseId: targetClass.course_id,
+      coachId: targetClass.coach_id,
+      className: targetClass.class_name,
+      maxStudents: targetClass.max_students,
+      dateTime: `${classDate} ${startTime}`
+    };
+
+    return { status: 'success', details: classDetails };
+  } catch (error) {
+    Logger.log('getClassDetails 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取課堂詳細資料時發生錯誤: ' + error.toString() };
   }
 }
 
@@ -927,5 +979,236 @@ function getAllBookings(params) {
   } catch (error) {
     Logger.log('getAllBookings 發生錯誤: ' + error.toString());
     return { status: 'error', message: '讀取預約資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 取得指定一週的課表資料
+ * @param {object} params - 包含 startDate (格式 YYYY-MM-DD) 的請求參數
+ * @returns {object} - 包含該週所有課堂資訊的物件
+ */
+function getClassesForManager(params) {
+  try {
+    if (!params.startDate) {
+      throw new Error("缺少 startDate 參數");
+    }
+
+    // 1. 準備時間範圍和資料結構
+    const startDate = new Date(params.startDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 7); // 取得7天的範圍
+
+    const scheduleData = {};
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateString = Utilities.formatDate(date, "GMT+8", "yyyy-MM-dd");
+      scheduleData[dateString] = {};
+    }
+
+    // 2. 讀取並建立 Coach Map
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    const coachMap = new Map(coachObjects.map(c => [c.coach_id, c.coach_name]));
+
+    // 3. 讀取所有課堂資料並填入網格
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+
+    classObjects.forEach(cls => {
+      const classDate = new Date(cls.class_date);
+      // 篩選出在指定日期範圍內的課堂
+      if (classDate >= startDate && classDate < endDate) {
+        const dateString = Utilities.formatDate(classDate, "GMT+8", "yyyy-MM-dd");
+        const startTimeString = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:00");
+
+        if (scheduleData[dateString]) {
+          // 一個時段可能有多堂課，所以用陣列儲存
+          if (!scheduleData[dateString][startTimeString]) {
+            scheduleData[dateString][startTimeString] = [];
+          }
+          scheduleData[dateString][startTimeString].push({
+            classId: cls.class_id,
+            className: cls.class_name,
+            coachName: coachMap.get(cls.coach_id) || '未知教練',
+            currentStudents: cls.current_students,
+            maxStudents: cls.max_students,
+          });
+        }
+      }
+    });
+
+    return { status: 'success', classes: scheduleData };
+  } catch (error) {
+    Logger.log('getClassesForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取課表資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 取得課表表單需要用的資料 (課程型錄、教練列表)
+ * @returns {object} - 包含 courses 和 coaches 陣列的物件
+ */
+function getManagerFormData() {
+  try {
+    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+
+    // 只回傳狀態為 Active 的課程
+    const activeCourses = courseObjects.filter(c => c.status === 'Active').map(c => ({
+      courseId: c.course_id,
+      courseName: c.course_name
+    }));
+
+    const coaches = coachObjects.map(c => ({
+      coachId: c.coach_id,
+      coachName: c.coach_name
+    }));
+
+    return { status: 'success', courses: activeCourses, coaches: coaches };
+  } catch (error) {
+    Logger.log('getManagerFormData 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取表單資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 新增或更新一筆課堂資料
+ * @param {object} data - 包含課堂資訊的物件
+ * @returns {object} - 操作結果
+ */
+function saveClass(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const classValues = CLASS_SHEET.getDataRange().getValues();
+    const headers = classValues[0];
+    const classIdColIndex = headers.indexOf('class_id');
+
+    // 從 data 中解構出需要的欄位
+    const { classId, dateTime, courseId, className, coachId, maxStudents } = data;
+
+    if (!dateTime || !courseId || !className || !coachId || !maxStudents) {
+      throw new Error("缺少必要的課堂資訊");
+    }
+
+    // 解析日期和時間
+    const [datePart, timePart] = dateTime.split(' ');
+    const classDate = new Date(datePart);
+    const startTime = new Date(`${datePart}T${timePart}:00`);
+
+    if (classId) {
+      // --- 更新模式 ---
+      let targetRow = -1;
+      for (let i = 1; i < classValues.length; i++) {
+        if (classValues[i][classIdColIndex] === classId) {
+          targetRow = i + 1;
+          break;
+        }
+      }
+
+      if (targetRow === -1) {
+        return { status: 'error', message: '找不到要更新的課堂' };
+      }
+
+      // 建立一個要更新的欄位和值的對應
+      const updates = {
+        'course_id': courseId,
+        'coach_id': coachId,
+        'class_name': className,
+        'max_students': maxStudents,
+        'update_time': new Date(),
+        'update_user': 'Admin' // 假設是管理者操作
+      };
+
+      // 遍歷 headers 來設定對應欄位的值
+      headers.forEach((header, index) => {
+        if (updates[header]) {
+          CLASS_SHEET.getRange(targetRow, index + 1).setValue(updates[header]);
+        }
+      });
+
+      return { status: 'success', message: '課堂更新成功！' };
+
+    } else {
+      // --- 新增模式 ---
+      const newClassId = "CL" + new Date().getTime();
+      
+      // 注意：appendRow 的順序必須和 Classes 工作表欄位完全一致
+      CLASS_SHEET.appendRow([
+        newClassId,       // class_id
+        courseId,         // course_id
+        coachId,          // coach_id
+        className,        // class_name
+        classDate,        // class_date
+        startTime,        // start_time
+        '',               // end_time (可選)
+        maxStudents,      // max_students
+        0,                // current_students (初始為0)
+        '開放中',         // status
+        0,                // points (可選)
+        new Date(),       // create_time
+        'Admin',          // create_user
+        '',               // update_time
+        ''                // update_user
+      ]);
+
+      return { status: 'success', message: '課堂新增成功！' };
+    }
+  } catch (error) {
+    Logger.log('saveClass 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '儲存課堂時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 刪除一筆課堂資料
+ * @param {object} data - 包含 classId 的物件
+ * @returns {object} - 操作結果
+ */
+function deleteClass(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const { classId } = data;
+    if (!classId) {
+      throw new Error("缺少 classId");
+    }
+
+    // 1. 安全檢查：檢查是否有學員預約此課程
+    const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
+    const hasBookings = bookingObjects.some(booking => 
+        booking.class_id === classId && 
+        (booking.status === '已預約' || booking.status === '已扣款')
+    );
+
+    if (hasBookings) {
+      return { status: 'error', message: '無法刪除：此課堂已有學員預約。請先將相關預約取消。' };
+    }
+
+    // 2. 尋找並刪除課程
+    const classValues = CLASS_SHEET.getDataRange().getValues();
+    const classIdColIndex = classValues[0].indexOf('class_id');
+    let targetRow = -1;
+    for (let i = 1; i < classValues.length; i++) {
+      if (classValues[i][classIdColIndex] === classId) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+
+    if (targetRow !== -1) {
+      CLASS_SHEET.deleteRow(targetRow);
+      return { status: 'success', message: '課堂刪除成功！' };
+    } else {
+      return { status: 'error', message: '找不到要刪除的課堂。' };
+    }
+  } catch (error) {
+    Logger.log('deleteClass 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '刪除課堂時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
   }
 }

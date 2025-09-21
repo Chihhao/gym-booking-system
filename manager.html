@@ -37,7 +37,9 @@
             background-color: var(--sidebar-bg);
             color: var(--sidebar-text);
             padding-top: 1rem;
+            transition: width 0.3s ease;
             flex-shrink: 0;
+            position: relative; /* 關鍵修正：讓子元素的 absolute 定位相對於此 */
         }
 
         .sidebar h2 {
@@ -54,10 +56,12 @@
         }
 
         .sidebar-nav li a {
-            display: block;
+            display: flex;
+            align-items: center;
             padding: 0.75rem 1.5rem;
             color: var(--sidebar-text);
             text-decoration: none;
+            white-space: nowrap;
             transition: background-color 0.2s;
         }
 
@@ -73,6 +77,7 @@
         .main-content {
             flex-grow: 1;
             padding: 2rem;
+            transition: margin-left 0.3s ease;
             overflow-y: auto;
         }
 
@@ -89,6 +94,48 @@
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 0.5rem;
             margin-bottom: 1.5rem;
+        }
+
+        /* --- 側邊欄收合功能樣式 --- */
+        .sidebar-toggle-wrapper {
+            padding: 1rem 1.5rem;
+            text-align: right;
+            border-top: 1px solid var(--sidebar-hover-bg);
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            left: 0; /* 關鍵修正：確保 wrapper 從側邊欄左邊開始 */
+            box-sizing: border-box;
+        }
+
+        .sidebar-toggle-btn {
+            background: var(--sidebar-hover-bg);
+            color: var(--sidebar-text);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 1.2rem;
+            line-height: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.2s;
+        }
+        .sidebar-toggle-btn:hover {
+            background-color: var(--sidebar-active-bg);
+        }
+
+        /* 收合狀態 */
+        body.sidebar-collapsed .sidebar { width: 80px; }
+        body.sidebar-collapsed .sidebar h2,
+        body.sidebar-collapsed .sidebar-nav li a .nav-text { display: none; }
+        body.sidebar-collapsed .sidebar-nav li a { justify-content: center; }
+        body.sidebar-collapsed .sidebar-toggle-wrapper { text-align: center; padding: 1rem 0; }
+        body.sidebar-collapsed .sidebar-toggle-btn { transform: rotate(180deg); }
+        
+        .nav-icon {
+            font-size: 1.2rem;
+            margin-right: 0.75rem;
         }
 
         /* 表格樣式 */
@@ -142,6 +189,68 @@
             gap: 0.5rem; /* 增加按鈕間距 */
         }
 
+        /* --- Phase 2: 課表管理樣式 --- */
+        .schedule-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .schedule-controls h3 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+
+        .schedule-grid-container {
+            overflow-x: auto;
+        }
+
+        .schedule-grid {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            min-width: 800px; /* 確保在小螢幕上也能正常滾動 */
+        }
+
+        .schedule-grid th, .schedule-grid td {
+            border: 1px solid var(--border-color);
+            text-align: center;
+            vertical-align: top;
+            padding: 0.5rem;
+            height: 100px;
+        }
+
+        .schedule-grid .time-label {
+            background-color: var(--bg-color);
+            vertical-align: middle;
+            font-weight: bold;
+        }
+
+        .class-cell {
+            cursor: pointer;
+        }
+        .class-cell:hover {
+            background-color: #e9ecef;
+        }
+
+        .class-item {
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-bottom: 0.25rem;
+            font-size: 0.85em;
+            text-align: left;
+        }
+        .class-item strong {
+            display: block;
+        }
+        .class-item .info {
+            display: flex;
+            justify-content: space-between;
+            opacity: 0.8;
+        }
+
         /* 篩選控制項樣式 */
         .filter-controls {
             display: flex;
@@ -164,6 +273,82 @@
             flex-grow: 1;
             min-width: 200px;
         }
+
+        /* --- Phase 2: Modal 彈窗樣式 --- */
+        .modal-overlay {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--content-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #6c757d;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .form-group input[readonly] {
+            background-color: var(--bg-color);
+        }
+
+        .modal-actions {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -171,12 +356,16 @@
     <nav class="sidebar">
         <h2>Wally Studio</h2>
         <ul class="sidebar-nav">
-            <li><a href="#" class="nav-link active" data-target="bookings">預約管理</a></li>
-            <li><a href="#" class="nav-link" data-target="schedule">課表管理</a></li>
-            <li><a href="#" class="nav-link" data-target="courses">課程型錄</a></li>
-            <li><a href="#" class="nav-link" data-target="users">使用者管理</a></li>
-            <li><a href="#" class="nav-link" data-target="coaches">教練管理</a></li>
+            <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
+            <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🗓️</span><span class="nav-text">課表管理</span></a></li>
+            <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
+            <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">使用者管理</span></a></li>
+            <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
         </ul>
+        <!-- 側邊欄收合按鈕 -->
+        <div class="sidebar-toggle-wrapper">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn" title="收合側邊欄">&laquo;</button>
+        </div>
     </nav>
 
     <main class="main-content">
@@ -199,7 +388,17 @@
 
         <section id="schedule" class="content-section">
             <h1>課表管理</h1>
-            <p>功能開發中...</p>
+            <div class="schedule-controls">
+                <button class="btn btn-secondary" id="prev-week-btn">&lt; 上一週</button>
+                <h3 id="week-range-display">2025-09-21 ~ 2025-09-27</h3>
+                <button class="btn btn-secondary" id="next-week-btn">下一週 &gt;</button>
+            </div>
+            <div class="schedule-grid-container">
+                <div id="manager-schedule-grid">
+                    <p>正在載入課表...</p>
+                    <!-- 課表網格將會渲染在這裡 -->
+                </div>
+            </div>
         </section>
 
         <section id="courses" class="content-section">
@@ -217,6 +416,45 @@
             <p>功能開發中...</p>
         </section>
     </main>
+    
+    <!-- 新增/編輯課堂的 Modal -->
+    <div id="class-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeClassModal()">&times;</button>
+            <h2 id="modal-title">課堂資訊</h2>
+            <form id="class-form">
+                <input type="hidden" id="form-class-id">
+                <div class="form-group">
+                    <label for="form-date-time">上課時間</label>
+                    <input type="text" id="form-date-time" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="form-course-id">課程型錄</label>
+                    <select id="form-course-id" required>
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="form-class-name">課堂名稱</label>
+                    <input type="text" id="form-class-name" placeholder="例如：燃脂飛輪 (週二班)" required>
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-id">教練</label>
+                    <select id="form-coach-id" required>
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="form-max-students">人數上限</label>
+                    <input type="number" id="form-max-students" min="1" value="10" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="delete-class-btn" class="btn btn-danger">刪除課堂</button>
+                    <button type="submit" class="btn btn-success">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
         const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
@@ -226,24 +464,12 @@
         // 全域變數，用於儲存當前顯示的資料和排序狀態
         let currentBookings = [];
         let sortState = { column: 'bookingTime', direction: 'desc' };
+        let currentManagerDate = new Date(); // 用於課表管理的目前日期
+        let managerFormData = null; // 儲存課程和教練列表
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 1. 處理側邊欄導覽點擊事件
-            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    
-                    // 移除所有 active class
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-
-                    // 為點擊的目標加上 active class
-                    const targetId = link.getAttribute('data-target');
-                    link.classList.add('active');
-                    document.getElementById(targetId).classList.add('active');
-                });
-            });
+            // 1. 監聽 URL hash 變化來處理導覽
+            window.addEventListener('hashchange', handleNavigation);
 
             // 2. 綁定篩選按鈕事件
             document.getElementById('filter-btn').addEventListener('click', applyFilters);
@@ -254,9 +480,63 @@
                 }
             });
 
-            // 3. 頁面載入時，自動載入預約資料
-            loadBookings();
+            // 3. 綁定課表管理按鈕事件
+            document.getElementById('prev-week-btn').addEventListener('click', () => changeWeek(-7));
+            document.getElementById('next-week-btn').addEventListener('click', () => changeWeek(7));
+
+            // 4. 頁面載入時，根據 URL hash 決定顯示內容
+            handleNavigation();
+
+            // 5. 綁定 Modal 內的刪除按鈕事件
+            document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
         });
+
+        // --- 側邊欄收合功能 ---
+        document.getElementById('sidebar-toggle').addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-collapsed');
+            // 將狀態存入 localStorage
+            if (document.body.classList.contains('sidebar-collapsed')) {
+                localStorage.setItem('sidebarCollapsed', 'true');
+            } else {
+                localStorage.setItem('sidebarCollapsed', 'false');
+            }
+        });
+        // 頁面載入時檢查 localStorage
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.body.classList.add('sidebar-collapsed');
+        }
+
+        function handleNavigation() {
+            // 如果 URL 沒有 hash，預設導向 #bookings
+            if (!window.location.hash) {
+                window.location.hash = 'bookings';
+                return; // 設置 hash 後會觸發 hashchange 事件，由該事件處理後續
+            }
+
+            const targetId = window.location.hash.substring(1);
+            
+            // 移除所有 active class
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+            // 為目標加上 active class
+            const activeLink = document.querySelector(`.nav-link[data-target="${targetId}"]`);
+            const activeSection = document.getElementById(targetId);
+
+            if (activeLink) activeLink.classList.add('active');
+            if (activeSection) activeSection.classList.add('active');
+
+            // 根據不同頁面載入對應的初始資料
+            if (targetId === 'bookings' && currentBookings.length === 0) {
+                loadBookings();
+            } else if (targetId === 'schedule') {
+                loadManagerSchedule();
+            }
+        } // handleNavigation 函式定義結束
+
+        // --- 預約管理 (Bookings) 相關函式 ---
+        // 註：以下是與「預約管理」頁面相關的所有函式
+        // =================================================
 
         function applyFilters() {
             const status = document.getElementById('status-filter').value;
@@ -328,6 +608,92 @@
                 sortState.direction = 'desc'; // 預設降序，特別是對於日期
             }
             sortAndRender();
+        }
+
+        // --- Phase 2: 課表管理函式 ---
+
+        function changeWeek(days) {
+            currentManagerDate.setDate(currentManagerDate.getDate() + days);
+            loadManagerSchedule();
+        }
+
+        async function loadManagerSchedule() {
+            const container = document.getElementById('manager-schedule-grid');
+            container.innerHTML = '<p>正在載入課表...</p>';
+
+            // 更新日期範圍顯示
+            const startOfWeek = new Date(currentManagerDate);
+            const dayOfWeek = startOfWeek.getDay(); // 0=Sun, 1=Mon, ...
+            startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek); // 將一週開始設為星期日
+            
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            document.getElementById('week-range-display').textContent = `${formatDate(startOfWeek)} ~ ${formatDate(endOfWeek)}`;
+
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getClassesForManager');
+                url.searchParams.append('startDate', formatDate(startOfWeek));
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message || '後端回傳錯誤');
+
+                renderManagerScheduleGrid(result.classes, startOfWeek);
+
+            } catch (error) {
+                console.error('載入課表資料失敗:', error);
+                container.innerHTML = `<p style="color: red;">載入課表失敗: ${error.message}</p>`;
+            }
+        }
+
+        function renderManagerScheduleGrid(classData, startOfWeek) {
+            const container = document.getElementById('manager-schedule-grid');
+            const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
+            const formatDate = (date) => date.toISOString().split('T')[0];
+
+            let headerHtml = '<tr><th>時間</th>';
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startOfWeek);
+                currentDate.setDate(startOfWeek.getDate() + i);
+                headerHtml += `<th>週${days[i]}<br>${currentDate.getMonth()+1}/${currentDate.getDate()}</th>`;
+            }
+            headerHtml += '</tr>';
+
+            let bodyHtml = '';
+            hours.forEach(hour => {
+                bodyHtml += `<tr><td class="time-label">${hour}</td>`;
+                for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                    const currentDate = new Date(startOfWeek);
+                    currentDate.setDate(startOfWeek.getDate() + dayIndex);
+                    const dateString = formatDate(currentDate);
+                    const hourString = hour.substring(0, 2) + ':00'; // 確保是 HH:00 格式
+
+                    let cellContent = '';
+                    const classesInSlot = classData[dateString] ? classData[dateString][hourString] : null;
+
+                    if (classesInSlot && classesInSlot.length > 0) {
+                        classesInSlot.forEach(cls => {
+                            cellContent += `
+                                <div class="class-item" onclick="openClassModal(null, null, '${cls.classId}', event)">
+                                    <strong>${cls.className}</strong>
+                                    <div class="info">
+                                        <span>${cls.coachName}</span>
+                                        <span>(${cls.currentStudents}/${cls.maxStudents})</span>
+                                    </div>
+                                </div>`;
+                        });
+                    }
+                    bodyHtml += `<td class="class-cell" onclick="openClassModal('${dateString}', '${hourString}')">${cellContent}</td>`;
+                }
+                bodyHtml += '</tr>';
+            });
+            container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
         }
 
         function renderBookingTable(bookings) {
@@ -420,6 +786,195 @@
                 alert('操作失敗，請檢查網路或聯繫開發者。');
                 row.querySelectorAll('button').forEach(btn => btn.disabled = false);
             }
+        }
+
+        // 彈窗 Modal 的佔位函式
+        async function openClassModal(date, time, classId = null, event = null) {
+            if (event) {
+                event.stopPropagation(); // 防止觸發儲存格的點擊事件
+            }
+
+            const modal = document.getElementById('class-modal');
+            const form = document.getElementById('class-form');
+            form.reset(); // 重設表單
+
+            // 載入課程和教練列表
+            await loadManagerFormData();
+
+            if (classId) {
+                // --- 編輯模式 ---
+                document.getElementById('modal-title').textContent = '編輯課堂';
+                document.getElementById('delete-class-btn').style.display = 'inline-block';
+                document.getElementById('form-class-id').value = classId;
+
+                populateFormDropdowns(); // 填充下拉選單
+                
+                // 呼叫 API 取得課堂詳細資料並填入表單
+                try {
+                    const url = new URL(GAS_URL);
+                    url.searchParams.append('action', 'getClassDetails');
+                    url.searchParams.append('classId', classId);
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    if (result.status !== 'success') throw new Error(result.message);
+
+                    const details = result.details;
+                    document.getElementById('form-date-time').value = details.dateTime;
+                    document.getElementById('form-course-id').value = details.courseId;
+                    document.getElementById('form-class-name').value = details.className;
+                    document.getElementById('form-coach-id').value = details.coachId;
+                    document.getElementById('form-max-students').value = details.maxStudents;
+
+                } catch (error) {
+                    alert(`載入課堂資料失敗: ${error.message}`);
+                    closeClassModal();
+                }
+            } else {
+                // --- 新增模式 ---
+                document.getElementById('modal-title').textContent = '新增課堂';
+                document.getElementById('delete-class-btn').style.display = 'none';
+                document.getElementById('form-class-id').value = '';
+                document.getElementById('form-date-time').value = `${date} ${time}`;
+
+                populateFormDropdowns(); // 填充下拉選單
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeClassModal() {
+            document.getElementById('class-modal').classList.remove('active');
+        }
+
+        // 點擊 Modal 外部區域也可關閉
+        document.getElementById('class-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeClassModal();
+            }
+        });
+
+        document.getElementById('class-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '儲存中...';
+
+            const data = {
+                classId: document.getElementById('form-class-id').value,
+                dateTime: document.getElementById('form-date-time').value,
+                courseId: document.getElementById('form-course-id').value,
+                className: document.getElementById('form-class-name').value,
+                coachId: document.getElementById('form-coach-id').value,
+                maxStudents: document.getElementById('form-max-students').value,
+            };
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'saveClass',
+                        data: data
+                    })
+                });
+
+                const result = await response.json();
+                alert(result.message);
+
+                if (result.status === 'success') {
+                    closeClassModal();
+                    loadManagerSchedule(); // 重新載入課表
+                }
+
+            } catch (error) {
+                console.error('儲存課堂時發生錯誤:', error);
+                alert('操作失敗，請檢查網路或聯繫開發者。');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            }
+        });
+
+        async function handleDeleteClass() {
+            const classId = document.getElementById('form-class-id').value;
+            if (!classId) {
+                alert('錯誤：找不到課堂 ID。');
+                return;
+            }
+
+            if (!confirm(`您確定要刪除這個課堂嗎？\n此操作無法復原。`)) {
+                return;
+            }
+
+            const deleteBtn = document.getElementById('delete-class-btn');
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '刪除中...';
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'deleteClass',
+                        data: { classId }
+                    })
+                });
+                const result = await response.json();
+                alert(result.message);
+
+                if (result.status === 'success') {
+                    closeClassModal();
+                    loadManagerSchedule(); // 重新載入課表
+                }
+            } catch (error) {
+                console.error('刪除課堂時發生錯誤:', error);
+                alert('操作失敗，請檢查網路或聯繫開發者。');
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = '刪除課堂';
+            }
+        }
+
+        async function loadManagerFormData() {
+            if (managerFormData) {
+                return; // 如果資料已存在，直接返回，避免重複呼叫 API
+            }
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getManagerFormData');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('無法載入表單資料');
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+                managerFormData = result; // 將結果儲存在全域變數中
+            } catch (error) {
+                console.error('載入管理表單資料失敗:', error);
+                alert(`載入表單選項失敗: ${error.message}`);
+                // 在下拉選單中顯示錯誤
+                document.getElementById('form-course-id').innerHTML = `<option value="">載入失敗</option>`;
+                document.getElementById('form-coach-id').innerHTML = `<option value="">載入失敗</option>`;
+            }
+        }
+
+        function populateFormDropdowns() {
+            if (!managerFormData) return;
+
+            const courseSelect = document.getElementById('form-course-id');
+            const coachSelect = document.getElementById('form-coach-id');
+
+            courseSelect.innerHTML = '<option value="">-- 請選擇課程 --</option>';
+            managerFormData.courses.forEach(course => {
+                const option = new Option(`${course.courseName} (${course.courseId})`, course.courseId);
+                courseSelect.add(option);
+            });
+
+            coachSelect.innerHTML = '<option value="">-- 請選擇教練 --</option>';
+            managerFormData.coaches.forEach(coach => {
+                const option = new Option(coach.coachName, coach.coachId);
+                coachSelect.add(option);
+            });
         }
     </script>
 
