@@ -187,7 +187,7 @@
             // 傳遞 course_id 用於查詢，course_name 用於顯示標題
             const encodedName = encodeURIComponent(courseName);
             // 使用 id 和 name 作為參數，語意更清晰
-            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
+            window.location.href = `?page=schedule&id=${courseId}&name=${encodedName}`;
         }
         
     </script>
