@@ -173,6 +173,7 @@ function getBookingDetails(params) {
     status: 'success',
     bookingId: targetBooking.booking_id,
     courseName: targetCourse.course_name,
+    courseId: targetCourse.course_id,
     classId: targetClass.class_id,
     classTime: `${classDate} ${startTime}`,
     userName: targetUser.line_display_name,
