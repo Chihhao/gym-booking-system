@@ -96,8 +96,7 @@
         <p>健身房預約系統</p>
 
         <div class="button-group">
-            <!-- 修正：將連結指向後端路由，而不是靜態檔案 -->
-            <a href="?page=courses" class="btn btn-primary">課程預約</a>
+            <a href="courses.html" class="btn btn-primary">課程預約</a>
         </div>
 
         <div class="admin-login-section">
@@ -119,8 +118,7 @@
             const passwordInput = document.getElementById('password');
             if (passwordInput.value === ADMIN_PASSWORD) {
                 // 密碼正確，跳轉到管理後台
-                // 修正：同樣使用後端路由來導向
-                window.location.href = '?page=manager';
+                window.location.href = 'manager.html';
             } else {
                 alert('密碼錯誤！');
                 passwordInput.value = '';
