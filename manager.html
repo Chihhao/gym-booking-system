@@ -97,11 +97,20 @@
             display: block;
         }
 
-        h1 {
+        /* 修正：移除 h1 的獨立樣式，改由 page-header 控制 */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 0;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.5rem;
+            padding-bottom: 1rem; /* 增加標題與底線的間距 */
             margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            margin: 0; /* 移除 h1 的所有邊距 */
+            font-size: 1.8rem;
         }
 
         /* --- 側邊欄收合功能樣式 --- */
@@ -150,7 +159,6 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1.5rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
@@ -322,7 +330,6 @@
             display: flex;
             gap: 1rem;
             align-items: center;
-            margin-bottom: 1.5rem;
             flex-wrap: wrap;
         }
         .filter-controls input,
@@ -469,28 +476,31 @@
 
     <main class="main-content">
         <section id="bookings" class="content-section active">
-            <h1>📋 預約管理</h1>
-            <div class="filter-controls">
-                <select id="status-filter">
-                    <option value="">所有狀態</option>
-                    <option value="已預約">已預約</option>
-                    <option value="已扣款">已扣款</option>
-                    <option value="已取消">已取消</option>
-                </select>
-                <input type="date" id="date-filter" title="篩選上課日期">
-                <input type="text" id="search-input" class="search-input" placeholder="搜尋學員或預約編號...">
-                <button class="btn btn-success" id="filter-btn">篩選</button>
-                <button class="btn btn-secondary" id="clear-filter-btn">清除</button>
+            <div class="page-header">
+                <h1>📋 預約管理</h1>
+                <div class="filter-controls">
+                    <select id="status-filter">
+                        <option value="">所有狀態</option>
+                        <option value="已預約">已預約</option>
+                        <option value="已扣款">已扣款</option>
+                        <option value="已取消">已取消</option>
+                    </select>
+                    <input type="date" id="date-filter" title="篩選上課日期">
+                    <input type="text" id="search-input" class="search-input" placeholder="搜尋學員或預約編號...">
+                    <button class="btn btn-success" id="filter-btn">篩選</button>
+                    <button class="btn btn-secondary" id="clear-filter-btn">清除</button>
+                </div>
             </div>
             <div id="booking-table-container"></div>
         </section>
 
         <section id="schedule" class="content-section">
-            <h1>🗓️ 課表管理</h1>
-            <div class="schedule-controls">
-                <button class="btn btn-secondary" id="prev-week-btn">&lt; 上一週</button>
-                <h3 id="week-range-display">2025-09-21 ~ 2025-09-27</h3>
-                <button class="btn btn-secondary" id="next-week-btn">下一週 &gt;</button>
+            <div class="page-header">
+                <h1>🗓️ 課表管理</h1>
+                <div class="filter-controls">
+                    <button class="btn btn-secondary" id="prev-week-btn">&lt; 上一週</button>
+                    <button class="btn btn-secondary" id="next-week-btn">下一週 &gt;</button>
+                </div>
             </div>
             <div class="schedule-grid-container">
                 <div id="manager-schedule-grid">
@@ -501,26 +511,32 @@
         </section>
 
         <section id="courses" class="content-section">
-            <h1>📚 課程型錄</h1>
-            <div class="filter-controls">
-                <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
+            <div class="page-header">
+                <h1>📚 課程型錄</h1>
+                <div class="filter-controls">
+                    <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
+                </div>
             </div>
             <div id="courses-table-container"></div>
         </section>
 
         <section id="users" class="content-section">
-            <h1>👥 客戶管理</h1>
-            <div class="filter-controls">
-                <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
-                <button class="btn btn-success" id="user-search-btn">搜尋</button>
+            <div class="page-header">
+                <h1>👥 客戶管理</h1>
+                <div class="filter-controls">
+                    <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
+                    <button class="btn btn-success" id="user-search-btn">搜尋</button>
+                </div>
             </div>
             <div id="users-table-container"></div>
         </section>
 
         <section id="coaches" class="content-section">
-            <h1>🏋️ 教練管理</h1>
-            <div class="filter-controls">
-                <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
+            <div class="page-header">
+                <h1>🏋️ 教練管理</h1>
+                <div class="filter-controls">
+                    <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
+                </div>
             </div>
             <div id="coaches-table-container"></div>
         </section>
@@ -1068,16 +1084,11 @@
             const container = document.getElementById('manager-schedule-grid');
             container.innerHTML = '<p>正在載入課表...</p>';
 
-            // 更新日期範圍顯示
             const startOfWeek = new Date(currentManagerDate);
             const dayOfWeek = startOfWeek.getDay(); // 0=Sun, 1=Mon, ...
             startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek); // 將一週開始設為星期日
-            
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6);
 
             const formatDate = (date) => date.toISOString().split('T')[0];
-            document.getElementById('week-range-display').textContent = `${formatDate(startOfWeek)} ~ ${formatDate(endOfWeek)}`;
 
             try {
                 const url = new URL(GAS_URL);
