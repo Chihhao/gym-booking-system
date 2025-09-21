@@ -700,6 +700,10 @@
         let managerFormData = null; // 儲存課程和教練列表
 
         document.addEventListener('DOMContentLoaded', () => {
+            // 頁面載入時，預設顯示第一個分頁的內容
+            // 由於登入邏輯已移至 index.html，這裡直接處理導覽即可
+            handleNavigation();
+
             // 1. 監聽 URL hash 變化來處理導覽
             window.addEventListener('hashchange', handleNavigation);
 
@@ -715,9 +719,6 @@
             // 3. 綁定課表管理按鈕事件
             document.getElementById('prev-week-btn').addEventListener('click', () => changeWeek(-7));
             document.getElementById('next-week-btn').addEventListener('click', () => changeWeek(7));
-
-            // 4. 頁面載入時，根據 URL hash 決定顯示內容
-            handleNavigation();
 
             // 5. 綁定 Modal 內的刪除按鈕事件
             document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
