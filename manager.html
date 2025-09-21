@@ -442,7 +442,7 @@
             <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
             <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🗓️</span><span class="nav-text">課表管理</span></a></li>
             <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
-            <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">使用者管理</span></a></li>
+            <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">客戶管理</span></a></li>
             <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
         </ul>
         <!-- 側邊欄收合按鈕 -->
@@ -453,7 +453,7 @@
 
     <main class="main-content">
         <section id="bookings" class="content-section active">
-            <h1>預約管理</h1>
+            <h1>📋 預約管理</h1>
             <div class="filter-controls">
                 <select id="status-filter">
                     <option value="">所有狀態</option>
@@ -470,7 +470,7 @@
         </section>
 
         <section id="schedule" class="content-section">
-            <h1>課表管理</h1>
+            <h1>🗓️ 課表管理</h1>
             <div class="schedule-controls">
                 <button class="btn btn-secondary" id="prev-week-btn">&lt; 上一週</button>
                 <h3 id="week-range-display">2025-09-21 ~ 2025-09-27</h3>
@@ -485,7 +485,7 @@
         </section>
 
         <section id="courses" class="content-section">
-            <h1>課程型錄管理</h1>
+            <h1>📚 課程型錄</h1>
             <div class="filter-controls">
                 <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
             </div>
@@ -493,13 +493,20 @@
         </section>
 
         <section id="users" class="content-section">
-            <h1>使用者管理</h1>
-            <p>功能開發中...</p>
+            <h1>👥 客戶管理</h1>
+            <div class="filter-controls">
+                <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
+                <button class="btn btn-success" id="user-search-btn">搜尋</button>
+            </div>
+            <div id="users-table-container"></div>
         </section>
 
         <section id="coaches" class="content-section">
-            <h1>教練管理</h1>
-            <p>功能開發中...</p>
+            <h1>🏋️ 教練管理</h1>
+            <div class="filter-controls">
+                <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
+            </div>
+            <div id="coaches-table-container"></div>
         </section>
     </main>
     
@@ -584,6 +591,59 @@
         </div>
     </div>
 
+    <!-- 新增/編輯教練的 Modal -->
+    <div id="coach-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeCoachModal()">&times;</button>
+            <h2 id="coach-modal-title">教練資訊</h2>
+            <form id="coach-form">
+                <input type="hidden" id="form-coach-id-hidden">
+                <div class="form-group">
+                    <label for="form-coach-name">姓名</label>
+                    <input type="text" id="form-coach-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-specialty">專長</label>
+                    <input type="text" id="form-coach-specialty" placeholder="例如：瑜珈、重量訓練">
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-line-id">LINE ID</label> 
+                    <input type="text" id="form-coach-line-id">
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-phone">電話</label>
+                    <input type="text" id="form-coach-phone">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="delete-coach-btn" class="btn btn-danger">刪除教練</button>
+                    <button type="submit" class="btn btn-success">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 新增/編輯使用者的 Modal -->
+    <div id="user-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeUserModal()">&times;</button>
+            <h2 id="user-modal-title">編輯使用者</h2>
+            <form id="user-form">
+                <input type="hidden" id="form-user-id-hidden">
+                <div class="form-group">
+                    <label for="form-user-name">LINE 暱稱</label>
+                    <input type="text" id="form-user-name" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="form-user-points">點數</label>
+                    <input type="number" id="form-user-points" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success">儲存點數</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
         const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
@@ -594,6 +654,10 @@
         let sortState = { column: 'bookingTime', direction: 'desc' };
         let currentCourses = [];
         let courseSortState = { column: 'course_id', direction: 'asc' };
+        let currentCoaches = [];
+        let coachSortState = { column: 'coach_id', direction: 'asc' };
+        let currentUsers = [];
+        let userSortState = { column: 'registration_date', direction: 'desc' };
         let currentManagerDate = new Date(); // 用於課表管理的目前日期
         let managerFormData = null; // 儲存課程和教練列表
 
@@ -678,6 +742,132 @@
                     submitBtn.textContent = originalBtnText;
                 }
             });
+
+            // 8. 綁定教練 Modal 的關閉與提交事件
+            document.getElementById('coach-modal').addEventListener('click', function(event) {
+                if (event.target === this) closeCoachModal();
+            });
+            document.getElementById('coach-form').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = '儲存中...';
+
+                const data = {
+                    coachId: document.getElementById('form-coach-id-hidden').value,
+                    coachName: document.getElementById('form-coach-name').value,
+                    specialty: document.getElementById('form-coach-specialty').value,
+                    lineId: document.getElementById('form-coach-line-id').value,
+                    phone: document.getElementById('form-coach-phone').value
+                };
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'saveCoach', data: data })
+                    });
+
+                    const result = await response.json();
+                    alert(result.message);
+
+                    if (result.status === 'success') {
+                        closeCoachModal();
+                        loadCoaches(); // 重新載入教練列表
+                    }
+                } catch (error) {
+                    console.error('儲存教練時發生錯誤:', error);
+                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            });
+            document.getElementById('delete-coach-btn').addEventListener('click', async () => {
+                const coachId = document.getElementById('form-coach-id-hidden').value;
+                if (!coachId) {
+                    alert('錯誤：找不到教練 ID。');
+                    return;
+                }
+
+                if (!confirm(`您確定要刪除這位教練嗎？\n此操作無法復原。`)) {
+                    return;
+                }
+
+                const deleteBtn = document.getElementById('delete-coach-btn');
+                const originalBtnText = deleteBtn.textContent;
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '刪除中...';
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'deleteCoach', data: { coachId } })
+                    });
+                    const result = await response.json();
+                    alert(result.message);
+
+                    if (result.status === 'success') {
+                        closeCoachModal();
+                        loadCoaches(); // 重新載入教練列表
+                    }
+                } catch (error) {
+                    console.error('刪除教練時發生錯誤:', error);
+                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                } finally {
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = originalBtnText;
+                }
+            });
+
+            // 9. 綁定使用者管理搜尋事件
+            document.getElementById('user-search-btn').addEventListener('click', searchUsers);
+            document.getElementById('user-search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchUsers();
+                }
+            });
+
+            // 10. 綁定使用者 Modal 的關閉與提交事件
+            document.getElementById('user-modal').addEventListener('click', function(event) {
+                if (event.target === this) closeUserModal();
+            });
+            document.getElementById('user-form').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = '儲存中...';
+
+                const data = {
+                    userId: document.getElementById('form-user-id-hidden').value,
+                    points: document.getElementById('form-user-points').value,
+                };
+
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'updateUserPoints', data: data })
+                    });
+                    const result = await response.json();
+                    alert(result.message);
+                    if (result.status === 'success') {
+                        closeUserModal();
+                        loadUsers(); // 重新載入使用者列表
+                    }
+                } catch (error) {
+                    console.error('更新使用者點數時發生錯誤:', error);
+                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            });
         });
 
         // --- 側邊欄收合功能 ---
@@ -722,6 +912,10 @@
                 loadManagerSchedule();
             } else if (targetId === 'courses') {
                 loadCourses();
+            } else if (targetId === 'coaches') {
+                loadCoaches();
+            } else if (targetId === 'users') {
+                loadUsers();
             }
         } // handleNavigation 函式定義結束
 
@@ -775,17 +969,17 @@
             const { column, direction } = sortState;
 
             currentBookings.sort((a, b) => {
-                const valA = a[column];
-                const valB = b[column];
+                let valA = a[column] || '';
+                let valB = b[column] || '';
 
-                let comparison = 0;
-                if (valA > valB) {
-                    comparison = 1;
-                } else if (valA < valB) {
-                    comparison = -1;
+                // 如果是日期時間相關的欄位，轉換為 Date 物件進行比較，確保排序準確
+                if (column === 'bookingTime' || column === 'classTime') {
+                    valA = new Date(valA);
+                    valB = new Date(valB);
                 }
 
-                return direction === 'asc' ? comparison : -comparison;
+                const comparison = valA > valB ? 1 : (valA < valB ? -1 : 0);
+                return direction === 'asc' ? comparison : -comparison; // asc: 升序, desc: 降序
             });
 
             renderBookingTable(currentBookings);
@@ -951,7 +1145,7 @@
                         <td>${booking.coachName}</td>
                         <td>${booking.classTime}</td>
                         <td>${booking.userName}</td>
-                        <td class="col-tight">${booking.bookingTime}</td>
+                        <td>${booking.bookingTime}</td>
                         <td class="col-tight">${statusBadge}</td>
                         <td class="col-tight">${actionButtons}</td>
                     </tr>
@@ -1362,6 +1556,264 @@
                 deleteBtn.textContent = originalBtnText;
             }
         });
+
+        // --- Phase 3: 教練管理函式 ---
+
+        function handleCoachSort(column) {
+            if (coachSortState.column === column) {
+                coachSortState.direction = coachSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                coachSortState.column = column;
+                coachSortState.direction = 'asc';
+            }
+            sortAndRenderCoaches();
+        }
+
+        function sortAndRenderCoaches() {
+            const { column, direction } = coachSortState;
+
+            currentCoaches.sort((a, b) => {
+                // 所有欄位都使用字串排序
+                const valA = String(a[column] || '').toLowerCase();
+                const valB = String(b[column] || '').toLowerCase();
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            renderCoachesTable(currentCoaches);
+        }
+
+        async function loadCoaches() {
+            const container = document.getElementById('coaches-table-container');
+            container.innerHTML = '<p>正在載入教練資料...</p>';
+
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getAllCoachesForManager');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                currentCoaches = result.coaches;
+                sortAndRenderCoaches(); // 使用新的排序渲染函式
+
+            } catch (error) {
+                console.error('載入教練資料失敗:', error);
+                container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
+            }
+        }
+
+        function renderCoachesTable(coaches) {
+            const container = document.getElementById('coaches-table-container');
+            if (!coaches || coaches.length === 0) {
+                container.innerHTML = '<p>目前沒有任何教練資料。</p>';
+                return;
+            }
+
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="handleCoachSort('coach_id')">教練ID</th>
+                            <th class="sortable" onclick="handleCoachSort('coach_name')">姓名</th>
+                            <th class="sortable" onclick="handleCoachSort('specialty')">專長</th>
+                            <th>LINE ID</th>
+                            <th>電話</th>
+                            <th class="col-tight">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            coaches.forEach(coach => {
+                tableHtml += `
+                    <tr>
+                        <td>${coach.coach_id}</td>
+                        <td>${coach.coach_name}</td>
+                        <td>${coach.specialty || ''}</td>
+                        <td>${coach.line_id || ''}</td>
+                        <td>${coach.phone_number || ''}</td>
+                        <td class="col-tight"><button class="btn btn-secondary" onclick="openCoachModal('${coach.coach_id}')">編輯</button></td>
+                    </tr>`;
+            });
+
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+
+        async function openCoachModal(coachId) {
+            const modal = document.getElementById('coach-modal');
+            const form = document.getElementById('coach-form');
+            form.reset();
+
+            if (coachId) {
+                // --- 編輯模式 ---
+                document.getElementById('coach-modal-title').textContent = `編輯教練資料 (ID: ${coachId})`;
+                document.getElementById('delete-coach-btn').style.display = 'inline-block';
+                document.getElementById('form-coach-id-hidden').value = coachId;
+                
+                try {
+                    const url = new URL(GAS_URL);
+                    url.searchParams.append('action', 'getCoachDetailsForManager');
+                    url.searchParams.append('coachId', coachId);
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    if (result.status !== 'success') throw new Error(result.message);
+
+                    const d = result.details;
+                    document.getElementById('form-coach-name').value = d.coach_name || '';
+                    document.getElementById('form-coach-specialty').value = d.specialty || '';
+                    document.getElementById('form-coach-line-id').value = d.line_id || '';
+                    document.getElementById('form-coach-phone').value = d.phone_number || '';
+                } catch (error) {
+                    alert(`載入教練資料失敗: ${error.message}`);
+                    closeCoachModal();
+                    return;
+                }
+            } else {
+                // --- 新增模式 ---
+                document.getElementById('coach-modal-title').textContent = '新增教練';
+                document.getElementById('delete-coach-btn').style.display = 'none';
+                document.getElementById('form-coach-id-hidden').value = '';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeCoachModal() {
+            document.getElementById('coach-modal').classList.remove('active');
+        }
+
+        // --- Phase 3: 使用者管理函式 ---
+
+        function searchUsers() {
+            const query = document.getElementById('user-search-input').value.trim();
+            loadUsers({ query });
+        }
+
+        async function loadUsers(filters = {}) {
+            const container = document.getElementById('users-table-container');
+            container.innerHTML = '<p>正在載入使用者資料...</p>';
+
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getAllUsersForManager');
+                if (filters.query) {
+                    url.searchParams.append('query', filters.query);
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                currentUsers = result.users;
+                sortAndRenderUsers();
+
+            } catch (error) {
+                console.error('載入使用者資料失敗:', error);
+                container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
+            }
+        }
+
+        function handleUserSort(column) {
+            if (userSortState.column === column) {
+                userSortState.direction = userSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                userSortState.column = column;
+                userSortState.direction = 'desc'; // 預設降序
+            }
+            sortAndRenderUsers();
+        }
+
+        function sortAndRenderUsers() {
+            const { column, direction } = userSortState;
+            currentUsers.sort((a, b) => {
+                let valA = a[column] || '';
+                let valB = b[column] || '';
+
+                // 如果是註冊日期，則轉換為 Date 物件進行比較
+                if (column === 'registration_date') {
+                    valA = new Date(valA);
+                    valB = new Date(valB);
+                }
+
+                const comparison = valA > valB ? 1 : (valA < valB ? -1 : 0);
+                return direction === 'asc' ? comparison : -comparison;
+            });
+            renderUsersTable(currentUsers);
+        }
+
+        function renderUsersTable(users) {
+            const container = document.getElementById('users-table-container');
+            if (!users || users.length === 0) {
+                container.innerHTML = '<p>找不到符合條件的使用者。</p>';
+                return;
+            }
+
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="handleUserSort('line_display_name')">LINE 暱稱</th>
+                            <th>使用者 ID</th>
+                            <th class="sortable" onclick="handleUserSort('registration_date')">註冊日期</th>
+                            <th class="sortable col-tight" onclick="handleUserSort('points')">點數</th>
+                            <th class="col-tight">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            users.forEach(user => {
+                const regDate = user.registration_date ? new Date(user.registration_date).toLocaleString('sv-SE') : 'N/A';
+                tableHtml += `
+                    <tr>
+                        <td>${user.line_display_name}</td>
+                        <td>${user.line_user_id}</td>
+                        <td>${regDate}</td>
+                        <td class="col-tight">${user.points}</td>
+                        <td class="col-tight"><button class="btn btn-secondary" onclick="openUserModal('${user.line_user_id}')">編輯</button></td>
+                    </tr>`;
+            });
+
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+    </script>
+
+    <script>
+        // 將使用者 Modal 相關函式放在這裡，保持程式碼組織性
+        async function openUserModal(userId) {
+            const modal = document.getElementById('user-modal');
+            const form = document.getElementById('user-form');
+            form.reset();
+
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getUserDetailsForManager');
+                url.searchParams.append('userId', userId);
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                const d = result.details;
+                document.getElementById('form-user-id-hidden').value = d.line_user_id;
+                document.getElementById('form-user-name').value = d.line_display_name;
+                document.getElementById('form-user-points').value = d.points;
+
+                modal.classList.add('active');
+            } catch (error) {
+                alert(`載入使用者資料失敗: ${error.message}`);
+            }
+        }
+
+        function closeUserModal() {
+            document.getElementById('user-modal').classList.remove('active');
+        }
     </script>
 
 </body>

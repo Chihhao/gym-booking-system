@@ -63,6 +63,14 @@ function doGet(e) {
         return createJsonResponse(getAllCoursesForManager());
       case 'getCourseDetailsForManager': // 新增：管理後台獲取單一課程型錄詳情的 API
         return createJsonResponse(getCourseDetailsForManager(e.parameter));
+      case 'getAllCoachesForManager': // 新增：管理後台獲取所有教練的 API
+        return createJsonResponse(getAllCoachesForManager());
+      case 'getCoachDetailsForManager': // 新增：管理後台獲取單一教練詳情的 API
+        return createJsonResponse(getCoachDetailsForManager(e.parameter));
+      case 'getAllUsersForManager': // 新增：管理後台獲取所有使用者的 API
+        return createJsonResponse(getAllUsersForManager(e.parameter));
+      case 'getUserDetailsForManager': // 新增：管理後台獲取單一使用者詳情的 API
+        return createJsonResponse(getUserDetailsForManager(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -409,6 +417,12 @@ function handleWebAppActions(request) {
         return saveCourse(request.data);
       case 'deleteCourse': // 新增：管理後台刪除課程型錄
         return deleteCourse(request.data);
+      case 'saveCoach': // 新增：管理後台儲存教練 (新增/更新)
+        return saveCoach(request.data);
+      case 'updateUserPoints': // 新增：管理後台更新使用者點數
+        return updateUserPoints(request.data);
+      case 'deleteCoach': // 新增：管理後台刪除教練
+        return deleteCoach(request.data);
       case 'deleteClass': // 新增：管理後台刪除課堂
         return deleteClass(request.data);
       default:
@@ -472,13 +486,36 @@ function createBooking(data) {
       USER_SHEET.appendRow([userId, displayName, new Date(), 0, '', '']); // points, line_id, phone_number
     }
 
-    const bookingId = "BK" + new Date().getTime();
+    // --- 新的預約編號生成邏輯 ---
+    const now = new Date();
+    const year = now.getFullYear(); // YYYY
+    const month = (now.getMonth() + 1).toString().padStart(2, '0'); // MM
+    const idPrefix = `BK${year}${month}`;
+
+    // 找出該月份已存在的最大流水號
+    const bookingIdColIndex = bookingObjects[0] ? Object.keys(bookingObjects[0]).indexOf('booking_id') : -1;
+    const bookingIdsForMonth = bookingObjects
+      .map(b => b.booking_id)
+      .filter(id => id && typeof id === 'string' && id.startsWith(idPrefix));
+
+    let maxNum = 0;
+    bookingIdsForMonth.forEach(id => {
+      const numPart = parseInt(id.substring(idPrefix.length), 10);
+      if (!isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    });
+
+    const newNum = maxNum + 1;
+    // 格式化為五位數流水號，例如 "00001"
+    const bookingId = idPrefix + String(newNum).padStart(5, '0');
+
     // 注意：這裡的 appendRow 順序必須和 Bookings 工作表欄位完全一致
     BOOKING_SHEET.appendRow([
       bookingId, 
       classId, 
       userId, 
-      new Date(), 
+      now, 
       '已預約', // 狀態直接設為 "已預約"
       new Date(), // create_time
       displayName, // create_user
@@ -490,6 +527,260 @@ function createBooking(data) {
 
   } catch (error) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 取得所有使用者資料
+ * @param {object} params - 包含篩選條件的請求參數 (例如 query)
+ * @returns {object} - 包含所有使用者的物件
+ */
+function getAllUsersForManager(params) {
+  try {
+    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    
+    let filteredUsers = userObjects;
+
+    // 關鍵字搜尋 (可搜尋暱稱或ID)
+    if (params && params.query) {
+      const queryLower = params.query.toLowerCase();
+      filteredUsers = userObjects.filter(u => 
+        (u.line_display_name && u.line_display_name.toLowerCase().includes(queryLower)) ||
+        (u.line_user_id && u.line_user_id.toLowerCase().includes(queryLower))
+      );
+    }
+
+    return { status: 'success', users: filteredUsers.reverse() }; // 預設讓最新的在最上面
+  } catch (error) {
+    Logger.log('getAllUsersForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取使用者資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 取得單一使用者的詳細資料
+ * @param {object} params - 包含 userId 的請求參數
+ * @returns {object} - 包含使用者詳細資訊的物件
+ */
+function getUserDetailsForManager(params) {
+  try {
+    const { userId } = params;
+    if (!userId) {
+      throw new Error("缺少 userId 參數");
+    }
+
+    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    const targetUser = userObjects.find(u => u.line_user_id === userId);
+
+    if (!targetUser) {
+      return { status: 'error', message: '找不到指定的使用者' };
+    }
+
+    return { status: 'success', details: targetUser };
+  } catch (error) {
+    Logger.log('getUserDetailsForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取使用者詳細資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 更新使用者的點數
+ * @param {object} data - 包含 userId 和 points 的物件
+ * @returns {object} - 操作結果
+ */
+function updateUserPoints(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const { userId, points } = data;
+    if (!userId || points === undefined || points === null) {
+      throw new Error("缺少 userId 或 points 參數");
+    }
+
+    const userValues = USER_SHEET.getDataRange().getValues();
+    const headers = userValues[0];
+    const userIdColIndex = headers.indexOf('line_user_id');
+    const pointsColIndex = headers.indexOf('points');
+
+    let targetRow = -1;
+    for (let i = 1; i < userValues.length; i++) {
+      if (userValues[i][userIdColIndex] === userId) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+
+    if (targetRow === -1) return { status: 'error', message: '找不到要更新的使用者' };
+
+    USER_SHEET.getRange(targetRow, pointsColIndex + 1).setValue(points);
+    return { status: 'success', message: '使用者點數更新成功！' };
+
+  } catch (error) {
+    Logger.log('updateUserPoints 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '更新使用者點數時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 取得所有教練資料
+ * @returns {object} - 包含所有教練的物件
+ */
+function getAllCoachesForManager() {
+  try {
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    // 管理後台需要看到所有教練，所以不過濾狀態
+    return { status: 'success', coaches: coachObjects.reverse() }; // 讓最新的在最上面
+  } catch (error) {
+    Logger.log('getAllCoachesForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取教練資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 取得單一教練的詳細資料
+ * @param {object} params - 包含 coachId 的請求參數
+ * @returns {object} - 包含教練詳細資訊的物件
+ */
+function getCoachDetailsForManager(params) {
+  try {
+    const { coachId } = params;
+    if (!coachId) {
+      throw new Error("缺少 coachId 參數");
+    }
+
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    const targetCoach = coachObjects.find(c => c.coach_id === coachId);
+
+    if (!targetCoach) {
+      return { status: 'error', message: '找不到指定的教練' };
+    }
+
+    return { status: 'success', details: targetCoach };
+  } catch (error) {
+    Logger.log('getCoachDetailsForManager 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取教練詳細資料時發生錯誤: ' + error.toString() };
+  }
+}
+
+/**
+ * [管理後台] 新增或更新一筆教練資料
+ * @param {object} data - 包含教練資訊的物件
+ * @returns {object} - 操作結果
+ */
+function saveCoach(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const coachValues = COACH_SHEET.getDataRange().getValues();
+    const headers = coachValues[0];
+    const coachIdColIndex = headers.indexOf('coach_id');
+
+    const { coachId, coachName, specialty, lineId, phone } = data;
+
+    if (!coachName) {
+      throw new Error("缺少必要的教練資訊 (姓名)");
+    }
+
+    if (coachId) {
+      // --- 更新模式 ---
+      let targetRow = -1;
+      for (let i = 1; i < coachValues.length; i++) {
+        if (coachValues[i][coachIdColIndex] === coachId) {
+          targetRow = i + 1;
+          break;
+        }
+      }
+
+      if (targetRow === -1) return { status: 'error', message: '找不到要更新的教練' };
+
+      const updates = {
+        'coach_name': coachName, 'specialty': specialty, 'line_id': lineId, 'phone_number': phone
+      };
+
+      headers.forEach((header, index) => {
+        if (updates.hasOwnProperty(header)) {
+          COACH_SHEET.getRange(targetRow, index + 1).setValue(updates[header]);
+        }
+      });
+
+      return { status: 'success', message: '教練資料更新成功！' };
+
+    } else {
+      // --- 新增模式 ---
+      const coachIds = coachValues.slice(1).map(row => row[coachIdColIndex]);
+      let maxNum = 0;
+      coachIds.forEach(id => {
+        if (id && typeof id === 'string' && id.startsWith('C')) {
+          const numPart = parseInt(id.substring(1), 10);
+          if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+        }
+      });
+
+      const newNum = maxNum + 1;
+      if (newNum > 999) {
+        return { status: 'error', message: '教練ID已達上限 (999)，無法新增。' };
+      }
+      const newCoachId = "C" + String(newNum).padStart(3, '0');
+      COACH_SHEET.appendRow([newCoachId, coachName, specialty, lineId, phone]);
+      return { status: 'success', message: '教練新增成功！' };
+    }
+  } catch (error) {
+    Logger.log('saveCoach 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '儲存教練資料時發生錯誤: ' + error.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * [管理後台] 刪除一筆教練資料
+ * @param {object} data - 包含 coachId 的物件
+ * @returns {object} - 操作結果
+ */
+function deleteCoach(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+
+  try {
+    const { coachId } = data;
+    if (!coachId) {
+      throw new Error("缺少 coachId");
+    }
+
+    // 1. 安全檢查：檢查是否有任何課堂(Classes)正在使用此教練
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const isCoachInUse = classObjects.some(cls => cls.coach_id === coachId);
+
+    if (isCoachInUse) {
+      return { status: 'error', message: '無法刪除：此教練已被指派至某些課堂。請先將相關課堂的教練更換或刪除。' };
+    }
+
+    // 2. 尋找並刪除教練
+    const coachValues = COACH_SHEET.getDataRange().getValues();
+    const coachIdColIndex = coachValues[0].indexOf('coach_id');
+    let targetRow = -1;
+    for (let i = 1; i < coachValues.length; i++) {
+      if (coachValues[i][coachIdColIndex] === coachId) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+
+    if (targetRow !== -1) {
+      COACH_SHEET.deleteRow(targetRow);
+      return { status: 'success', message: '教練刪除成功！' };
+    } else {
+      return { status: 'error', message: '找不到要刪除的教練。' };
+    }
+  } catch (error) {
+    Logger.log('deleteCoach 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '刪除教練時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
   }
@@ -1121,13 +1412,18 @@ function getAllBookings(params) {
       let className = '未知課堂';
       let classTime = '未知時間';
       let coachName = '未知教練';
+      let originalClassDate = null; // 新增一個欄位來儲存原始格式的日期，以便篩選
 
       if (classInfo) {
         className = classInfo.className || '課堂名稱未設定';
         coachName = coachMap.get(classInfo.coach_id) || '教練未設定';
-        const classDate = Utilities.formatDate(new Date(classInfo.class_date), "GMT+8", "yyyy-MM-dd");
+
+        const classDateObj = new Date(classInfo.class_date);
+        originalClassDate = Utilities.formatDate(classDateObj, "GMT+8", "yyyy-MM-dd"); // 用於篩選的日期
+
+        const displayClassDate = Utilities.formatDate(classDateObj, "GMT+8", "MM/dd"); // 用於顯示的日期
         const startTime = Utilities.formatDate(new Date(classInfo.start_time), "GMT+8", "HH:mm");
-        classTime = `${classDate} ${startTime}`;
+        classTime = `${displayClassDate} ${startTime}`;
       }
 
       return {
@@ -1135,8 +1431,9 @@ function getAllBookings(params) {
         className: className, // 回傳 className
         coachName: coachName, // 新增：回傳 coachName
         classTime: classTime,
+        originalClassDate: originalClassDate, // 將原始日期格式一起回傳
         userName: userMap.get(booking.line_user_id) || '未知用戶',
-        bookingTime: Utilities.formatDate(new Date(booking.booking_time), "GMT+8", "yyyy-MM-dd HH:mm"),
+        bookingTime: Utilities.formatDate(new Date(booking.booking_time), "GMT+8", "MM/dd HH:mm"),
         status: booking.status
       };
     });
@@ -1151,7 +1448,8 @@ function getAllBookings(params) {
 
     // 日期篩選
     if (params.classDate) {
-      filteredBookings = filteredBookings.filter(b => b.classTime.startsWith(params.classDate));
+      // 使用新的 originalClassDate 欄位進行精準比對
+      filteredBookings = filteredBookings.filter(b => b.originalClassDate === params.classDate);
     }
 
     // 關鍵字搜尋
@@ -1321,7 +1619,31 @@ function saveClass(data) {
 
     } else {
       // --- 新增模式 ---
-      const newClassId = "CL" + new Date().getTime();
+      // 根據上課日期產生新的流水號 ID，格式為 CLYYMMXXX
+      const year = classDate.getFullYear().toString().slice(-2); // YY
+      const month = (classDate.getMonth() + 1).toString().padStart(2, '0'); // MM
+      const idPrefix = `CL${year}${month}`;
+
+      // 找出該月份已存在的最大流水號
+      const classIdsForMonth = classValues
+        .slice(1) // 略過標頭
+        .map(row => row[classIdColIndex])
+        .filter(id => id && typeof id === 'string' && id.startsWith(idPrefix));
+
+      let maxNum = 0;
+      classIdsForMonth.forEach(id => {
+        const numPart = parseInt(id.substring(idPrefix.length), 10);
+        if (!isNaN(numPart) && numPart > maxNum) {
+          maxNum = numPart;
+        }
+      });
+
+      const newNum = maxNum + 1;
+      if (newNum > 999) {
+        return { status: 'error', message: `當月課堂ID已達上限 (999)，無法新增。` };
+      }
+
+      const newClassId = idPrefix + String(newNum).padStart(3, '0');
       
       // 注意：appendRow 的順序必須和 Classes 工作表欄位完全一致
       CLASS_SHEET.appendRow([
