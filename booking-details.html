@@ -60,6 +60,23 @@
             font-weight: bold;
             word-break: break-all;
         }
+        .status-badge {
+            display: inline-block;
+            padding: 0.3em 0.4em;
+            font-size: 0.8em;
+            font-weight: bold;
+            line-height: 1;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.25rem;
+            margin-left: 0.5em;
+            margin-right: 0.5em;
+        }
+        .status-badge.paid {
+            background-color: #28a745; /* 綠色 */
+        }
         .loader, .error {
              text-align: center; 
              font-size: 1.1em; 
@@ -112,6 +129,12 @@
             
             const qrCodeUrl = window.location.href; // QR Code 內容就是當前頁面的網址
 
+            // 根據預約狀態，產生不同的顯示內容
+            let statusDisplay = `<span class="value">${data.bookingStatus}</span>`;
+            if (data.bookingStatus.trim() === '已扣款') {
+                statusDisplay = `<span class="value"><span class="status-badge paid">已付款</span> 已預約</span>`;
+            }
+
             container.innerHTML = `
                 <h1>預約憑證</h1>
                 <div id="qrcode"></div>
@@ -119,7 +142,7 @@
                     <li><span class="label">課程名稱</span><span class="value">${data.courseName} (${data.courseId})</span></li>
                     <li><span class="label">上課時間</span><span class="value">${data.classTime}</span></li>
                     <li><span class="label">預約學員</span><span class="value">${data.userName}</span></li>
-                    <li><span class="label">預約狀態</span><span class="value">${data.bookingStatus}</span></li>
+                    <li><span class="label">預約狀態</span>${statusDisplay}</li>
                     <li><span class="label">預約編號</span><span class="value">${data.bookingId}</span></li>
                 </ul>
             `;

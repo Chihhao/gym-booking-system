@@ -80,8 +80,9 @@
             cursor: pointer;
             text-decoration: underline; /* 加上底線，暗示可點擊 */
         }
-        /* 當滑鼠經過可預約的格子時，改變背景顏色 */
-        .schedule-grid td.available:hover {
+        /* 當滑鼠經過可點擊的格子時，改變背景顏色 */
+        .schedule-grid td.available:hover,
+        .schedule-grid td.booked-by-me:hover {
             background-color: #495057;
         }
         .slot.full {
@@ -92,8 +93,9 @@
             cursor: wait;
         }
         .slot.booked-by-me {
-            color: #28a745; /* 綠色勾勾 */
+            color: #ffc107; /* 改為橘黃色 */
             cursor: pointer; /* 讓圖示看起來可以點擊 */
+            text-decoration: underline; /* 加上底線，暗示可點擊 */
         }
         .slot.expired {
             color: #6c757d; /* 灰色橫線 */
@@ -258,7 +260,7 @@
                                 break;
                             case 'booked_by_me':
                                 slotClass += ' booked-by-me';
-                                slotContent = '✅';
+                                slotContent = '已約';
                                 onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
                                 titleAttribute = 'title="已預約"'; // 設定 tooltip
                                 break;
@@ -292,7 +294,7 @@
             element.onclick = null;
             element.classList.remove('available');
             element.classList.add('processing');
-            element.innerHTML = '⏳';
+            element.innerHTML = '稍候';
 
             try {
                 const response = await fetch(GAS_URL, {
@@ -314,7 +316,7 @@
                     // 預約成功，更新格子狀態
                     element.classList.remove('processing');
                     element.classList.add('booked-by-me');
-                    element.innerHTML = '✅';
+                    element.innerHTML = '已約';
                     element.setAttribute('title', '已預約');
                     element.onclick = () => showBookingDetails(result.bookingId);
                 } else {
