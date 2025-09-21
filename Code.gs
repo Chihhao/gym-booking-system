@@ -862,24 +862,28 @@ function getAllBookings(params) {
     const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
     const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
     const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
 
     // 2. 建立 Map 以提高查詢效率
     const userMap = new Map(userObjects.map(u => [u.line_user_id, u.line_display_name]));
     const classMap = new Map(classObjects.map(c => [c.class_id, { 
-        course_id: c.course_id, 
+        className: c.class_name, // 使用 class_name 作為課堂名稱
+        coach_id: c.coach_id,
         class_date: c.class_date, 
         start_time: c.start_time 
     }]));
-    const courseMap = new Map(courseObjects.map(co => [co.course_id, co.course_name]));
+    const coachMap = new Map(coachObjects.map(coach => [coach.coach_id, coach.coach_name]));
 
     // 3. 組合預約資料，從最新的一筆開始處理
     const allBookings = bookingObjects.reverse().map(booking => {
       const classInfo = classMap.get(booking.class_id);
-      let courseName = '未知課程';
+      let className = '未知課堂';
       let classTime = '未知時間';
+      let coachName = '未知教練';
 
       if (classInfo) {
-        courseName = courseMap.get(classInfo.course_id) || '課程名稱未設定';
+        className = classInfo.className || '課堂名稱未設定';
+        coachName = coachMap.get(classInfo.coach_id) || '教練未設定';
         const classDate = Utilities.formatDate(new Date(classInfo.class_date), "GMT+8", "yyyy-MM-dd");
         const startTime = Utilities.formatDate(new Date(classInfo.start_time), "GMT+8", "HH:mm");
         classTime = `${classDate} ${startTime}`;
@@ -887,7 +891,8 @@ function getAllBookings(params) {
 
       return {
         bookingId: booking.booking_id,
-        courseName: courseName,
+        className: className, // 回傳 className
+        coachName: coachName, // 新增：回傳 coachName
         classTime: classTime,
         userName: userMap.get(booking.line_user_id) || '未知用戶',
         bookingTime: Utilities.formatDate(new Date(booking.booking_time), "GMT+8", "yyyy-MM-dd HH:mm"),
@@ -895,9 +900,29 @@ function getAllBookings(params) {
       };
     });
 
-    // 4. TODO: 根據 params 進行篩選或搜尋
+    // 4. 根據 params 進行篩選或搜尋
+    let filteredBookings = allBookings;
 
-    return { status: 'success', bookings: allBookings };
+    // 狀態篩選
+    if (params.status) {
+      filteredBookings = filteredBookings.filter(b => b.status === params.status);
+    }
+
+    // 日期篩選
+    if (params.classDate) {
+      filteredBookings = filteredBookings.filter(b => b.classTime.startsWith(params.classDate));
+    }
+
+    // 關鍵字搜尋
+    if (params.query) {
+      const queryLower = params.query.toLowerCase();
+      filteredBookings = filteredBookings.filter(b => 
+        b.userName.toLowerCase().includes(queryLower) || 
+        b.bookingId.toLowerCase().includes(queryLower)
+      );
+    }
+
+    return { status: 'success', bookings: filteredBookings };
 
   } catch (error) {
     Logger.log('getAllBookings 發生錯誤: ' + error.toString());

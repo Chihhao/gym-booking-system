@@ -18,6 +18,8 @@
             --danger-color: #dc3545;
             --success-hover: #218838;
             --danger-hover: #c82333;
+            --secondary-color: #6c757d;
+            --secondary-hover: #5a6268;
         }
 
         body {
@@ -107,6 +109,13 @@
         th {
             background-color: var(--bg-color);
         }
+        
+        th.sortable {
+            cursor: pointer;
+        }
+        th.sortable:hover {
+            background-color: #dde2e6;
+        }
 
         /* 按鈕樣式 */
         .btn {
@@ -116,14 +125,45 @@
             cursor: pointer;
             color: white;
             font-size: 0.9em;
-            margin-right: 5px;
+            margin: 0;
             transition: background-color 0.2s;
         }
         .btn-success { background-color: var(--success-color); }
         .btn-success:hover { background-color: var(--success-hover); }
         .btn-danger { background-color: var(--danger-color); }
         .btn-danger:hover { background-color: var(--danger-hover); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-secondary:hover { background-color: var(--secondary-hover); }
         .btn:disabled { background-color: #6c757d; cursor: not-allowed; }
+
+        /* 操作按鈕容器 */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem; /* 增加按鈕間距 */
+        }
+
+        /* 篩選控制項樣式 */
+        .filter-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-controls input,
+        .filter-controls select {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        .filter-controls button {
+            padding: 8px 16px;
+        }
+        .filter-controls .search-input {
+            flex-grow: 1;
+            min-width: 200px;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +182,18 @@
     <main class="main-content">
         <section id="bookings" class="content-section active">
             <h1>預約管理</h1>
+            <div class="filter-controls">
+                <select id="status-filter">
+                    <option value="">所有狀態</option>
+                    <option value="已預約">已預約</option>
+                    <option value="已扣款">已扣款</option>
+                    <option value="已取消">已取消</option>
+                </select>
+                <input type="date" id="date-filter" title="篩選上課日期">
+                <input type="text" id="search-input" class="search-input" placeholder="搜尋學員或預約編號...">
+                <button class="btn btn-success" id="filter-btn">篩選</button>
+                <button class="btn btn-secondary" id="clear-filter-btn">清除</button>
+            </div>
             <div id="booking-table-container"></div>
         </section>
 
@@ -171,6 +223,10 @@
         const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
         const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
 
+        // 全域變數，用於儲存當前顯示的資料和排序狀態
+        let currentBookings = [];
+        let sortState = { column: 'bookingTime', direction: 'desc' };
+
         document.addEventListener('DOMContentLoaded', () => {
             // 1. 處理側邊欄導覽點擊事件
             const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
@@ -189,27 +245,89 @@
                 });
             });
 
-            // 2. 頁面載入時，自動載入預約資料
+            // 2. 綁定篩選按鈕事件
+            document.getElementById('filter-btn').addEventListener('click', applyFilters);
+            document.getElementById('clear-filter-btn').addEventListener('click', clearFilters);
+            document.getElementById('search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+
+            // 3. 頁面載入時，自動載入預約資料
             loadBookings();
         });
 
-        async function loadBookings() {
+        function applyFilters() {
+            const status = document.getElementById('status-filter').value;
+            const classDate = document.getElementById('date-filter').value;
+            const query = document.getElementById('search-input').value.trim(); // 1. 按下篩選前 先trim掉前後的空格
+            loadBookings({ status, classDate, query });
+        }
+
+        async function loadBookings(filters = {}) {
             const container = document.getElementById('booking-table-container');
             container.innerHTML = '<p>正在載入預約資料...</p>';
 
             try {
-                const response = await fetch(`${GAS_URL}?action=getAllBookings`);
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getAllBookings');
+                Object.keys(filters).forEach(key => {
+                    if (filters[key]) { // 只有當篩選條件有值時才加入
+                        url.searchParams.append(key, filters[key]);
+                    }
+                });
+
+                const response = await fetch(url);
                 if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
                 
                 const result = await response.json();
                 if (result.status !== 'success') throw new Error(result.message || '後端回傳錯誤');
 
-                renderBookingTable(result.bookings);
+                currentBookings = result.bookings;
+                sortAndRender(); // 使用新的排序渲染函式
 
             } catch (error) {
                 console.error('載入預約資料失敗:', error);
                 container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
             }
+        }
+
+        function clearFilters() {
+            document.getElementById('status-filter').value = '';
+            document.getElementById('date-filter').value = '';
+            document.getElementById('search-input').value = '';
+            loadBookings();
+        }
+
+        function sortAndRender() {
+            const { column, direction } = sortState;
+
+            currentBookings.sort((a, b) => {
+                const valA = a[column];
+                const valB = b[column];
+
+                let comparison = 0;
+                if (valA > valB) {
+                    comparison = 1;
+                } else if (valA < valB) {
+                    comparison = -1;
+                }
+
+                return direction === 'asc' ? comparison : -comparison;
+            });
+
+            renderBookingTable(currentBookings);
+        }
+
+        function handleSort(column) {
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'desc'; // 預設降序，特別是對於日期
+            }
+            sortAndRender();
         }
 
         function renderBookingTable(bookings) {
@@ -223,12 +341,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>預約編號</th>
-                            <th>課程名稱</th>
-                            <th>上課時間</th>
-                            <th>學員</th>
-                            <th>預約時間</th>
-                            <th>狀態</th>
+                            <th class="sortable" onclick="handleSort('bookingId')">預約編號</th>
+                            <th class="sortable" onclick="handleSort('className')">課堂名稱</th>
+                            <th class="sortable" onclick="handleSort('coachName')">教練</th>
+                            <th class="sortable" onclick="handleSort('classTime')">上課時間</th>
+                            <th class="sortable" onclick="handleSort('userName')">學員</th>
+                            <th class="sortable" onclick="handleSort('bookingTime')">預約時間</th>
+                            <th class="sortable" onclick="handleSort('status')">狀態</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -240,8 +359,10 @@
                 // 根據狀態決定顯示的按鈕
                 if (booking.status && booking.status.trim() === '已預約') {
                     actionButtons = `
-                        <button class="btn btn-success" onclick="reviewBooking('${booking.bookingId}', 'approve', this)">確認扣款</button>
-                        <button class="btn btn-danger" onclick="reviewBooking('${booking.bookingId}', 'reject', this)">取消預約</button>
+                        <div class="action-buttons">
+                            <button class="btn btn-success" onclick="reviewBooking('${booking.bookingId}', 'approve', this)">扣款</button>
+                            <button class="btn btn-danger" onclick="reviewBooking('${booking.bookingId}', 'reject', this)">取消</button>
+                        </div>
                     `;
                 } else {
                     actionButtons = '<button class="btn" disabled>無操作</button>';
@@ -250,7 +371,8 @@
                 tableHtml += `
                     <tr id="row-${booking.bookingId}">
                         <td>${booking.bookingId}</td>
-                        <td>${booking.courseName}</td>
+                        <td>${booking.className}</td>
+                        <td>${booking.coachName}</td>
                         <td>${booking.classTime}</td>
                         <td>${booking.userName}</td>
                         <td>${booking.bookingTime}</td>
@@ -283,7 +405,10 @@
                 const result = await response.json();
                 alert(result.message);
 
-                if (result.status === 'success') {
+                if (result.status === 'success') { 
+                    // 重新載入會自動套用篩選和排序，體驗更好
+                    applyFilters();
+                } else if (result.message.includes('無法執行此操作')) {
                     // 操作成功後，重新載入整個列表以確保資料一致性
                     loadBookings();
                 } else {
