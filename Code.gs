@@ -110,11 +110,17 @@ function doGet(e) {
       case 'getAllUsersForManager': return createJsonResponse(getAllUsersForManager(e.parameter));
       case 'getUserDetailsForManager': return createJsonResponse(getUserDetailsForManager(e.parameter));
       case 'getPendingBookings': return getPendingBookings();
-      case 'getCourses': return getCourses(); // 新增：明確處理 getCourses action
       case 'test': return testDataRead();
+      // 當 action 為空或未定義時，有兩種可能：
+      // 1. 舊的 index.html (現在是 courses.html) 請求課程列表
+      // 2. 直接在瀏覽器打開 /exec 網址
       default:
-        // 如果 action 未定義或不匹配，且沒有 page 參數，則顯示首頁
-        return HtmlService.createTemplateFromFile('index').evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+        // 如果沒有 action，但也沒有 page，就顯示首頁
+        if (!action) {
+          return HtmlService.createTemplateFromFile('index').evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+        }
+        // 為了相容舊的 courses.html，如果 action 是空的，就回傳課程列表
+        return getCourses(); // getCourses() 會回傳 JSON
     }
   } catch (error) {
     return createJsonResponse({ status: 'error', message: '處理 GET 請求時發生錯誤: ' + error.toString() });
@@ -1318,8 +1324,7 @@ function createRichMenu() {
         "bounds": { "x": 0, "y": 0, "width": 833, "height": 843 },
         "action": {
           "type": "uri",
-          // 修正：直接在 LIFF URL 後面加上 ?page=courses，引導至課程頁面
-          "uri": "https://liff.line.me/2008135811-vNO5bYyx?page=courses"
+          "uri": "https://liff.line.me/2008135811-vNO5bYyx" // <<-- ⚠️ 請務必替換成您的 LIFF URL
         }
       },
       {
