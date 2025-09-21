@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wally Studio 管理後台</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --sidebar-bg: #343a40;
+            --sidebar-text: #e9ecef;
+            --sidebar-hover-bg: #495057;
+            --sidebar-active-bg: #0d6efd;
+            --content-bg: #ffffff;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --success-hover: #218838;
+            --danger-hover: #c82333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding-top: 1rem;
+            flex-shrink: 0;
+        }
+
+        .sidebar h2 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-nav li a {
+            display: block;
+            padding: 0.75rem 1.5rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-nav li a:hover {
+            background-color: var(--sidebar-hover-bg);
+        }
+
+        .sidebar-nav li a.active {
+            background-color: var(--sidebar-active-bg);
+            font-weight: bold;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        h1 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* 表格樣式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: var(--bg-color);
+        }
+
+        /* 按鈕樣式 */
+        .btn {
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            color: white;
+            font-size: 0.9em;
+            margin-right: 5px;
+            transition: background-color 0.2s;
+        }
+        .btn-success { background-color: var(--success-color); }
+        .btn-success:hover { background-color: var(--success-hover); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-danger:hover { background-color: var(--danger-hover); }
+        .btn:disabled { background-color: #6c757d; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <h2>Wally Studio</h2>
+        <ul class="sidebar-nav">
+            <li><a href="#" class="nav-link active" data-target="bookings">預約管理</a></li>
+            <li><a href="#" class="nav-link" data-target="schedule">課表管理</a></li>
+            <li><a href="#" class="nav-link" data-target="courses">課程型錄</a></li>
+            <li><a href="#" class="nav-link" data-target="users">使用者管理</a></li>
+            <li><a href="#" class="nav-link" data-target="coaches">教練管理</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <section id="bookings" class="content-section active">
+            <h1>預約管理</h1>
+            <div id="booking-table-container"></div>
+        </section>
+
+        <section id="schedule" class="content-section">
+            <h1>課表管理</h1>
+            <p>功能開發中...</p>
+        </section>
+
+        <section id="courses" class="content-section">
+            <h1>課程型錄</h1>
+            <p>功能開發中...</p>
+        </section>
+
+        <section id="users" class="content-section">
+            <h1>使用者管理</h1>
+            <p>功能開發中...</p>
+        </section>
+
+        <section id="coaches" class="content-section">
+            <h1>教練管理</h1>
+            <p>功能開發中...</p>
+        </section>
+    </main>
+
+    <script>
+        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 處理側邊欄導覽點擊事件
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // 移除所有 active class
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+                    // 為點擊的目標加上 active class
+                    const targetId = link.getAttribute('data-target');
+                    link.classList.add('active');
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+
+            // 2. 頁面載入時，自動載入預約資料
+            loadBookings();
+        });
+
+        async function loadBookings() {
+            const container = document.getElementById('booking-table-container');
+            container.innerHTML = '<p>正在載入預約資料...</p>';
+
+            try {
+                const response = await fetch(`${GAS_URL}?action=getAllBookings`);
+                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message || '後端回傳錯誤');
+
+                renderBookingTable(result.bookings);
+
+            } catch (error) {
+                console.error('載入預約資料失敗:', error);
+                container.innerHTML = `<p style="color: red;">載入失敗: ${error.message}</p>`;
+            }
+        }
+
+        function renderBookingTable(bookings) {
+            const container = document.getElementById('booking-table-container');
+            if (!bookings || bookings.length === 0) {
+                container.innerHTML = '<p>目前沒有任何預約紀錄。</p>';
+                return;
+            }
+
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>預約編號</th>
+                            <th>課程名稱</th>
+                            <th>上課時間</th>
+                            <th>學員</th>
+                            <th>預約時間</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            bookings.forEach(booking => {
+                let actionButtons = '';
+                // 根據狀態決定顯示的按鈕
+                if (booking.status && booking.status.trim() === '已預約') {
+                    actionButtons = `
+                        <button class="btn btn-success" onclick="reviewBooking('${booking.bookingId}', 'approve', this)">確認扣款</button>
+                        <button class="btn btn-danger" onclick="reviewBooking('${booking.bookingId}', 'reject', this)">取消預約</button>
+                    `;
+                } else {
+                    actionButtons = '<button class="btn" disabled>無操作</button>';
+                }
+
+                tableHtml += `
+                    <tr id="row-${booking.bookingId}">
+                        <td>${booking.bookingId}</td>
+                        <td>${booking.courseName}</td>
+                        <td>${booking.classTime}</td>
+                        <td>${booking.userName}</td>
+                        <td>${booking.bookingTime}</td>
+                        <td>${booking.status}</td>
+                        <td>${actionButtons}</td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+        }
+
+        // 從 admin.html 搬過來並稍作修改
+        async function reviewBooking(bookingId, decision, element) {
+            // 禁用該行的所有按鈕
+            const row = document.getElementById(`row-${bookingId}`);
+            row.querySelectorAll('button').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'reviewBooking',
+                        data: { bookingId, decision }
+                    })
+                });
+                
+                const result = await response.json();
+                alert(result.message);
+
+                if (result.status === 'success') {
+                    // 操作成功後，重新載入整個列表以確保資料一致性
+                    loadBookings();
+                } else {
+                    // 如果失敗，恢復按鈕
+                    row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                }
+            } catch (error) {
+                console.error('審核操作時發生錯誤:', error);
+                alert('操作失敗，請檢查網路或聯繫開發者。');
+                row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+        }
+    </script>
+
+</body>
+</html>

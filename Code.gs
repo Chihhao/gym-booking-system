@@ -48,6 +48,8 @@ function doGet(e) {
         return createJsonResponse(getWeeklySchedule(e.parameter));
       case 'getBookingDetails':
         return createJsonResponse(getBookingDetails(e.parameter));
+      case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
+        return createJsonResponse(getAllBookings(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -793,5 +795,112 @@ function deleteRichMenu(richMenuIdToDelete) {
     Logger.log('成功刪除圖文選單: ' + richMenuIdToDelete);
   } catch(e) {
     Logger.log('刪除失敗: ' + e.toString());
+  }
+}
+
+/**
+ * 產生所有工作表(Sheet)的結構描述。
+ * 執行此函式後，請將日誌(Log)中的內容完整複製出來。
+ * 這份描述可以幫助 AI 助手順利理解您目前的資料庫結構。
+ */
+function generateSchemaDescription() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  let schemaDescription = "# Google Sheet 結構描述\n\n";
+  schemaDescription += `試算表名稱: ${ss.getName()}\n`;
+  schemaDescription += `產生時間: ${new Date().toLocaleString('sv-SE')}\n\n---\n\n`;
+
+  sheets.forEach(sheet => {
+    const sheetName = sheet.getName();
+    // 忽略開頭是底線的隱藏工作表
+    if (sheetName.startsWith('_')) {
+      return;
+    }
+    
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length === 0) {
+      schemaDescription += `## 工作表: ${sheetName}\n\n`;
+      schemaDescription += "此工作表沒有任何資料。\n\n---\n\n";
+      return;
+    }
+    
+    const headers = values[0];
+    
+    schemaDescription += `## 工作表: ${sheetName}\n\n`;
+    schemaDescription += `**欄位 (共 ${headers.length} 個):**\n`;
+    schemaDescription += `\`\`\`\n${headers.join(', ')}\n\`\`\`\n\n`;
+    
+    // 顯示前 3 筆範例資料 (如果有的話)
+    if (values.length > 1) {
+      schemaDescription += "**範例資料 (最多 3 筆):**\n";
+      schemaDescription += "```tsv\n"; // 使用 TSV (Tab-separated values) 格式更清晰
+      schemaDescription += headers.join('\t') + '\n';
+      const sampleRows = values.slice(1, 4);
+      sampleRows.forEach(row => {
+        schemaDescription += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join('\t') + '\n';
+      });
+      schemaDescription += "```\n\n";
+    }
+    schemaDescription += "---\n\n";
+  });
+  
+  // 將最終結果輸出到日誌中，方便複製
+  Logger.log(schemaDescription);
+}
+
+/**
+ * [管理後台] 取得所有預約紀錄，並關聯相關資訊
+ * @param {object} params - 包含篩選條件的請求參數 (未來可用於 status, date, query)
+ * @returns {object} - 包含 bookings 陣列的物件
+ */
+function getAllBookings(params) {
+  try {
+    // 1. 讀取所有需要的資料並轉換為物件
+    const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
+    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+
+    // 2. 建立 Map 以提高查詢效率
+    const userMap = new Map(userObjects.map(u => [u.line_user_id, u.line_display_name]));
+    const classMap = new Map(classObjects.map(c => [c.class_id, { 
+        course_id: c.course_id, 
+        class_date: c.class_date, 
+        start_time: c.start_time 
+    }]));
+    const courseMap = new Map(courseObjects.map(co => [co.course_id, co.course_name]));
+
+    // 3. 組合預約資料，從最新的一筆開始處理
+    const allBookings = bookingObjects.reverse().map(booking => {
+      const classInfo = classMap.get(booking.class_id);
+      let courseName = '未知課程';
+      let classTime = '未知時間';
+
+      if (classInfo) {
+        courseName = courseMap.get(classInfo.course_id) || '課程名稱未設定';
+        const classDate = Utilities.formatDate(new Date(classInfo.class_date), "GMT+8", "yyyy-MM-dd");
+        const startTime = Utilities.formatDate(new Date(classInfo.start_time), "GMT+8", "HH:mm");
+        classTime = `${classDate} ${startTime}`;
+      }
+
+      return {
+        bookingId: booking.booking_id,
+        courseName: courseName,
+        classTime: classTime,
+        userName: userMap.get(booking.line_user_id) || '未知用戶',
+        bookingTime: Utilities.formatDate(new Date(booking.booking_time), "GMT+8", "yyyy-MM-dd HH:mm"),
+        status: booking.status
+      };
+    });
+
+    // 4. TODO: 根據 params 進行篩選或搜尋
+
+    return { status: 'success', bookings: allBookings };
+
+  } catch (error) {
+    Logger.log('getAllBookings 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取預約資料時發生錯誤: ' + error.toString() };
   }
 }
