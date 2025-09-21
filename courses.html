@@ -140,7 +140,10 @@
             const container = document.getElementById('content-container');
             container.innerHTML = '<p class="loader">課程資料載入中...</p>';
             try {
-                const response = await fetch(GAS_URL);
+                // 修正：明確指定 action=getCourses，以獲取課程列表 JSON 資料
+                const url = new URL(GAS_URL);
+                url.searchParams.append('action', 'getCourses');
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('網路回應錯誤');
                 const data = await response.json();
                 
