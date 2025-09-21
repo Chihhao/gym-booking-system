@@ -15,7 +15,7 @@
             color: #e0e0e0; 
         }
         .header { 
-            padding: 1.5em; 
+            padding: 1.0em; 
             background-color: #343a40; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
         }
@@ -24,7 +24,7 @@
 
         /* --- 2. 恢復為大表格佈局 --- */
         .schedule-wrapper {
-            padding: 5px;
+            padding: 0px;
             overflow-x: auto; /* 允許表格水平滾動 */
         }
 
@@ -38,7 +38,8 @@
 
         .schedule-grid th, .schedule-grid td {
             border: 1px solid #495057; /* 暗色邊框 */
-            padding: 8px;
+            padding: 6px 2px;
+            vertical-align: middle;
             height: 30px;
         }
 
@@ -66,16 +67,22 @@
 
         .schedule-grid td {
             background-color: #343a40; /* 暗色儲存格 */
+            transition: background-color 0.2s;
         }
         
         /* 時段狀態樣式 */
         .slot {
-            font-size: 1.5em;
+            font-size: 1.2em; /* 放大狀態文字 */
             cursor: default;
         }
         .slot.available {
             color: #28a745;
             cursor: pointer;
+            text-decoration: underline; /* 加上底線，暗示可點擊 */
+        }
+        /* 當滑鼠經過可預約的格子時，改變背景顏色 */
+        .schedule-grid td.available:hover {
+            background-color: #495057;
         }
         .slot.full {
             color: #868e96;
@@ -83,6 +90,14 @@
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
             cursor: wait;
+        }
+        .slot.booked-by-me {
+            color: #28a745; /* 綠色勾勾 */
+            cursor: pointer; /* 讓圖示看起來可以點擊 */
+        }
+        .slot.expired {
+            color: #6c757d; /* 灰色橫線 */
+            font-weight: bold;
         }
 
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
@@ -93,7 +108,6 @@
 
     <div class="header">
         <h1 id="course-name-title">課程名稱</h1>
-        <p>請選擇您想要預約的時段</p>
     </div>
 
     <div class="schedule-wrapper">
@@ -145,7 +159,7 @@
                 }
 
                 // 3. 更新頁面標題並載入時段資料
-                document.getElementById('course-name-title').innerText = decodeURIComponent(courseName);
+                document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} (${courseId})`;
                 await fetchSchedule(courseId);
 
             } catch (err) {
@@ -156,8 +170,11 @@
 
         async function fetchSchedule(courseId) {
             const container = document.getElementById('schedule-container');
-            // 使用 courseId 查詢
-            const url = `${GAS_URL}?action=getSchedule&courseId=${courseId}`;
+            // 使用 courseId 查詢，並附上 userId
+            let url = `${GAS_URL}?action=getSchedule&courseId=${courseId}`;
+            if (userProfile && userProfile.userId) {
+                url += `&userId=${userProfile.userId}`;
+            }
 
             try {
                 const response = await fetch(url);
@@ -189,6 +206,9 @@
             }
             const dates = Object.keys(scheduleData).sort();
             const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
+            
+            // 為了判斷「已過期」，先取得當前時間
+            const now = new Date();
 
             // 產生兩列表頭
             let dateRow = `<tr><th>日期</th>`;
@@ -208,29 +228,53 @@
             hours.forEach(hour => {
                 bodyHtml += `<tr><td class="time-label">${hour}</td>`;
                 dates.forEach(date => {
-                    // 增加保護，避免後端資料不完整時出錯
-                    const slotData = (scheduleData[date] && scheduleData[date][hour]) 
-                                     ? scheduleData[date][hour] 
-                                     : { status: 'no_class' };
-                    
                     let slotClass = 'slot';
                     let slotContent = '';
                     let onClickAction = '';
-                    
-                    if (slotData.status === 'available') {
-                        slotClass += ' available';
-                        slotContent = '🟢';
-                        onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
-                    } else if (slotData.status === 'full') {
-                        slotClass += ' full';
-                        slotContent = '❌';
+                    let titleAttribute = ''; // 用於存放 tooltip 文字
+
+                    // 組合出該時段的完整時間
+                    const slotDateTime = new Date(`${date}T${hour}`);
+
+                    // 優先判斷：是否已過期
+                    if (slotDateTime < now) {
+                        slotClass += ' expired';
+                        slotContent = '-';
+                    } else {
+                        // 若未過期，才根據後端資料來判斷狀態
+                        const slotData = (scheduleData[date] && scheduleData[date][hour]) 
+                                         ? scheduleData[date][hour] 
+                                         : { status: 'no_class' };
+                        
+                        switch (slotData.status) {
+                            case 'available':
+                                slotClass += ' available';
+                                slotContent = `剩 ${slotData.remaining}`;
+                                onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
+                                break;
+                            case 'full':
+                                slotClass += ' full';
+                                slotContent = '額滿';
+                                break;
+                            case 'booked_by_me':
+                                slotClass += ' booked-by-me';
+                                slotContent = '✅';
+                                onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
+                                titleAttribute = 'title="已預約"'; // 設定 tooltip
+                                break;
+                            // 'no_class' 狀態則維持 slotContent 為空字串
+                        }
                     }
-                    bodyHtml += `<td class="${slotClass}" ${onClickAction}>${slotContent}</td>`;
+                    bodyHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>${slotContent}</td>`;
                 });
                 bodyHtml += '</tr>';
             });
 
             container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+        }
+
+        function showBookingDetails(bookingId) {
+            window.location.href = `booking-details.html?id=${bookingId}`;
         }
 
         async function selectTimeslot(scheduleId, element) {
@@ -243,6 +287,7 @@
                 return;
             }
 
+            const originalContent = element.innerHTML; // 儲存原始內容
             // 提供即時反饋：禁用點擊並顯示處理中狀態
             element.onclick = null;
             element.classList.remove('available');
@@ -265,16 +310,21 @@
                 const result = await response.json();
                 alert(result.message); // 顯示後端回傳的訊息
 
-                if (result.status === 'success') {
+                if (result.status === 'success' && result.bookingId) {
+                    // 預約成功，更新格子狀態
                     element.classList.remove('processing');
-                    element.innerHTML = '✅'; // 顯示成功
+                    element.classList.add('booked-by-me');
+                    element.innerHTML = '✅';
+                    element.setAttribute('title', '已預約');
+                    element.onclick = () => showBookingDetails(result.bookingId);
                 } else {
-                    throw new Error(result.message); // 進入 catch 區塊來恢復格子狀態
+                    // 如果成功但沒有 bookingId，或狀態不是 success，就拋出錯誤
+                    throw new Error(result.message || '預約失敗，請稍後再試。');
                 }
             } catch (error) {
                 console.error('預約時發生錯誤:', error);
                 // 恢復格子為可點擊狀態
-                element.innerHTML = '🟢';
+                element.innerHTML = originalContent;
                 element.classList.remove('processing');
                 element.classList.add('available');
                 element.onclick = () => selectTimeslot(scheduleId, element);

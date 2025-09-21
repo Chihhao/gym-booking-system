@@ -46,6 +46,8 @@ function doGet(e) {
     switch (action) {
       case 'getSchedule':
         return createJsonResponse(getWeeklySchedule(e.parameter));
+      case 'getBookingDetails':
+        return createJsonResponse(getBookingDetails(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -132,6 +134,50 @@ function buildClassMap_() {
     }
   });
   return classMap;
+}
+
+/**
+ * [新功能] 根據 bookingId 取得單筆預約的詳細資訊
+ * @param {object} params - 包含 bookingId 的請求參數
+ */
+function getBookingDetails(params) {
+  const bookingId = params.bookingId;
+  if (!bookingId) {
+    throw new Error("缺少 bookingId 參數");
+  }
+
+  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
+  const targetBooking = bookingObjects.find(b => b.booking_id === bookingId);
+
+  if (!targetBooking) {
+    return { status: 'error', message: '找不到此預約紀錄' };
+  }
+
+  // 為了取得完整資訊，我們需要所有表格的資料
+  const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+  const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+  const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+
+  const targetClass = classObjects.find(c => c.class_id === targetBooking.class_id);
+  const targetCourse = targetClass ? courseObjects.find(co => co.course_id === targetClass.course_id) : null;
+  const targetUser = userObjects.find(u => u.line_user_id === targetBooking.line_user_id);
+
+  if (!targetClass || !targetCourse || !targetUser) {
+    return { status: 'error', message: '預約相關資料不完整' };
+  }
+
+  const classDate = Utilities.formatDate(new Date(targetClass.class_date), "GMT+8", "yyyy-MM-dd");
+  const startTime = Utilities.formatDate(new Date(targetClass.start_time), "GMT+8", "HH:mm");
+
+  return {
+    status: 'success',
+    bookingId: targetBooking.booking_id,
+    courseName: targetCourse.course_name,
+    classId: targetClass.class_id,
+    classTime: `${classDate} ${startTime}`,
+    userName: targetUser.line_display_name,
+    bookingStatus: targetBooking.status
+  };
 }
 
 function getPendingBookings() {
@@ -226,9 +272,14 @@ function getClassSchedule() {
  */
 function getWeeklySchedule(params) {
   const courseId = params.courseId;
+  const userId = params.userId; // 接收 userId
   if (!courseId) {
     throw new Error("缺少 courseId 參數");
   }
+  // 為了讓開發模式也能運作，我們先不強制檢查 userId
+  // if (!userId) {
+  //   throw new Error("缺少 userId 參數");
+  // }
 
   // 1. 準備時間範圍和基本資料結構
   const scheduleData = {};
@@ -248,6 +299,18 @@ function getWeeklySchedule(params) {
     });
   }
 
+  // 建立使用者已預約課程的 Set，方便快速查詢
+  const userBookings = new Map(); // 改用 Map 來同時儲存 bookingId
+  if (userId) {
+    const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
+    bookingObjects.forEach(booking => {
+      if (booking.line_user_id === userId && (booking.status.trim() === '已預約' || booking.status.trim() === '已扣款')) {
+        // key: class_id, value: booking_id
+        userBookings.set(booking.class_id, booking.booking_id);
+      }
+    });
+  }
+
   // 2. 讀取所有課程資料
   const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
   const sevenDaysLater = new Date(today);
@@ -263,13 +326,22 @@ function getWeeklySchedule(params) {
 
       // 確保日期和時間存在於我們的網格結構中
       if (scheduleData[dateString] && scheduleData[dateString][startTimeString]) {
-        const remaining = cls.max_students - cls.current_students;
-        const status = remaining > 0 ? 'available' : 'full';
-
-        scheduleData[dateString][startTimeString] = {
-          status: status,
-          schedule_id: cls.class_id // 前端預約時需要這個 ID
-        };
+        // 優先判斷是否為使用者已預約
+        if (userBookings.has(cls.class_id)) {
+          scheduleData[dateString][startTimeString] = {
+            status: 'booked_by_me',
+            schedule_id: cls.class_id,
+            booking_id: userBookings.get(cls.class_id) // 附上 booking_id
+          };
+        } else {
+          const remaining = cls.max_students - cls.current_students;
+          const status = remaining > 0 ? 'available' : 'full';
+          scheduleData[dateString][startTimeString] = {
+            status: status,
+            schedule_id: cls.class_id, // 前端預約時需要這個 ID
+            remaining: remaining // 新增：回傳剩餘名額
+          };
+        }
       }
     }
   });
@@ -390,7 +462,7 @@ function createBooking(data) {
       '' // update_user
     ]);
 
-    return { status: 'success', message: '預約成功！' };
+    return { status: 'success', message: '預約成功！', bookingId: bookingId };
 
   } catch (error) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };

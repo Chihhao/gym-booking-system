@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>預約憑證</title>
+    <!-- 載入 QRCode.js 函式庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            margin: 0; 
+            background-color: #212529; 
+            color: #e0e0e0; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2em;
+        }
+        .card {
+            background-color: #343a40;
+            border-radius: 12px;
+            padding: 2em;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 {
+            margin-top: 0;
+            color: #ffffff;
+        }
+        #qrcode {
+            margin: 1.5em auto;
+            padding: 1em;
+            background-color: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .details-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+        .details-list li {
+            padding: 0.75em 0;
+            border-bottom: 1px solid #495057;
+            display: flex;
+            justify-content: space-between;
+        }
+        .details-list li:last-child {
+            border-bottom: none;
+        }
+        .details-list .label {
+            color: #b0b0b0;
+            margin-right: 1em;
+        }
+        .details-list .value {
+            color: #ffffff;
+            font-weight: bold;
+            word-break: break-all;
+        }
+        .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div id="content-container" class="card">
+        <p class="loader">正在載入預約憑證...</p>
+    </div>
+
+    <script>
+        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+
+        window.addEventListener('DOMContentLoaded', main);
+
+        async function main() {
+            const container = document.getElementById('content-container');
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('id');
+
+            if (!bookingId) {
+                container.innerHTML = `<p class="error">錯誤：未提供預約編號。</p>`;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${GAS_URL}?action=getBookingDetails&bookingId=${bookingId}`);
+                if (!response.ok) throw new Error('網路回應錯誤');
+                
+                const data = await response.json();
+                if (data.status !== 'success') throw new Error(data.message);
+
+                renderDetails(data);
+
+            } catch (error) {
+                console.error('載入預約詳情時發生錯誤:', error);
+                container.innerHTML = `<p class="error">載入失敗：${error.message}</p>`;
+            }
+        }
+
+        function renderDetails(data) {
+            const container = document.getElementById('content-container');
+            
+            const qrCodeUrl = window.location.href; // QR Code 內容就是當前頁面的網址
+
+            container.innerHTML = `
+                <h1>預約憑證</h1>
+                <div id="qrcode"></div>
+                <ul class="details-list">
+                    <li><span class="label">課程名稱</span><span class="value">${data.courseName}</span></li>
+                    <li><span class="label">上課時間</span><span class="value">${data.classTime}</span></li>
+                    <li><span class="label">預約學員</span><span class="value">${data.userName}</span></li>
+                    <li><span class="label">預約狀態</span><span class="value">${data.bookingStatus}</span></li>
+                    <li><span class="label">預約編號</span><span class="value">${data.bookingId}</span></li>
+                </ul>
+            `;
+
+            // 產生 QR Code
+            new QRCode(document.getElementById("qrcode"), {
+                text: qrCodeUrl,
+                width: 200,
+                height: 200,
+            });
+        }
+    </script>
+
+</body>
+</html>
