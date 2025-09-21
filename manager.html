@@ -261,6 +261,11 @@
             font-size: 1.3em; /* 3. 加大時間字體 */
         }
 
+        /* 修正：為課表的時間欄設定一個固定的、合理的寬度 */
+        .schedule-grid .time-col {
+            width: 80px; /* 提供足夠的寬度顯示 HH:MM */
+        }
+
         .class-cell {
             cursor: pointer;
         }
@@ -274,31 +279,42 @@
             border-radius: 4px;
             padding: 0.5rem;
             margin-bottom: 0.25rem;
-            font-size: 0.9em; /* 4. 稍微加大課堂項目字體 */
+            font-size: 1em; /* 放大課堂項目字體 */
             text-align: left;
             /* 設定一個預設的卡片色，如果沒有對應的課程ID顏色，則顯示此顏色 */
             border-left: 6px solid var(--secondary-color); 
         }
         .class-item strong {
             display: block;
+            /* 新增：防止課堂名稱換行，並在過長時顯示省略號 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-
-        /* --- 根據課程ID設定專屬卡片色 --- */
-        .class-item[data-course-id="CRS001"] {
-            border-left-color: #e57373; /* 龜派氣功 - 柔和的紅色 */
-        }
-        .class-item[data-course-id="CRS002"] {
-            border-left-color: #64b5f6; /* 夢遊仙境 - 柔和的藍色 */
-        }
-        .class-item[data-course-id="CRS003"] {
-            border-left-color: #81c784; /* 一對一教學 - 柔和的綠色 */
-        }
-        /* 您可以在此處為新的課程ID增加更多顏色規則 */
-
         .class-item .info {
             display: flex;
             justify-content: space-between;
             opacity: 0.8;
+        }
+
+        /* --- 新增：顏色選擇器樣式 --- */
+        .color-picker-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding-top: 5px;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1px var(--border-color);
+            transition: all 0.2s;
+        }
+        .color-swatch.selected {
+            box-shadow: 0 0 0 2px var(--sidebar-active-bg);
         }
 
         /* 篩選控制項樣式 */
@@ -583,6 +599,12 @@
                     <label for="form-course-image">圖片檔名</label>
                     <input type="text" id="form-course-image" placeholder="例如：crs001.jpg">
                 </div>
+                <div class="form-group">
+                    <label>標籤顏色</label>
+                    <!-- 顏色選擇器的容器 -->
+                    <div id="form-course-color-picker" class="color-picker-container"></div>
+                    <input type="hidden" id="form-course-color">
+                </div>
                 <div class="modal-actions">
                     <button type="button" id="delete-course-btn" class="btn btn-danger">刪除課程</button>
                     <button type="submit" class="btn btn-success">儲存</button>
@@ -718,7 +740,8 @@
                     longDesc: document.getElementById('form-course-long-desc').value,
                     image: document.getElementById('form-course-image').value
                 };
-
+                // 新增：取得顏色選擇器的值
+                data.color = document.getElementById('form-course-color').value;
                 try {
                     const response = await fetch(GAS_URL, {
                         method: 'POST',
@@ -868,6 +891,36 @@
                     submitBtn.textContent = originalBtnText;
                 }
             });
+
+            // 11. 初始化並綁定顏色選擇器事件
+            const predefinedColors = [ // 新版：中明度、高彩度顏色
+                '#ef4444', // 鮮紅 (Vibrant Red)
+                '#f97316', // 亮橘 (Vibrant Orange)
+                '#eab308', // 琥珀黃 (Amber Yellow)
+                '#22c55e', // 翠綠 (Emerald Green)
+                '#3b82f6', // 寶藍 (Royal Blue)
+                '#8b5cf6', // 豔紫 (Vibrant Violet)
+                '#ec4899', // 桃紅 (Hot Pink)
+                '#06b6d4', // 青藍 (Cyan Blue)
+                '#84cc16', // 萊姆綠 (Lime Green)
+                '#64748b'  // 石板灰 (Slate Gray)
+            ];
+            const colorPickerContainer = document.getElementById('form-course-color-picker');
+            predefinedColors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color;
+                swatch.dataset.color = color;
+                swatch.addEventListener('click', () => {
+                    // 移除其他選項的 'selected' class
+                    colorPickerContainer.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                    // 為當前點擊的選項加上 'selected' class
+                    swatch.classList.add('selected');
+                    // 更新隱藏 input 的值
+                    document.getElementById('form-course-color').value = color;
+                });
+                colorPickerContainer.appendChild(swatch);
+            });
         });
 
         // --- 側邊欄收合功能 ---
@@ -905,17 +958,26 @@
             if (activeLink) activeLink.classList.add('active');
             if (activeSection) activeSection.classList.add('active');
 
-            // 根據不同頁面載入對應的初始資料
-            if (targetId === 'bookings' && currentBookings.length === 0) {
-                loadBookings();
-            } else if (targetId === 'schedule') {
-                loadManagerSchedule();
-            } else if (targetId === 'courses') {
-                loadCourses();
-            } else if (targetId === 'coaches') {
-                loadCoaches();
-            } else if (targetId === 'users') {
-                loadUsers();
+            // 優化：只有當資料尚未載入時，才執行載入函式
+            // 這樣可以避免每次切換分頁都重新向後端請求資料
+            switch (targetId) {
+                case 'bookings':
+                    if (currentBookings.length === 0) loadBookings();
+                    break;
+                case 'schedule':
+                    // 課表比較特殊，每次切換都重新載入以確保是最新資料
+                    loadManagerSchedule();
+                    break;
+                case 'courses':
+                    if (currentCourses.length === 0) loadCourses();
+                    break;
+                case 'coaches':
+                    if (currentCoaches.length === 0) loadCoaches();
+                    break;
+                case 'users':
+                    // 修改：第一次點擊此分頁時，自動載入所有使用者列表
+                    if (currentUsers.length === 0) loadUsers();
+                    break;
             }
         } // handleNavigation 函式定義結束
 
@@ -1041,7 +1103,7 @@
             const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
             const formatDate = (date) => date.toISOString().split('T')[0];
 
-            let headerHtml = '<tr><th>時間</th>';
+            let headerHtml = '<tr><th class="time-col">時間</th>';
             const days = ['日', '一', '二', '三', '四', '五', '六'];
             for (let i = 0; i < 7; i++) {
                 const currentDate = new Date(startOfWeek);
@@ -1052,7 +1114,7 @@
 
             let bodyHtml = '';
             hours.forEach(hour => {
-                bodyHtml += `<tr><td class="time-label">${hour}</td>`;
+                bodyHtml += `<tr><td class="time-label time-col">${hour}</td>`;
                 for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
                     const currentDate = new Date(startOfWeek);
                     currentDate.setDate(startOfWeek.getDate() + dayIndex);
@@ -1065,7 +1127,7 @@
                     if (classesInSlot && classesInSlot.length > 0) {
                         classesInSlot.forEach(cls => {
                             cellContent += `
-                                <div class="class-item" data-course-id="${cls.courseId}" onclick="openClassModal(null, null, '${cls.classId}', event)">
+                                <div class="class-item" style="border-left-color: ${cls.color};" onclick="openClassModal(null, null, '${cls.classId}', event)">
                                     <strong>${cls.className}</strong>
                                     <div class="info">
                                         <span>${cls.coachName}</span>
@@ -1138,10 +1200,17 @@
                     actionButtons = '<button class="btn" disabled>無操作</button>';
                 }
 
+                // 組合顏色方塊和課堂名稱
+                const nameCellContent = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; background-color: ${booking.courseColor || '#ccc'}; border-radius: 4px; flex-shrink: 0;"></div>
+                        <span>${booking.className}</span>
+                    </div>`;
+
                 tableHtml += `
                     <tr id="row-${booking.bookingId}">
                         <td>${booking.bookingId}</td>
-                        <td>${booking.className}</td>
+                        <td>${nameCellContent}</td>
                         <td>${booking.coachName}</td>
                         <td>${booking.classTime}</td>
                         <td>${booking.userName}</td>
@@ -1445,7 +1514,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="sortable" onclick="handleCourseSort('course_id')">課程ID</th>
+                            <th class="sortable" onclick="handleCourseSort('course_id')">課程 ID</th>
                             <th class="sortable" onclick="handleCourseSort('course_name')">課程名稱</th>
                             <th class="sortable" onclick="handleCourseSort('price')">價格</th>
                             <th class="sortable col-tight" onclick="handleSort('status')">狀態</th>
@@ -1459,10 +1528,16 @@
                 const statusClass = course.status === 'Active' ? 'active' : 'inactive';
                 const statusBadge = `<span class="status-badge ${statusClass}">${course.status}</span>`;
 
+                // 組合顏色方塊和課程名稱
+                const nameCellContent = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 20px; height: 20px; background-color: ${course.color || '#ccc'}; border-radius: 4px; flex-shrink: 0;"></div>
+                        <span>${course.course_name}</span>
+                    </div>`;
                 tableHtml += `
                     <tr>
                         <td>${course.course_id}</td>
-                        <td>${course.course_name}</td>
+                        <td>${nameCellContent}</td>
                         <td>${course.price}</td>
                         <td class="col-tight">${statusBadge}</td>
                         <td class="col-tight"><button class="btn btn-secondary" onclick="openCourseModal('${course.course_id}')">編輯</button></td>
@@ -1499,6 +1574,15 @@
                     document.getElementById('form-course-short-desc').value = d.short_description || '';
                     document.getElementById('form-course-long-desc').value = d.long_description || '';
                     document.getElementById('form-course-image').value = d.image_url || '';
+                    
+                    // 更新：設定顏色選擇器
+                    const selectedColor = d.color || '#64748b'; // 如果沒有顏色，給一個預設的石板灰
+                    document.getElementById('form-course-color').value = selectedColor;
+                    const swatches = document.querySelectorAll('#form-course-color-picker .color-swatch');
+                    swatches.forEach(s => {
+                        s.classList.toggle('selected', s.dataset.color === selectedColor);
+                    });
+
                 } catch (error) {
                     alert(`載入課程資料失敗: ${error.message}`);
                     closeCourseModal();
@@ -1509,6 +1593,8 @@
                 document.getElementById('course-modal-title').textContent = '新增課程型錄';
                 document.getElementById('delete-course-btn').style.display = 'none';
                 document.getElementById('form-course-id-hidden').value = '';
+                // 更新：為新課程設定預設顏色
+                document.querySelector('#form-course-color-picker .color-swatch[data-color="#64748b"]').click();
             }
 
             modal.classList.add('active');

@@ -41,6 +41,29 @@ function sheetDataToObjects_(data) {
   });
 }
 
+/**
+ * [效能優化] 帶有快取機制的 sheetDataToObjects_ 版本。
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - 要讀取的工作表物件。
+ * @param {string} cacheKey - 此工作表在快取中的唯一鍵值。
+ * @param {number} expirationInSeconds - 快取的有效時間（秒）。
+ * @returns {Array<Object>} - 物件陣列。
+ */
+function getCachedSheetData_(sheet, cacheKey, expirationInSeconds) {
+  const cache = CacheService.getScriptCache();
+  const cachedData = cache.get(cacheKey);
+
+  if (cachedData != null) {
+    // Logger.log(`快取命中: ${cacheKey}`);
+    return JSON.parse(cachedData);
+  }
+
+  // Logger.log(`快取未命中: ${cacheKey}`);
+  const data = sheet.getDataRange().getValues();
+  const objects = sheetDataToObjects_(data);
+  cache.put(cacheKey, JSON.stringify(objects), expirationInSeconds);
+  return objects;
+}
+
 function doGet(e) {
   // 新的 API 路由器
   const action = e.parameter.action;
@@ -244,7 +267,9 @@ function getCourses() {
   if (!COURSE_SHEET) {
     return createJsonResponse({ status: 'error', message: '找不到名為 "Courses" 的工作表' });
   }
-  const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+  // 優化：使用快取讀取課程資料，快取 5 分鐘
+  const courseObjects = getCachedSheetData_(COURSE_SHEET, 'active_courses_data', 300);
+
   const activeCourses = [];
 
   courseObjects.forEach(course => {
@@ -539,7 +564,8 @@ function createBooking(data) {
  */
 function getAllUsersForManager(params) {
   try {
-    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取使用者資料，快取 5 分鐘
+    const userObjects = getCachedSheetData_(USER_SHEET, 'users_data', 300);
     
     let filteredUsers = userObjects;
 
@@ -571,7 +597,8 @@ function getUserDetailsForManager(params) {
       throw new Error("缺少 userId 參數");
     }
 
-    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取使用者資料
+    const userObjects = getCachedSheetData_(USER_SHEET, 'users_data', 300);
     const targetUser = userObjects.find(u => u.line_user_id === userId);
 
     if (!targetUser) {
@@ -632,7 +659,8 @@ function updateUserPoints(data) {
  */
 function getAllCoachesForManager() {
   try {
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取教練資料，快取 10 分鐘
+    const coachObjects = getCachedSheetData_(COACH_SHEET, 'coaches_data', 600);
     // 管理後台需要看到所有教練，所以不過濾狀態
     return { status: 'success', coaches: coachObjects.reverse() }; // 讓最新的在最上面
   } catch (error) {
@@ -653,7 +681,8 @@ function getCoachDetailsForManager(params) {
       throw new Error("缺少 coachId 參數");
     }
 
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取教練資料
+    const coachObjects = getCachedSheetData_(COACH_SHEET, 'coaches_data', 600);
     const targetCoach = coachObjects.find(c => c.coach_id === coachId);
 
     if (!targetCoach) {
@@ -675,6 +704,10 @@ function getCoachDetailsForManager(params) {
 function saveCoach(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
+
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('coaches_data');
 
   try {
     const coachValues = COACH_SHEET.getDataRange().getValues();
@@ -747,6 +780,10 @@ function deleteCoach(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('coaches_data');
+
   try {
     const { coachId } = data;
     if (!coachId) {
@@ -795,6 +832,11 @@ function deleteCourse(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('courses_data');
+  cache.remove('active_courses_data');
+
   try {
     const { courseId } = data;
     if (!courseId) {
@@ -840,7 +882,8 @@ function deleteCourse(data) {
  */
 function getAllCoursesForManager() {
   try {
-    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取課程型錄資料，快取 10 分鐘
+    const courseObjects = getCachedSheetData_(COURSE_SHEET, 'courses_data', 600);
     // 管理後台需要看到所有課程，所以不過濾狀態
     return { status: 'success', courses: courseObjects.reverse() }; // 讓最新的在最上面
   } catch (error) {
@@ -861,7 +904,8 @@ function getCourseDetailsForManager(params) {
       throw new Error("缺少 courseId 參數");
     }
 
-    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
+    // 優化：使用快取讀取課程型錄資料
+    const courseObjects = getCachedSheetData_(COURSE_SHEET, 'courses_data', 600);
     const targetCourse = courseObjects.find(c => c.course_id === courseId);
 
     if (!targetCourse) {
@@ -884,13 +928,18 @@ function saveCourse(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('courses_data');
+  cache.remove('active_courses_data');
+
   try {
     const courseValues = COURSE_SHEET.getDataRange().getValues();
     const headers = courseValues[0];
     const courseIdColIndex = headers.indexOf('course_id');
 
     // 從 data 中解構出所有欄位
-    const { courseId, courseName, price, status, shortDesc, longDesc, image } = data;
+    const { courseId, courseName, price, status, shortDesc, longDesc, image, color } = data;
 
     if (!courseName || !price || !status) {
       throw new Error("缺少必要的課程資訊 (名稱、價格、狀態)");
@@ -917,7 +966,8 @@ function saveCourse(data) {
         'status': status,
         'short_description': shortDesc,
         'long_description': longDesc,
-        'image_url': image
+        'image_url': image,
+        'color': color // 新增：更新顏色欄位
       };
 
       // 遍歷 headers 來設定對應欄位的值
@@ -954,7 +1004,7 @@ function saveCourse(data) {
       
       // 注意：appendRow 的順序必須和 Courses 工作表欄位完全一致
       COURSE_SHEET.appendRow([
-        newCourseId, courseName, shortDesc, longDesc, image, price, status
+        newCourseId, courseName, shortDesc, longDesc, image, price, status, color
       ]);
 
       return { status: 'success', message: '課程型錄新增成功！' };
@@ -1389,22 +1439,24 @@ function generateSchemaDescription() {
  */
 function getAllBookings(params) {
   try {
-    // 1. 讀取所有需要的資料並轉換為物件
+    // 1. 讀取所有需要的資料並轉換為物件 (預約紀錄通常變動快，不建議快取)
     const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
-    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
-    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
-    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    const classObjects = getCachedSheetData_(CLASS_SHEET, 'classes_data', 60); // 課表快取 1 分鐘
+    const userObjects = getCachedSheetData_(USER_SHEET, 'users_data', 300); // 使用者快取 5 分鐘
+    const courseObjects = getCachedSheetData_(COURSE_SHEET, 'courses_data', 600); // 課程型錄快取 10 分鐘
+    const coachObjects = getCachedSheetData_(COACH_SHEET, 'coaches_data', 600); // 教練快取 10 分鐘
 
     // 2. 建立 Map 以提高查詢效率
     const userMap = new Map(userObjects.map(u => [u.line_user_id, u.line_display_name]));
     const classMap = new Map(classObjects.map(c => [c.class_id, { 
+        course_id: c.course_id, // 新增：需要 course_id 來查找顏色
         className: c.class_name, // 使用 class_name 作為課堂名稱
         coach_id: c.coach_id,
         class_date: c.class_date, 
         start_time: c.start_time 
     }]));
     const coachMap = new Map(coachObjects.map(coach => [coach.coach_id, coach.coach_name]));
+    const courseMap = new Map(courseObjects.map(course => [course.course_id, { color: course.color }])); // 新增：建立課程顏色 Map
 
     // 3. 組合預約資料，從最新的一筆開始處理
     const allBookings = bookingObjects.reverse().map(booking => {
@@ -1412,6 +1464,7 @@ function getAllBookings(params) {
       let className = '未知課堂';
       let classTime = '未知時間';
       let coachName = '未知教練';
+      let courseColor = '#ccc'; // 新增：預設顏色
       let originalClassDate = null; // 新增一個欄位來儲存原始格式的日期，以便篩選
 
       if (classInfo) {
@@ -1424,11 +1477,18 @@ function getAllBookings(params) {
         const displayClassDate = Utilities.formatDate(classDateObj, "GMT+8", "MM/dd"); // 用於顯示的日期
         const startTime = Utilities.formatDate(new Date(classInfo.start_time), "GMT+8", "HH:mm");
         classTime = `${displayClassDate} ${startTime}`;
+
+        // 從 courseMap 查找顏色
+        const courseInfo = courseMap.get(classInfo.course_id);
+        if (courseInfo && courseInfo.color) {
+          courseColor = courseInfo.color;
+        }
       }
 
       return {
         bookingId: booking.booking_id,
         className: className, // 回傳 className
+        courseColor: courseColor, // 新增：回傳顏色
         coachName: coachName, // 新增：回傳 coachName
         classTime: classTime,
         originalClassDate: originalClassDate, // 將原始日期格式一起回傳
@@ -1494,11 +1554,15 @@ function getClassesForManager(params) {
     }
 
     // 2. 讀取並建立 Coach Map
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    const coachObjects = getCachedSheetData_(COACH_SHEET, 'coaches_data', 600); // 快取 10 分鐘
     const coachMap = new Map(coachObjects.map(c => [c.coach_id, c.coach_name]));
 
+    // 新增：讀取課程資料並建立 Map，以便查詢顏色
+    const courseObjects = getCachedSheetData_(COURSE_SHEET, 'courses_data', 600);
+    const courseMap = new Map(courseObjects.map(c => [c.course_id, { color: c.color }]));
+
     // 3. 讀取所有課堂資料並填入網格
-    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
+    const classObjects = getCachedSheetData_(CLASS_SHEET, 'classes_data', 60); // 課表變動頻繁，快取 1 分鐘
 
     classObjects.forEach(cls => {
       const classDate = new Date(cls.class_date);
@@ -1512,10 +1576,14 @@ function getClassesForManager(params) {
           if (!scheduleData[dateString][startTimeString]) {
             scheduleData[dateString][startTimeString] = [];
           }
+          // 從 courseMap 查找顏色，如果找不到則給一個預設顏色
+          const courseInfo = courseMap.get(cls.course_id);
+          const courseColor = courseInfo && courseInfo.color ? courseInfo.color : '#6c757d'; // 預設灰色
+
           scheduleData[dateString][startTimeString].push({
             classId: cls.class_id,
-            courseId: cls.course_id, // 新增：回傳 course_id 以便前端上色
             className: cls.class_name,
+            color: courseColor, // 新增：回傳顏色代碼
             coachName: coachMap.get(cls.coach_id) || '未知教練',
             currentStudents: cls.current_students,
             maxStudents: cls.max_students,
@@ -1537,8 +1605,8 @@ function getClassesForManager(params) {
  */
 function getManagerFormData() {
   try {
-    const courseObjects = sheetDataToObjects_(COURSE_SHEET.getDataRange().getValues());
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
+    const courseObjects = getCachedSheetData_(COURSE_SHEET, 'courses_data', 600); // 快取 10 分鐘
+    const coachObjects = getCachedSheetData_(COACH_SHEET, 'coaches_data', 600); // 快取 10 分鐘
 
     // 只回傳狀態為 Active 的課程
     const activeCourses = courseObjects.filter(c => c.status === 'Active').map(c => ({
@@ -1566,6 +1634,10 @@ function getManagerFormData() {
 function saveClass(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
+
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('classes_data');
 
   try {
     const classValues = CLASS_SHEET.getDataRange().getValues();
@@ -1682,6 +1754,10 @@ function saveClass(data) {
 function deleteClass(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
+
+  // 在寫入操作前，清除相關快取
+  const cache = CacheService.getScriptCache();
+  cache.remove('classes_data');
 
   try {
     const { classId } = data;
