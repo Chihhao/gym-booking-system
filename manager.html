@@ -194,11 +194,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
         }
         .schedule-controls h3 {
             margin: 0;
-            font-size: 1.2em;
+            font-size: 1.5em;
         }
 
         .schedule-grid-container {
@@ -208,8 +207,16 @@
         .schedule-grid {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
+            table-layout: fixed; /* 恢復為 fixed，確保所有日期欄位等寬 */
             min-width: 800px; /* 確保在小螢幕上也能正常滾動 */
+        }
+
+        /* 1. 表頭(第一行)使用不同顏色，並垂直置中 */
+        .schedule-grid thead th {
+            background-color: #e9ecef; /* 使用一個比內容區稍深的顏色 */
+            vertical-align: middle;
+            height: 60px;
+            font-size: 1.3em; 
         }
 
         .schedule-grid th, .schedule-grid td {
@@ -217,13 +224,21 @@
             text-align: center;
             vertical-align: top;
             padding: 0.5rem;
-            height: 100px;
+            min-height: 60px; /* 修正：使用 min-height 確保最小高度，並允許內容擴展 */
+        }
+
+        /* 2. 奇數與偶數行使用不同顏色 (Zebra Striping) */
+        .schedule-grid tbody tr:nth-child(odd) {
+            background-color: var(--content-bg); /* e.g., #ffffff */
+        }
+        .schedule-grid tbody tr:nth-child(even) {
+            background-color: #f2f2f2; /* 使用一個比預設更深的灰色，增加對比度 */
         }
 
         .schedule-grid .time-label {
-            background-color: var(--bg-color);
             vertical-align: middle;
             font-weight: bold;
+            font-size: 1.3em; /* 3. 加大時間字體 */
         }
 
         .class-cell {
@@ -234,17 +249,32 @@
         }
 
         .class-item {
-            background-color: #0d6efd;
+            background-color: #404040; 
             color: white;
             border-radius: 4px;
             padding: 0.5rem;
             margin-bottom: 0.25rem;
-            font-size: 0.85em;
+            font-size: 0.9em; /* 4. 稍微加大課堂項目字體 */
             text-align: left;
+            /* 設定一個預設的卡片色，如果沒有對應的課程ID顏色，則顯示此顏色 */
+            border-left: 6px solid var(--secondary-color); 
         }
         .class-item strong {
             display: block;
         }
+
+        /* --- 根據課程ID設定專屬卡片色 --- */
+        .class-item[data-course-id="CRS001"] {
+            border-left-color: #e57373; /* 龜派氣功 - 柔和的紅色 */
+        }
+        .class-item[data-course-id="CRS002"] {
+            border-left-color: #64b5f6; /* 夢遊仙境 - 柔和的藍色 */
+        }
+        .class-item[data-course-id="CRS003"] {
+            border-left-color: #81c784; /* 一對一教學 - 柔和的綠色 */
+        }
+        /* 您可以在此處為新的課程ID增加更多顏色規則 */
+
         .class-item .info {
             display: flex;
             justify-content: space-between;
@@ -680,7 +710,7 @@
                     if (classesInSlot && classesInSlot.length > 0) {
                         classesInSlot.forEach(cls => {
                             cellContent += `
-                                <div class="class-item" onclick="openClassModal(null, null, '${cls.classId}', event)">
+                                <div class="class-item" data-course-id="${cls.courseId}" onclick="openClassModal(null, null, '${cls.classId}', event)">
                                     <strong>${cls.className}</strong>
                                     <div class="info">
                                         <span>${cls.coachName}</span>

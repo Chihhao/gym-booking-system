@@ -1027,6 +1027,7 @@ function getClassesForManager(params) {
           }
           scheduleData[dateString][startTimeString].push({
             classId: cls.class_id,
+            courseId: cls.course_id, // 新增：回傳 course_id 以便前端上色
             className: cls.class_name,
             coachName: coachMap.get(cls.coach_id) || '未知教練',
             currentStudents: cls.current_students,
