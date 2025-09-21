@@ -3,127 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wally Studio 健身房預約系統</title>
+    <title>課程預約</title>
+    <!-- 載入 LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            margin: 0;
+            margin: 10px;
+            background-color: #212529; /* 1. 調整為較柔和的深灰色 */
+            color: #e0e0e0; /* 1. 預設淺色文字 */
+        }
+        #header-container { margin-bottom: 1.5em; }
+        #header-container p { margin: 0; font-size: 1.1em; color: #e0e0e0; }
+        
+        .course-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 手機上預設單欄 */
+            gap: 10px;
+        }
+        .course-card {
+            background-color: #343a40; /* 1. 調整為較淺的卡片背景 */
+            border-radius: 8px;
+            overflow: hidden; /* 讓圖片的圓角生效 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s; /* 修改 transition 效果 */
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f2f5;
+            flex-direction: row; /* 改為水平排列 */
+            align-items: center; /* 垂直置中 */
+            height: 140px; /* 3. 卡片的高度是 140 */
+            /* padding-left: 10px;  */
         }
-        .container {
-            text-align: center;
-            background-color: white;
-            padding: 3rem 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-            max-width: 400px;
-            width: 90%;
+        .course-card:hover {
+            background-color: #495057; /* 改變背景顏色 */
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
-        h1 {
-            color: #333;
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 2rem;
+        .course-card img {
+            width: 120px; /* 2. 我希望圖片是120x120 */
+            height: 120px; /* 2. 我希望圖片是120x120 */
+            object-fit: cover; /* 讓圖片不變形地填滿容器 */
+            flex-shrink: 0; /* 防止圖片被壓縮 */
+            border-radius: 4px; /* 圖片圓角 */
+            margin-left: 10px;
         }
-        p {
-            color: #666;
-            margin-bottom: 2rem;
-        }
-        .button-group {
+        .course-card-content {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            margin-bottom: 2rem;
+            justify-content: center; /* 6. 圖片右側的文字，整個區塊上下置中 */
+            padding: 0 1rem; /* 調整左右內距 */
+            gap: 0.25rem; /* 增加文字行之間的間距 */
+            text-align: left; /* 文字靠左 */
+            flex-grow: 1; /* 佔滿剩餘空間 */
+            overflow: hidden; /* 為了讓文字截斷生效 */
         }
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 1rem;
-            font-size: 1.1rem;
+        .course-card h2 { 
+            margin: 0; /* 移除所有外部間距 */
+            color: #ffffff; /* 1. 標題亮白色 */
+        }
+        .course-card .description { 
+            margin: 0; /* 移除所有外部間距 */
+            color: #b0b0b0; /* 1. 描述文字淺灰色 */
+            font-size: 0.9em;
+            /* 3. 處理文字過多，最多顯示兩行 */
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .course-card .price {
+            margin: 0; /* 移除所有外部間距 */
             font-weight: bold;
-            text-decoration: none;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            box-sizing: border-box;
+            color: #4dabf7; /* 1. 價格亮藍色 */
+            font-size: 1.1em;
         }
-        .btn:active {
-            transform: scale(0.98);
-        }
-        .btn-primary {
-            background-color: #0d6efd;
-            color: white;
-        }
-        .btn-primary:hover {
-            background-color: #0b5ed7;
-        }
-        .admin-login-section {
-            border-top: 1px solid #eee;
-            padding-top: 1.5rem;
-        }
-        .admin-login-section label {
-            display: block;
-            text-align: left;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-            color: #555;
-        }
-        .admin-login-section input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-sizing: border-box;
-            margin-bottom: 1rem;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
+        .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
+        .error { color: #dc3545; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Wally Studio</h1>
-        <p>健身房預約系統</p>
-
-        <div class="button-group">
-            <a href="courses.html" class="btn btn-primary">課程預約</a>
-        </div>
-
-        <div class="admin-login-section">
-            <form id="admin-login-form">
-                <label for="password">管理員登入</label>
-                <input type="password" id="password" placeholder="請輸入管理密碼" required>
-                <button type="submit" class="btn btn-secondary">登入後台</button>
-            </form>
-        </div>
+    <!-- 新增一個獨立的頁首容器 -->
+    <div id="header-container">
+        <!-- 標題和使用者資訊將會顯示在這裡 -->
+    </div>
+    
+    <div id="content-container">
+        <p class="loader">正在初始化並載入課程資料...</p>
     </div>
 
-    <script>
-        // 這裡的密碼是明文寫在前端，僅為臨時方案，安全性較低。
-        // 在正式環境中，應改用更安全的驗證機制。
-        const ADMIN_PASSWORD = '1234';
+    <script>      
+        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+        const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/';
+        const LIFF_ID = '2008135811-vNO5bYyx'; 
 
-        document.getElementById('admin-login-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const passwordInput = document.getElementById('password');
-            if (passwordInput.value === ADMIN_PASSWORD) {
-                // 密碼正確，跳轉到管理後台
-                window.location.href = 'manager.html';
-            } else {
-                alert('密碼錯誤！');
-                passwordInput.value = '';
+     
+        // 全域變數，用來存放使用者資訊
+        let userProfile = null;
+
+        async function main() {
+            const headerContainer = document.getElementById('header-container');
+            const contentContainer = document.getElementById('content-container');
+
+            try {
+                let welcomeName = '';
+                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
+                if (!liff.isInClient()) {
+                    // 7. 如果是開發模式，那麼XXX=小明
+                    welcomeName = '小明';
+                } else {
+                    await liff.init({ liffId: LIFF_ID });
+                    
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return;
+                    }
+                    userProfile = await liff.getProfile();
+                    welcomeName = userProfile.displayName;
+                }
+                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
+                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
+                
+                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
+                await fetchCourses();
+    
+            } catch (err) {
+                console.error('初始化失敗', err);
+                headerContainer.innerHTML = '<h1>錯誤</h1>';
+                contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
-        });
+        }
+        
+        main();
+
+        async function fetchCourses() {
+            const container = document.getElementById('content-container');
+            container.innerHTML = '<p class="loader">課程資料載入中...</p>';
+            try {
+                const response = await fetch(GAS_URL);
+                if (!response.ok) throw new Error('網路回應錯誤');
+                const data = await response.json();
+                
+                // 直接使用後端回傳的課程列表
+                if (data && data.courses) {
+                    if (data.courses.length > 0) {
+                        renderCourses(data.courses);
+                    } else {
+                        container.innerHTML = '<p>目前沒有可用的課程。</p>';
+                    }
+                } else {
+                    container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
+                }
+            } catch (error) {
+                console.error('讀取課程資料時發生錯誤:', error);
+                container.innerHTML = '<p class="error">載入課程失敗，請稍後再試。</p>';
+            }
+        }
+        
+        function renderCourses(courses) {
+            const container = document.getElementById('content-container');
+            let html = '<div class="course-grid">';
+            courses.forEach(course => {
+                // 組合出完整的圖片 URL
+                const imageUrl = course.image_url ? `${IMAGE_BASE_URL}${course.image_url}` : 'https://via.placeholder.com/400x180.png?text=No+Image';
+                html += `
+                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${course.course_name}')">
+                        <img src="${imageUrl}" alt="${course.course_name}">
+                        <div class="course-card-content">
+                            <h2>${course.course_name}</h2>
+                            <p class="description">${course.short_description || ''}</p>
+                            <p class="price">每小時 $${course.price}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        function selectCourse(courseId, courseName) {
+            // 傳遞 course_id 用於查詢，course_name 用於顯示標題
+            const encodedName = encodeURIComponent(courseName);
+            // 使用 id 和 name 作為參數，語意更清晰
+            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
+        }
+        
     </script>
 
 </body>

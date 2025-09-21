@@ -65,62 +65,45 @@ function getCachedSheetData_(sheet, cacheKey, expirationInSeconds) {
 }
 
 function doGet(e) {
-  // 檢查是否有 'page' 參數，若有，則視為頁面請求
-  const page = e.parameter.page;
-  if (page) {
-    let template;
-    switch (page) {
-      case 'courses':
-        template = HtmlService.createTemplateFromFile('courses');
-        break;
-      case 'schedule':
-        template = HtmlService.createTemplateFromFile('schedule');
-        break;
-      case 'booking-details':
-        template = HtmlService.createTemplateFromFile('booking-details');
-        break;
-      case 'manager':
-        template = HtmlService.createTemplateFromFile('manager');
-        break;
-      case 'admin': // 為了舊版 admin.html 保留
-        template = HtmlService.createTemplateFromFile('admin');
-        break;
-      default:
-        // 如果 page 參數無效，也回到首頁
-        template = HtmlService.createTemplateFromFile('index');
-        break;
-    }
-    return template.evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
-  }
-
-  // 如果沒有 'page' 參數，則執行原有的 API 路由器邏輯
+  // 新的 API 路由器
   const action = e.parameter.action;
+
   try {
     switch (action) {
-      case 'getSchedule': return createJsonResponse(getWeeklySchedule(e.parameter));
-      case 'getBookingDetails': return createJsonResponse(getBookingDetails(e.parameter));
-      case 'getAllBookings': return createJsonResponse(getAllBookings(e.parameter));
-      case 'getClassesForManager': return createJsonResponse(getClassesForManager(e.parameter));
-      case 'getManagerFormData': return createJsonResponse(getManagerFormData());
-      case 'getClassDetails': return createJsonResponse(getClassDetails(e.parameter));
-      case 'getAllCoursesForManager': return createJsonResponse(getAllCoursesForManager());
-      case 'getCourseDetailsForManager': return createJsonResponse(getCourseDetailsForManager(e.parameter));
-      case 'getAllCoachesForManager': return createJsonResponse(getAllCoachesForManager());
-      case 'getCoachDetailsForManager': return createJsonResponse(getCoachDetailsForManager(e.parameter));
-      case 'getAllUsersForManager': return createJsonResponse(getAllUsersForManager(e.parameter));
-      case 'getUserDetailsForManager': return createJsonResponse(getUserDetailsForManager(e.parameter));
-      case 'getPendingBookings': return getPendingBookings();
-      case 'test': return testDataRead();
-      // 當 action 為空或未定義時，有兩種可能：
-      // 1. 舊的 index.html (現在是 courses.html) 請求課程列表
-      // 2. 直接在瀏覽器打開 /exec 網址
+      case 'getSchedule':
+        return createJsonResponse(getWeeklySchedule(e.parameter));
+      case 'getBookingDetails':
+        return createJsonResponse(getBookingDetails(e.parameter));
+      case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
+        return createJsonResponse(getAllBookings(e.parameter));
+      case 'getClassesForManager': // 新增：管理後台獲取課表資料的 API
+        return createJsonResponse(getClassesForManager(e.parameter));
+      case 'getManagerFormData': // 新增：管理後台獲取表單資料的 API
+        return createJsonResponse(getManagerFormData());
+      case 'getClassDetails': // 新增：管理後台獲取單一課堂詳細資料的 API
+        return createJsonResponse(getClassDetails(e.parameter));
+      case 'getAllCoursesForManager': // 新增：管理後台獲取所有課程型錄的 API
+        return createJsonResponse(getAllCoursesForManager());
+      case 'getCourseDetailsForManager': // 新增：管理後台獲取單一課程型錄詳情的 API
+        return createJsonResponse(getCourseDetailsForManager(e.parameter));
+      case 'getAllCoachesForManager': // 新增：管理後台獲取所有教練的 API
+        return createJsonResponse(getAllCoachesForManager());
+      case 'getCoachDetailsForManager': // 新增：管理後台獲取單一教練詳情的 API
+        return createJsonResponse(getCoachDetailsForManager(e.parameter));
+      case 'getAllUsersForManager': // 新增：管理後台獲取所有使用者的 API
+        return createJsonResponse(getAllUsersForManager(e.parameter));
+      case 'getUserDetailsForManager': // 新增：管理後台獲取單一使用者詳情的 API
+        return createJsonResponse(getUserDetailsForManager(e.parameter));
+      // 為了管理頁面保留的舊邏輯
+      case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
+      case 'getPendingBookings':
+        return getPendingBookings();
+      // 測試用
+      case 'test':
+        return testDataRead();
+      // 預設行為：取得所有課程型錄 (給 index.html 使用)
       default:
-        // 如果沒有 action，但也沒有 page，就顯示首頁
-        if (!action) {
-          return HtmlService.createTemplateFromFile('index').evaluate().addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
-        }
-        // 為了相容舊的 courses.html，如果 action 是空的，就回傳課程列表
-        return getCourses(); // getCourses() 會回傳 JSON
+        return getCourses();
     }
   } catch (error) {
     return createJsonResponse({ status: 'error', message: '處理 GET 請求時發生錯誤: ' + error.toString() });
@@ -128,9 +111,6 @@ function doGet(e) {
 }
 
 function getDeploymentInfo() {
-  // 為了讓前端的 PROD_GAS_URL 可以正確被替換，我們需要一個輔助函式
-  // 這個函式會被用在 HtmlService.createTemplateFromFile(fileName) 中
-  // 雖然這裡沒有直接使用，但保留這個概念很重要
   return ContentService
     .createTextOutput(JSON.stringify({ 
       version: VERSION,
@@ -138,23 +118,6 @@ function getDeploymentInfo() {
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
-
-/**
- * [核心] 處理來自前端的 GET 請求。
- * 根據 URL 中的 'page' 或 'action' 參數決定回傳 HTML 頁面或 JSON 資料。
- *
- * 路由邏輯：
- * 1. 如果有 `page` 參數 (e.g., `?page=courses`)：回傳對應的 HTML 頁面。
- *    - 這是 LIFF 或管理者直接存取特定頁面的主要方式。
- * 2. 如果沒有 `page` 參數，但有 `action` 參數 (e.g., `?action=getAllBookings`)：
- *    - 執行 API 邏輯，回傳 JSON 資料。
- * 3. 如果 `page` 和 `action` 都沒有 (直接存取 `.../exec`)：
- *    - 回傳專案首頁 `index.html`。
- * 4. 如果 `action` 參數為空 (相容舊版 `courses.html` 的 fetch(GAS_URL))：
- *    - 執行 `getCourses()`，回傳課程列表 JSON。
- */
-
-
 
 // 測試資料讀取
 function testDataRead() {
