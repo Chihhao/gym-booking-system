@@ -3,191 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課程預約</title>
-    <!-- 載入 LIFF SDK -->
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <title>WALLY 自由教練工作室 - 首頁</title>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            margin: 10px;
-            background-color: #212529; /* 1. 調整為較柔和的深灰色 */
-            color: #e0e0e0; /* 1. 預設淺色文字 */
-        }
-        #header-container { margin-bottom: 1.5em; }
-        #header-container p { margin: 0; font-size: 1.1em; color: #e0e0e0; }
-        
-        .course-grid {
-            display: grid;
-            grid-template-columns: 1fr; /* 手機上預設單欄 */
-            gap: 10px;
-        }
-        .course-card {
-            background-color: #343a40; /* 1. 調整為較淺的卡片背景 */
-            border-radius: 8px;
-            overflow: hidden; /* 讓圖片的圓角生效 */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            cursor: pointer;
-            transition: background-color 0.2s, box-shadow 0.2s; /* 修改 transition 效果 */
-            display: flex;
-            flex-direction: row; /* 改為水平排列 */
-            align-items: center; /* 垂直置中 */
-            height: 140px; /* 3. 卡片的高度是 140 */
-            /* padding-left: 10px;  */
-        }
-        .course-card:hover {
-            background-color: #495057; /* 改變背景顏色 */
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        }
-        .course-card img {
-            width: 120px; /* 2. 我希望圖片是120x120 */
-            height: 120px; /* 2. 我希望圖片是120x120 */
-            object-fit: cover; /* 讓圖片不變形地填滿容器 */
-            flex-shrink: 0; /* 防止圖片被壓縮 */
-            border-radius: 4px; /* 圖片圓角 */
-            margin-left: 10px;
-        }
-        .course-card-content {
+            margin: 0;
+            background-color: #212529;
+            color: #e0e0e0;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* 6. 圖片右側的文字，整個區塊上下置中 */
-            padding: 0 1rem; /* 調整左右內距 */
-            gap: 0.25rem; /* 增加文字行之間的間距 */
-            text-align: left; /* 文字靠左 */
-            flex-grow: 1; /* 佔滿剩餘空間 */
-            overflow: hidden; /* 為了讓文字截斷生效 */
+            min-height: 100vh;
         }
-        .course-card h2 { 
-            margin: 0; /* 移除所有外部間距 */
-            color: #ffffff; /* 1. 標題亮白色 */
+
+        .social-icon {
+            color: #ffffff;
+            text-decoration: none;
+            transition: transform 0.2s, color 0.2s;
+            display: inline-block; /* 讓 transform 生效 */
         }
-        .course-card .description { 
-            margin: 0; /* 移除所有外部間距 */
-            color: #b0b0b0; /* 1. 描述文字淺灰色 */
-            font-size: 0.9em;
-            /* 3. 處理文字過多，最多顯示兩行 */
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        .social-icon:hover {
+            transform: scale(1.1);
+            color: #fcc419; /* 滑鼠懸停時變為主題黃色 */
         }
-        .course-card .price {
-            margin: 0; /* 移除所有外部間距 */
+        .social-icon svg {
+            width: 28px; /* 設定圖示大小 */
+            height: 28px;
+        }
+
+        .hero { 
+            position: relative;
+            overflow: hidden; /* 關鍵：隱藏模糊效果的邊緣 */
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* 新增：使用偽元素來專門處理背景圖和模糊效果 */
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -10px; right: -10px; bottom: -10px; left: -10px; /* 放大偽元素以避免模糊邊緣 */
+            z-index: 1;
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('images/cover.jpeg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(3px); /* 加上模糊效果 */
+        }
+
+        .hero > * {
+            position: relative; /* 確保內容在遮罩之上 */
+            z-index: 2;
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 3rem; /* 恢復原來的字體大小 */
+            margin: 0 0 0.5rem 0;
+            font-weight: 700;
+        }
+
+        p {
+            color: #b0b0b0;
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        /* 新增：主按鈕下方的社群圖示容器 */
+        .social-links {
+            margin-top: 2.5rem; /* 與上方按鈕的間距 */
+            display: flex;
+            gap: 1.5rem; /* 圖示之間的間距 */
+            align-items: center;
+        }
+
+        /* 新增：獨立的分隔線樣式 */
+        .separator {
+            width: 1px;
+            background-color: rgba(255, 255, 255, 0.5); /* 使用半透明白色 */
+            height: 24px; /* 讓分隔線與圖示同高 */
+        }
+        .btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            font-size: 1.2rem;
             font-weight: bold;
-            color: #4dabf7; /* 1. 價格亮藍色 */
-            font-size: 1.1em;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
         }
-        .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
-        .error { color: #dc3545; }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary { 
+            background-color: #fcc419; /* 改為黃色 */
+            color: #212529;
+        }
+
+        .btn-primary:hover {
+            background-color: #ffd43b; /* 滑鼠懸停時的亮黃色 */
+        }
+
+        /* 新增：放在圖片左下角的聯絡資訊 */
+        .contact-info {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 50%; /* 水平置中第一步：移到 50% 位置 */
+            transform: translateX(-50%); /* 水平置中第二步：向左移自身寬度的一半 */
+            width: 90%; /* 增加寬度以避免文字換行 */
+            z-index: 2;
+            text-align: center; /* 文字水平置中 */
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6; /* 調整行高以增加可讀性 */
+        }
+        .contact-info p {
+            margin: 0; /* 覆蓋 p 的預設樣式 */
+        }
+        /* 新增：頁尾樣式 */
+        .footer {
+            background-color: #1c1f23; /* 比主背景更深一點的顏色 */
+            color: #adb5bd;
+            padding: 1.5rem 1rem; /* 減少上下內距以降低高度 */
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .footer p {
+            margin: 0.3rem 0; /* 減少段落間距 */
+            font-size: 0.9rem;
+            color: #adb5bd; /* 覆蓋 p 的預設樣式 */
+        }
+
+        .footer a {
+            color: #fcc419; /* 使用主題黃色 */
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: color 0.2s;
+        }
+
+        /* 新增：用於控制手機版換行的 class */
+        .mobile-only-break {
+            display: none; /* 在桌面版預設隱藏 */
+        }
+
+        /* 響應式設計：在小螢幕上調整字體大小 */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.5rem; /* 恢復手機版的字體大小 */
+            }
+            p {
+                font-size: 1.1rem;
+            }
+            .btn {
+                padding: 0.8rem 2rem;
+                font-size: 1.1rem;
+            }
+            .social-icon svg {
+                width: 24px;
+                height: 24px;
+            }
+            .contact-info {
+                font-size: 0.75rem;
+                bottom: 1rem;
+            }
+            .mobile-only-break {
+                display: block; /* 在手機版顯示為區塊元素，強制換行 */
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- 新增一個獨立的頁首容器 -->
-    <div id="header-container">
-        <!-- 標題和使用者資訊將會顯示在這裡 -->
-    </div>
-    
-    <div id="content-container">
-        <p class="loader">正在初始化並載入課程資料...</p>
-    </div>
-
-    <script>      
-        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
-        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
-        const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/';
-        const LIFF_ID = '2008135811-vNO5bYyx'; 
-
-     
-        // 全域變數，用來存放使用者資訊
-        let userProfile = null;
-
-        async function main() {
-            const headerContainer = document.getElementById('header-container');
-            const contentContainer = document.getElementById('content-container');
-
-            try {
-                let welcomeName = '';
-                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
-                if (!liff.isInClient()) {
-                    // 7. 如果是開發模式，那麼XXX=小明
-                    welcomeName = '小明';
-                } else {
-                    await liff.init({ liffId: LIFF_ID });
-                    
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
-                    userProfile = await liff.getProfile();
-                    welcomeName = userProfile.displayName;
-                }
-                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
-                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
-                
-                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
-                await fetchCourses();
-    
-            } catch (err) {
-                console.error('初始化失敗', err);
-                headerContainer.innerHTML = '<h1>錯誤</h1>';
-                contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
-            }
-        }
-        
-        main();
-
-        async function fetchCourses() {
-            const container = document.getElementById('content-container');
-            container.innerHTML = '<p class="loader">課程資料載入中...</p>';
-            try {
-                const response = await fetch(GAS_URL);
-                if (!response.ok) throw new Error('網路回應錯誤');
-                const data = await response.json();
-                
-                // 直接使用後端回傳的課程列表
-                if (data && data.courses) {
-                    if (data.courses.length > 0) {
-                        renderCourses(data.courses);
-                    } else {
-                        container.innerHTML = '<p>目前沒有可用的課程。</p>';
-                    }
-                } else {
-                    container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
-                }
-            } catch (error) {
-                console.error('讀取課程資料時發生錯誤:', error);
-                container.innerHTML = '<p class="error">載入課程失敗，請稍後再試。</p>';
-            }
-        }
-        
-        function renderCourses(courses) {
-            const container = document.getElementById('content-container');
-            let html = '<div class="course-grid">';
-            courses.forEach(course => {
-                // 組合出完整的圖片 URL
-                const imageUrl = course.image_url ? `${IMAGE_BASE_URL}${course.image_url}` : 'https://via.placeholder.com/400x180.png?text=No+Image';
-                html += `
-                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${course.course_name}')">
-                        <img src="${imageUrl}" alt="${course.course_name}">
-                        <div class="course-card-content">
-                            <h2>${course.course_name}</h2>
-                            <p class="description">${course.short_description || ''}</p>
-                            <p class="price">每小時 $${course.price}</p>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            container.innerHTML = html;
-        }
-        function selectCourse(courseId, courseName) {
-            // 傳遞 course_id 用於查詢，course_name 用於顯示標題
-            const encodedName = encodeURIComponent(courseName);
-            // 使用 id 和 name 作為參數，語意更清晰
-            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
-        }
-        
-    </script>
-
+    <main class="hero">
+        <h1>WALLY 自由教練<br class="mobile-only-break">工作室</h1>
+        <p>打造理想體態，從這裡開始。</p>
+        <a href="courses.html" class="btn btn-primary">立即預約課程</a>
+        <div class="social-links">
+            <a href="https://www.threads.net/@freecoachwally" target="_blank" rel="noopener noreferrer" class="social-icon" title="前往 Threads">
+                <!-- 更換為 @ 符號圖示 -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
+                </svg>
+            </a>
+            <a href="https://www.instagram.com/freecoachwally/" target="_blank" rel="noopener noreferrer" class="social-icon" title="前往 Instagram">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
+            </a>
+            <div class="separator"></div>
+            <!-- 新增：管理者登入圖示 -->
+            <a href="manager.html" class="social-icon" title="管理者後台">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </a>
+        </div>
+        <div class="contact-info">
+            <p>0937-402-893</p>
+            <p>新竹市中華路二段 625 號 2 樓</p>
+        </div>
+    </main>
 </body>
 </html>
