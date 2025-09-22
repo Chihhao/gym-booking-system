@@ -443,80 +443,54 @@ function handlePostback(event) {
  * @returns {string} - 組合好的要回傳給使用者的文字訊息
  */
 function getBookingHistory(userId) {
-  // 輔助函式，用於將工作表的二維陣列資料轉換為物件陣列。
-  const sheetDataToObjects_ = (data) => {
-    if (!data || data.length < 2) return [];
-    const headers = data[0].map(h => h.trim());
-    return data.slice(1).map(row => headers.reduce((obj, header, index) => (header ? (obj[header] = row[index], obj) : obj), {}));
-  };
+    try {
+        // 1. 組合 Supabase 查詢 URL
+        const tableName = 'bookings';
+        // 查詢使用者所有預約，並關聯課堂、課程、教練資訊，按預約時間降序排列
+        const query = `select=status,classes(class_date,start_time,courses(course_name),coaches(coach_name))&line_user_id=eq.${userId}&order=booking_time.desc`;
+        const url = `${SUPABASE_URL}/rest/v1/${tableName}?${query}`;
 
-  // 取得快取服務
-  const cache = CacheService.getScriptCache();
-  const CACHE_KEY_CLASSMAP = 'class_map_cache'; // 為我們的快取資料命名
+        const options = {
+            'method': 'get',
+            'headers': SUPABASE_HEADERS,
+            'muteHttpExceptions': true
+        };
 
-  // --- 優化步驟 1: 嘗試從快取中讀取 classMap ---
-  let classMap = null;
-  const cachedClassMap = cache.get(CACHE_KEY_CLASSMAP);
+        // 2. 發送請求
+        const response = UrlFetchApp.fetch(url, options);
+        const responseCode = response.getResponseCode();
+        const responseBody = response.getContentText();
 
-  if (cachedClassMap != null) {
-    // 如果快取中存在，直接解析使用，速度極快
-    classMap = JSON.parse(cachedClassMap);
-    Logger.log('從快取成功讀取 classMap');
-  } else {
-    // 如果快取中沒有，才從 Google Sheet 讀取 (耗時操作)
-    Logger.log('快取未命中，從 Google Sheet 重新建立 classMap');
-    
-    // 由於其他地方不再使用，將工作表變數定義在此函式內部
-    const SPREADSHEET = SpreadsheetApp.getActiveSpreadsheet(); 
-    const CLASS_SHEET = SPREADSHEET.getSheetByName("Classes");
-    const COACH_SHEET = SPREADSHEET.getSheetByName("Coaches");
-    const BOOKING_SHEET = SPREADSHEET.getSheetByName("Bookings");
+        if (responseCode !== 200) {
+            throw new Error(`Supabase API 錯誤 (HTTP ${responseCode}): ${responseBody}`);
+        }
 
-    // 建立課程 ID -> 課程日期+時間+教練 的對照表
-    const classObjects = sheetDataToObjects_(CLASS_SHEET.getDataRange().getValues());
-    const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
-    const coachMap = {};
-    coachObjects.forEach(coach => { coachMap[coach.coach_id] = coach.coach_name; });
-    
-    classMap = {}; // 初始化
-    classObjects.forEach(cls => {
-      if (cls.class_id) {
-        const classDate = Utilities.formatDate(new Date(cls.class_date), "GMT+8", "yyyy-MM-dd");
-        const startTime = Utilities.formatDate(new Date(cls.start_time), "GMT+8", "HH:mm");
-        const coachName = coachMap[cls.coach_id] || '未知教練';
-        classMap[cls.class_id] = `${classDate} ${startTime} (${coachName})`;
-      }
-    });
-    
-    // --- 優化步驟 2: 將新建立的 classMap 存入快取，設定 10 分鐘 (600秒) 的有效期 ---
-    // 這樣 10 分鐘內的下一次請求就能直接使用快取了
-    cache.put(CACHE_KEY_CLASSMAP, JSON.stringify(classMap), 600);
-  }
+        const userRecords = JSON.parse(responseBody);
 
-  // --- 後續邏輯不變，但現在 classMap 的取得速度非常快 ---
-  // 由於其他地方不再使用，將工作表變數定義在此函式內部
-  const BOOKING_SHEET = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bookings");
+        // 3. 處理查詢結果
+        if (userRecords.length === 0) {
+            return '您目前沒有任何預約紀錄喔！';
+        }
 
-  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
-  const userRecords = [];
-  bookingObjects.forEach(booking => {
-    if (booking.line_user_id === userId) {
-      userRecords.push({
-        classInfo: classMap[booking.class_id] || '未知課程',
-        status: booking.status
-      });
+        // 4. 組合回傳訊息
+        let message = '您的預約紀錄如下：\n----------\n';
+        userRecords.forEach(record => {
+            const cls = record.classes;
+            let classInfo = '未知課程';
+            if (cls) {
+                const courseName = cls.courses ? cls.courses.course_name : '課程';
+                const coachName = cls.coaches ? cls.coaches.coach_name : '教練';
+                const classTime = `${cls.class_date} ${cls.start_time.substring(0, 5)}`;
+                classInfo = `${courseName}\n時間：${classTime}\n教練：${coachName}`;
+            }
+            message += `課程：${classInfo}\n狀態：${record.status}\n----------\n`;
+        });
+        return message.trim();
+
+    } catch (error) {
+        Logger.log(`getBookingHistory 發生錯誤: ${error.toString()}`);
+        return '查詢預約紀錄時發生錯誤，請稍後再試。';
     }
-  });
-
-  if (userRecords.length === 0) {
-    return '您目前沒有任何預約紀錄喔！';
-  }
-
-  let message = '您的預約紀錄如下：\n----------\n';
-  userRecords.forEach(record => {
-    message += `課程：${record.classInfo}\n狀態：${record.status}\n----------\n`;
-  });
-  return message.trim();
 }
 
 /**

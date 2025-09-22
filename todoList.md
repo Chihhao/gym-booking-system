@@ -1,0 +1,1 @@
+* 將 Google Apps Script 中的 SERVICE_KEY 移至更安全的「指令碼屬性」中。
