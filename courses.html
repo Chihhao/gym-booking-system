@@ -218,10 +218,17 @@
             container.innerHTML = html;
         }
         function selectCourse(courseId, courseName) {
-            // 傳遞 course_id 用於查詢，course_name 用於顯示標題
             const encodedName = encodeURIComponent(courseName);
-            // 使用 id 和 name 作為參數，語意更清晰
-            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
+            let targetUrl = `schedule.html?id=${courseId}&name=${encodedName}`;
+
+            // 檢查當前頁面是否處於偵錯模式
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('debug') === 'true') {
+                // 如果是，則將 debug 參數附加到目標 URL 上
+                targetUrl += '&debug=true';
+            }
+
+            window.location.href = targetUrl;
         }
         
     </script>
