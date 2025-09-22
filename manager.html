@@ -1112,19 +1112,45 @@
             startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek); // 將一週開始設為星期日
 
             const formatDate = (date) => date.toISOString().split('T')[0];
+            const startDateString = formatDate(startOfWeek);
+            const endDate = new Date(startOfWeek);
+            endDate.setDate(startOfWeek.getDate() + 6);
+            const endDateString = formatDate(endDate);
 
             try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getClassesForManager');
-                url.searchParams.append('startDate', formatDate(startOfWeek));
+                // --- 方案一：直接從 Supabase 讀取資料 ---
+                const { data, error } = await supabaseClient
+                    .from('classes_with_details') // 使用我們建立的 View
+                    .select('*')
+                    .gte('class_date', startDateString)
+                    .lte('class_date', endDateString);
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                if (error) throw error;
 
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message || '後端回傳錯誤');
+                // 將從 Supabase 取得的資料，轉換為舊函式需要的格式
+                const classData = {};
+                data.forEach(cls => {
+                    const dateString = cls.class_date;
+                    const hourString = cls.start_time.substring(0, 2) + ':00';
 
-                renderManagerScheduleGrid(result.classes, startOfWeek);
+                    if (!classData[dateString]) {
+                        classData[dateString] = {};
+                    }
+                    if (!classData[dateString][hourString]) {
+                        classData[dateString][hourString] = [];
+                    }
+
+                    classData[dateString][hourString].push({
+                        classId: cls.class_id,
+                        className: cls.class_name,
+                        coachName: cls.coach_name,
+                        currentStudents: cls.current_students,
+                        maxStudents: cls.max_students,
+                        color: cls.color || '#6c757d' // 提供預設顏色
+                    });
+                });
+
+                renderManagerScheduleGrid(classData, startOfWeek);
 
             } catch (error) {
                 console.error('載入課表資料失敗:', error);
@@ -1519,16 +1545,15 @@
             const container = document.getElementById('courses-table-container');
             container.innerHTML = '<p>正在載入課程型錄...</p>';
 
-            try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getAllCoursesForManager');
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
-                
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message);
+            try {                
+                // --- 方案一：直接從 Supabase 讀取資料 ---
+                const { data, error } = await supabaseClient
+                    .from('courses')
+                    .select('*'); // 管理後台需要讀取所有課程，包含 Active 和 Inactive
 
-                currentCourses = result.courses;
+                if (error) throw error;
+
+                currentCourses = data;
                 sortAndRenderCourses();
 
             } catch (error) {
@@ -1707,16 +1732,15 @@
             const container = document.getElementById('coaches-table-container');
             container.innerHTML = '<p>正在載入教練資料...</p>';
 
-            try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getAllCoachesForManager');
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
-                
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message);
+            try {                
+                // --- 方案一：直接從 Supabase 讀取資料 ---
+                const { data, error } = await supabaseClient
+                    .from('coaches')
+                    .select('*'); // 管理後台需要讀取所有教練
 
-                currentCoaches = result.coaches;
+                if (error) throw error;
+
+                currentCoaches = data;
                 sortAndRenderCoaches(); // 使用新的排序渲染函式
 
             } catch (error) {
@@ -1817,20 +1841,21 @@
             const container = document.getElementById('users-table-container');
             container.innerHTML = '<p>正在載入使用者資料...</p>';
 
-            try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getAllUsersForManager');
-                if (filters.query) {
-                    url.searchParams.append('query', filters.query);
-                }
-                
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
-                
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message);
+            try {                
+                // --- 方案一：直接從 Supabase 讀取資料 ---
+                let queryBuilder = supabaseClient
+                    .from('users')
+                    .select('*');
 
-                currentUsers = result.users;
+                // 如果有搜尋條件，則加入篩選
+                if (filters.query) {
+                    queryBuilder = queryBuilder.or(`line_display_name.ilike.%${filters.query}%,line_user_id.ilike.%${filters.query}%`);
+                }
+
+                const { data, error } = await queryBuilder;
+                if (error) throw error;
+
+                currentUsers = data;
                 sortAndRenderUsers();
 
             } catch (error) {
