@@ -1348,27 +1348,31 @@
                 document.getElementById('delete-class-btn').style.display = 'inline-block';
                 document.getElementById('form-class-id').value = classId;
 
-                populateFormDropdowns(); // 填充下拉選單
-                
-                // 呼叫 API 取得課堂詳細資料並填入表單
                 try {
-                    const url = new URL(GAS_URL);
-                    url.searchParams.append('action', 'getClassDetails');
-                    url.searchParams.append('classId', classId);
-                    const response = await fetch(url);
-                    const result = await response.json();
-                    if (result.status !== 'success') throw new Error(result.message);
+                    // --- 方案二：直接從 Supabase 讀取資料 ---
+                    const { data, error } = await supabaseClient
+                        .from('classes')
+                        .select('*, courses(course_name), coaches(coach_name)')
+                        .eq('class_id', classId)
+                        .single();
 
-                    const details = result.details;
-                    document.getElementById('form-date-time').value = details.dateTime;
-                    document.getElementById('form-course-id').value = details.courseId;
-                    document.getElementById('form-class-name').value = details.className;
-                    document.getElementById('form-coach-id').value = details.coachId;
-                    document.getElementById('form-max-students').value = details.maxStudents;
+                    if (error) throw new Error(error.message || '找不到指定的課堂');
+
+                    const d = data;
+                    const dateTime = `${d.class_date} ${d.start_time.substring(0, 5)}`;
+                    
+                    // 修正：先填充下拉選單，再設定表單的值
+                    populateFormDropdowns(); 
+
+                    document.getElementById('form-date-time').value = dateTime;
+                    document.getElementById('form-course-id').value = d.course_id;
+                    document.getElementById('form-class-name').value = d.class_name;
+                    document.getElementById('form-coach-id').value = d.coach_id;
+                    document.getElementById('form-max-students').value = d.max_students;
 
                 } catch (error) {
                     alert(`載入課堂資料失敗: ${error.message}`);
-                    closeClassModal();
+                    return; // 載入失敗則不顯示 Modal
                 }
             } else {
                 // --- 新增模式 ---
@@ -1402,26 +1406,22 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '儲存中...';
 
-            const data = {
-                classId: document.getElementById('form-class-id').value,
-                dateTime: document.getElementById('form-date-time').value,
-                courseId: document.getElementById('form-course-id').value,
-                className: document.getElementById('form-class-name').value,
-                coachId: document.getElementById('form-coach-id').value,
-                maxStudents: document.getElementById('form-max-students').value,
+            const params = {
+                p_class_id: document.getElementById('form-class-id').value,
+                p_date_time: document.getElementById('form-date-time').value,
+                p_course_id: document.getElementById('form-course-id').value,
+                p_class_name: document.getElementById('form-class-name').value,
+                p_coach_id: document.getElementById('form-coach-id').value,
+                p_max_students: parseInt(document.getElementById('form-max-students').value, 10)
             };
 
             try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'saveClass',
-                        data: data
-                    })
-                });
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                const { data, error } = await supabaseClient.rpc('save_class', params);
 
-                const result = await response.json();
+                if (error) throw error;
+
+                const result = data[0];
                 alert(result.message);
 
                 if (result.status === 'success') {
@@ -1454,15 +1454,14 @@
             deleteBtn.textContent = '刪除中...';
 
             try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'deleteClass',
-                        data: { classId }
-                    })
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                const { data, error } = await supabaseClient.rpc('delete_class', {
+                    p_class_id: classId
                 });
-                const result = await response.json();
+
+                if (error) throw error;
+
+                const result = data[0];
                 alert(result.message);
 
                 if (result.status === 'success') {
@@ -1483,12 +1482,12 @@
                 return; // 如果資料已存在，直接返回，避免重複呼叫 API
             }
             try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getManagerFormData');
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('無法載入表單資料');
-                const result = await response.json();
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                const { data: result, error } = await supabaseClient.rpc('get_manager_form_data');
+
+                if (error) throw error;
                 if (result.status !== 'success') throw new Error(result.message);
+
                 managerFormData = result; // 將結果儲存在全域變數中
             } catch (error) {
                 console.error('載入管理表單資料失敗:', error);

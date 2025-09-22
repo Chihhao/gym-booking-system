@@ -6,6 +6,8 @@
     <title>預約憑證</title>
     <!-- 載入 QRCode.js 函式庫 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- 載入 Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
@@ -93,9 +95,11 @@
     </div>
 
     <script>
-        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
-        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+        // --- Supabase 直連設定 ---
+        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.addEventListener('DOMContentLoaded', main);
 
@@ -110,13 +114,36 @@
             }
 
             try {
-                const response = await fetch(`${GAS_URL}?action=getBookingDetails&bookingId=${bookingId}`);
-                if (!response.ok) throw new Error('網路回應錯誤');
-                
-                const data = await response.json();
-                if (data.status !== 'success') throw new Error(data.message);
+                // --- 方案二：前端直接從 Supabase 讀取資料 ---
+                const { data, error } = await supabaseClient
+                    .from('bookings')
+                    .select(`
+                        booking_id,
+                        status,
+                        classes (
+                            class_id,
+                            class_date,
+                            start_time,
+                            courses ( course_id, course_name )
+                        ),
+                        users ( line_display_name )
+                    `)
+                    .eq('booking_id', bookingId)
+                    .single(); // .single() 會直接回傳單一物件
 
-                renderDetails(data);
+                if (error) throw error;
+
+                // 將從 Supabase 取得的資料，轉換為 renderDetails 函式需要的格式
+                const formattedData = {
+                    bookingId: data.booking_id,
+                    courseName: data.classes.courses.course_name,
+                    courseId: data.classes.courses.course_id,
+                    classTime: `${data.classes.class_date} ${data.classes.start_time.substring(0, 5)}`,
+                    userName: data.users.line_display_name,
+                    bookingStatus: data.status
+                };
+
+                renderDetails(formattedData);
 
             } catch (error) {
                 console.error('載入預約詳情時發生錯誤:', error);
