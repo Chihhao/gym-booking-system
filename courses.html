@@ -104,27 +104,40 @@
         async function main() {
             const headerContainer = document.getElementById('header-container');
             const contentContainer = document.getElementById('content-container');
-
+            
+            // 步驟 1: 在所有操作之前，先檢查 URL 是否包含 debug 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const isDebugMode = urlParams.get('debug') === 'true';
+            
             try {
-                // 步驟 1: 不論在哪個環境，都先初始化 LIFF
-                await liff.init({ liffId: LIFF_ID });
-                
-                // 步驟 2: 檢查登入狀態
-                if (!liff.isLoggedIn()) {
-                    // 如果未登入，就呼叫 liff.login()。
-                    // 這會導致頁面跳轉，所以後面的程式碼不會立刻執行。
-                    liff.login();
-                    return; // 結束函式，等待重新導向
+                let welcomeName = '';
+
+                if (isDebugMode) {
+                    // --- DEBUG 模式 ---
+                    // 如果是偵錯模式，直接使用假資料，並跳過所有 LIFF 相關操作
+                    console.warn("注意：目前為 DEBUG 模式！");
+                    welcomeName = '小明';
+                    // 為了讓後續流程統一，我們也偽造一個 userProfile 物件
+                    userProfile = { displayName: '小明', userId: 'U_DEBUG_USER' };
+
+                } else {
+                    // --- 正常 LIFF 模式 ---
+                    // 初始化 LIFF
+                    await liff.init({ liffId: LIFF_ID });
+                    
+                    // 檢查登入狀態，若未登入則導向登入頁
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return; // 結束函式，等待重新導向
+                    }
+                    
+                    // 取得已登入的真實使用者資料
+                    userProfile = await liff.getProfile();
+                    welcomeName = userProfile.displayName;
                 }
                 
-                // 步驟 3: 如果已經登入，就取得使用者資料
-                // (不論是在 LINE App 內，還是從外部瀏覽器登入成功後跳轉回來，都會執行到這裡)
-                userProfile = await liff.getProfile();
-                
-                // 步驟 4: 使用真實的使用者名稱來顯示歡迎訊息
-                headerContainer.innerHTML = `<p>歡迎 ${userProfile.displayName}，請點選喜愛的課程：</p>`;
-                
-                // 步驟 5: 載入課程列表
+                // 共同步驟: 不論是 debug 還是正常模式，最終都會執行這裡
+                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
                 await fetchCourses();
                 
                 // let welcomeName = '';
