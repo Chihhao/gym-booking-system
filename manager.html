@@ -596,7 +596,7 @@
                 </div>
                 <div class="form-group">
                     <label for="form-course-price">價格</label>
-                    <input type="text" id="form-course-price" required>
+                    <input type="number" id="form-course-price" required min="0">
                 </div>
                 <div class="form-group">
                     <label for="form-course-status">狀態</label>
@@ -755,29 +755,32 @@
                 submitBtn.textContent = '儲存中...';
 
                 const data = {
-                    courseId: document.getElementById('form-course-id-hidden').value,
-                    courseName: document.getElementById('form-course-name').value,
-                    price: document.getElementById('form-course-price').value,
-                    status: document.getElementById('form-course-status').value,
-                    shortDesc: document.getElementById('form-course-short-desc').value,
-                    longDesc: document.getElementById('form-course-long-desc').value,
-                    image: document.getElementById('form-course-image').value
+                    p_course_id: document.getElementById('form-course-id-hidden').value,
+                    p_course_name: document.getElementById('form-course-name').value,
+                    p_price: document.getElementById('form-course-price').value,
+                    p_status: document.getElementById('form-course-status').value,
+                    p_short_desc: document.getElementById('form-course-short-desc').value,
+                    p_long_desc: document.getElementById('form-course-long-desc').value,
+                    p_image_url: document.getElementById('form-course-image').value,
+                    p_color: document.getElementById('form-course-color').value
                 };
-                // 新增：取得顏色選擇器的值
-                data.color = document.getElementById('form-course-color').value;
-                try {
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'saveCourse', data: data })
-                    });
 
-                    const result = await response.json();
+                try {
+                    // --- 方案二：前端直接呼叫 Supabase RPC ---
+                    const { data: rpcData, error } = await supabaseClient.rpc('save_course', data);
+
+                    if (error) throw error;
+
+                    const result = rpcData[0];
                     alert(result.message);
 
                     if (result.status === 'success') {
                         closeCourseModal();
-                        loadCourses(); // 重新載入課程列表
+                        // 重新載入課程列表，並清除快取
+                        currentCourses = [];
+                        await loadCourses();
+                        // 同時，由於課程型錄變動可能影響課表顏色，也重新載入課表
+                        await loadManagerSchedule();
                     }
 
                 } catch (error) {
@@ -1616,14 +1619,16 @@
                 document.getElementById('form-course-id-hidden').value = courseId;
                 
                 try {
-                    const url = new URL(GAS_URL);
-                    url.searchParams.append('action', 'getCourseDetailsForManager');
-                    url.searchParams.append('courseId', courseId);
-                    const response = await fetch(url);
-                    const result = await response.json();
-                    if (result.status !== 'success') throw new Error(result.message);
+                    // --- 方案二：直接從 Supabase 讀取資料 ---
+                    const { data, error } = await supabaseClient
+                        .from('courses')
+                        .select('*')
+                        .eq('course_id', courseId)
+                        .single(); // .single() 會直接回傳單一物件，如果找不到會拋出錯誤
 
-                    const d = result.details;
+                    if (error) throw new Error(error.message || '找不到指定的課程型錄');
+
+                    const d = data;
                     document.getElementById('form-course-name').value = d.course_name || '';
                     document.getElementById('form-course-price').value = d.price || '';
                     document.getElementById('form-course-status').value = d.status || 'Active';
@@ -1678,24 +1683,25 @@
             deleteBtn.textContent = '刪除中...';
 
             try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'deleteCourse', data: { courseId } })
-                });
-                const result = await response.json();
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                const { data, error } = await supabaseClient.rpc('delete_course', { p_course_id: courseId });
+
+                if (error) throw error;
+
+                const result = data[0];
                 alert(result.message);
 
                 if (result.status === 'success') {
                     closeCourseModal();
-                    loadCourses(); // 重新載入課程列表
+                    // 重新載入課程列表，並清除快取
+                    currentCourses = [];
+                    await loadCourses();
                 }
             } catch (error) {
                 console.error('刪除課程型錄時發生錯誤:', error);
                 alert('操作失敗，請檢查網路或聯繫開發者。');
             } finally {
                 deleteBtn.disabled = false;
-                deleteBtn.textContent = originalBtnText;
             }
         });
 
