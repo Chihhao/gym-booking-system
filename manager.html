@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wally Studio 管理後台</title>
+    <!-- 方案一：載入 Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -683,10 +685,16 @@
     </div>
 
     <script>
-        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
-        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+        // --- 方案一：Supabase 直連設定 ---
+        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+        // 在管理後台，我們仍然需要使用 service_role 金鑰，因為我們要讀取所有使用者的預約資料，
+        // 這超出了 RLS 允許匿名使用者執行的範圍。
+        const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+        // --- 舊版 GAS 設定 (保留備用，寫入操作仍會用到) ---
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
         // 全域變數，用於儲存當前顯示的資料和排序狀態
         let currentBookings = [];
         let sortState = { column: 'bookingTime', direction: 'desc' };
@@ -1013,21 +1021,36 @@
             container.innerHTML = '<p>正在載入預約資料...</p>';
 
             try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getAllBookings');
-                Object.keys(filters).forEach(key => {
-                    if (filters[key]) { // 只有當篩選條件有值時才加入
-                        url.searchParams.append(key, filters[key]);
-                    }
+                // --- 方案一：呼叫 Supabase RPC 函式 ---
+                const params = {
+                    p_status: filters.status || null, // 順序 1
+                    p_class_date: filters.classDate || null,
+                    p_query: filters.query || null // 順序 3
+                };
+
+                const { data, error } = await supabaseClient.rpc('search_bookings', params);
+
+                if (error) throw error;
+
+                // 將從 DB 取得的資料，轉換為前端需要的格式
+                currentBookings = data.map(booking => {
+                    const classDate = booking.class_date;
+                    const startTime = booking.start_time ? booking.start_time.substring(0, 5) : '';
+                    const displayClassDate = classDate ? `${new Date(classDate).getMonth() + 1}/${new Date(classDate).getDate()}` : '';
+
+                    return {
+                        bookingId: booking.booking_id,
+                        className: booking.class_name || '未知課堂',
+                        courseColor: booking.color || '#ccc',
+                        coachName: booking.coach_name || '未知教練',
+                        classTime: classDate ? `${displayClassDate} ${startTime}` : '未知時間',
+                        originalClassDate: classDate,
+                        userName: booking.line_display_name || '未知用戶',
+                        bookingTime: booking.booking_time ? new Date(booking.booking_time) : null, // 直接存為 Date 物件
+                        status: booking.status
+                    };
                 });
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
-                
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message || '後端回傳錯誤');
-
-                currentBookings = result.bookings;
                 sortAndRender(); // 使用新的排序渲染函式
 
             } catch (error) {
@@ -1050,10 +1073,10 @@
                 let valA = a[column] || '';
                 let valB = b[column] || '';
 
-                // 如果是日期時間相關的欄位，轉換為 Date 物件進行比較，確保排序準確
-                if (column === 'bookingTime' || column === 'classTime') {
-                    valA = new Date(valA);
-                    valB = new Date(valB);
+                // bookingTime 已經是 Date 物件，直接比較
+                if (column === 'bookingTime') {
+                    valA = valA || new Date(0); // 處理 null
+                    valB = valB || new Date(0);
                 }
 
                 const comparison = valA > valB ? 1 : (valA < valB ? -1 : 0);
@@ -1225,7 +1248,7 @@
                         <td>${booking.coachName}</td>
                         <td>${booking.classTime}</td>
                         <td>${booking.userName}</td>
-                        <td>${booking.bookingTime}</td>
+                        <td>${booking.bookingTime ? booking.bookingTime.toLocaleString('sv-SE') : '未知時間'}</td>
                         <td class="col-tight">${statusBadge}</td>
                         <td class="col-tight">${actionButtons}</td>
                     </tr>

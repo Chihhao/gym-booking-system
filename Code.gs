@@ -97,8 +97,8 @@ function doGet(e) {
         return getCoursesFromSupabase();
       case 'getBookingDetails': // 改造點：指向新的 Supabase 函式
         return createJsonResponse(getBookingDetailsFromSupabase(e.parameter));
-      case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
-        return createJsonResponse(getAllBookings(e.parameter));
+      case 'getAllBookings': // 改造點：指向新的 Supabase 函式
+        return createJsonResponse(getAllBookingsFromSupabase(e.parameter));
       case 'getClassesForManager': // 新增：管理後台獲取課表資料的 API
         return createJsonResponse(getClassesForManager(e.parameter));
       case 'getManagerFormData': // 新增：管理後台獲取表單資料的 API
@@ -680,6 +680,99 @@ function createBooking(data) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * [Supabase版] [管理後台] 取得所有預約紀錄，並關聯相關資訊
+ * @param {object} params - 包含篩選條件的請求參數 (status, classDate, query)
+ * @returns {object} - 包含 bookings 陣列的物件
+ */
+function getAllBookingsFromSupabase(params) {
+  try {
+    const tableName = 'bookings';
+    let queryParts = [];
+
+    // 1. 定義關聯查詢 (核心)
+    // 這段語法告訴 Supabase：
+    // - 從 bookings 表開始
+    // - 取得 booking_id, booking_time, status
+    // - 關聯 classes 表，並從中取得 class_name, class_date, start_time
+    // - 再從 classes 關聯 coaches 表，取得 coach_name
+    // - 再從 classes 關聯 courses 表，取得 course_name, color
+    // - 關聯 users 表，取得 line_display_name
+    queryParts.push('select=booking_id,booking_time,status,classes(class_name,class_date,start_time,coaches(coach_name),courses(course_name,color)),users(line_display_name)');
+
+    // 2. 處理篩選條件
+    // 狀態篩選
+    if (params.status) {
+      queryParts.push(`status=eq.${encodeURIComponent(params.status)}`);
+    }
+
+    // 日期篩選 (需要查詢關聯表的欄位)
+    if (params.classDate) {
+      queryParts.push(`classes.class_date=eq.${params.classDate}`);
+    }
+
+    // 關鍵字搜尋 (可搜尋學員或預約編號)
+    if (params.query) {
+      const queryLower = params.query.toLowerCase();
+      // 使用 or 條件，(user name like %query%, or booking_id like %query%)
+      queryParts.push(`or=(users.line_display_name.ilike.%${queryLower}%,booking_id.ilike.%${queryLower}%)`);
+    }
+
+    // 3. 預設排序
+    queryParts.push('order=booking_time.desc');
+
+    // 4. 組合 URL 並發送請求
+    const query = queryParts.join('&');
+    const url = `${SUPABASE_URL}/rest/v1/${tableName}?${query}`;
+
+    const options = {
+      'method': 'get',
+      'headers': SUPABASE_HEADERS,
+      'muteHttpExceptions': true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseBody = response.getContentText();
+
+    if (responseCode !== 200) {
+      throw new Error(`Supabase API 錯誤 (HTTP ${responseCode}): ${responseBody}`);
+    }
+
+    const bookingsFromDB = JSON.parse(responseBody);
+
+    // 5. 將從 DB 取得的資料，轉換為前端需要的格式
+    const formattedBookings = bookingsFromDB.map(booking => {
+      const classInfo = booking.classes;
+      const userInfo = booking.users;
+      const courseInfo = classInfo ? classInfo.courses : null;
+      const coachInfo = classInfo ? classInfo.coaches : null;
+
+      const classDate = classInfo ? classInfo.class_date : '';
+      const startTime = classInfo ? classInfo.start_time.substring(0, 5) : '';
+      const displayClassDate = classDate ? `${new Date(classDate).getMonth() + 1}/${new Date(classDate).getDate()}` : '';
+
+      return {
+        bookingId: booking.booking_id,
+        className: classInfo ? classInfo.class_name : '未知課堂',
+        courseColor: courseInfo ? courseInfo.color : '#ccc',
+        coachName: coachInfo ? coachInfo.coach_name : '未知教練',
+        classTime: classInfo ? `${displayClassDate} ${startTime}` : '未知時間',
+        originalClassDate: classDate, // 保留原始日期格式供前端排序
+        userName: userInfo ? userInfo.line_display_name : '未知用戶',
+        bookingTime: booking.booking_time ? `${new Date(booking.booking_time).getMonth() + 1}/${new Date(booking.booking_time).getDate()} ${new Date(booking.booking_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '未知時間',
+        status: booking.status
+      };
+    });
+
+    return { status: 'success', bookings: formattedBookings };
+
+  } catch (error) {
+    Logger.log('getAllBookingsFromSupabase 發生錯誤: ' + error.toString());
+    return { status: 'error', message: '讀取預約資料時發生錯誤: ' + error.toString() };
   }
 }
 

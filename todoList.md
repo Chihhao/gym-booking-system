@@ -1,97 +1,60 @@
-# 預約系統開發藍圖 (v1)
+# gym-booking-system 現代化改造藍圖
 
-本文檔旨在規劃與追蹤新版預約流程的開發任務。
+本文件旨在追蹤將系統後端從 Google Sheets 遷移至 Supabase 的所有待辦事項。
 
-## 核心使用者流程
+## 核心理念
 
-1.  **畫面一：課程選擇頁**
-    -   使用者瀏覽所有可選課程（如：瑜伽、皮拉提斯）。
-    -   此頁面不顯示時間，只專注於課程內容。
-    -   使用者點擊某個課程，進入下一步。
-
-2.  **畫面二：時段選擇頁**
-    -   顯示一個以七天為單位的時間網格（表格）。
-    -   橫軸為未來七天，縱軸為 09:00 - 21:00 的小時單位。
-    -   **格子狀態**：
-        -   `🟢` **可預約**：該時段有課且未額滿。
-        -   `❌` **已額滿**：該時段有課但已額滿。
-        -   **空白/灰色**：該時段未開設課程。
-    -   **行動裝置**：直接顯示七天，允許使用者水平滑動表格來查看所有日期。
-
-3.  **預約動作**
-    -   使用者點擊 `🟢` 綠色圈圈。
-    -   跳出確認對話框：「確認預約？」。
-    -   使用者點擊「確認」。
-    -   系統向後端發送預約請求。
-    -   **即時性處理**：後端在執行預約的當下，會再次驗證該時段名額。如果已被他人預約額滿，則回傳錯誤訊息給使用者。
+- **讀取操作 (Read)**: 盡可能讓前端 (HTML) 直接向 Supabase 請求資料，以獲得最佳效能。透過 RLS (Row Level Security) 確保資料安全。
+- **寫入操作 (Write)**: 所有涉及資料新增、修改、刪除的敏感操作，保留在後端 Google Apps Script (`Code.gs`) 中處理，以確保交易的原子性和安全性。
 
 ---
 
-## 後端開發任務 (Backend)
+## ✅ 已完成 (Phase 1: 讀取操作革命)
 
-### API 設計
-
-1.  **[ ] 取得所有課程列表**
-    -   **Endpoint**: `GET /api/courses`
-    -   **功能**: 回傳所有課程的基本資訊。
-    -   **Response Body**:
-        ```json
-        [
-          { "id": 1, "name": "空中瑜伽", "description": "..." },
-          { "id": 2, "name": "哈達瑜伽", "description": "..." }
-        ]
-        ```
-
-2.  **[ ] 取得特定課程的週時間表**
-    -   **Endpoint**: `GET /api/courses/{course_id}/schedule`
-    -   **Query Params**: `start_date` (e.g., `2023-11-20`)
-    -   **功能**: 根據課程 ID 和起始日期，回傳未來七天的時段狀態。
-    -   **Response Body**:
-        ```json
-        {
-          "2023-11-20": {
-            "09:00": { "status": "available", "schedule_id": 101 },
-            "10:00": { "status": "full", "schedule_id": 102 },
-            "11:00": { "status": "no_class" }
-          },
-          "2023-11-21": { ... }
-        }
-        ```
-
-3.  **[ ] 建立一筆新的預約**
-    -   **Endpoint**: `POST /api/bookings`
-    -   **功能**: 處理使用者的預約請求。
-    -   **核心邏輯**:
-        -   接收 `schedule_id`。
-        -   在資料庫交易 (transaction) 中，再次檢查該 `schedule_id` 的剩餘名額。
-        -   若有名額：建立預約紀錄，更新已預約人數，回傳成功。
-        -   若已額滿：不建立預約，回傳 `409 Conflict` 錯誤及提示訊息（例如：「抱歉，此時段剛剛額滿」）。
-    -   **Request Body**:
-        ```json
-        {
-          "schedule_id": 101
-        }
-        ```
+- [x] **資料庫遷移**:
+  - [x] 在 Supabase 中建立所有資料表 (`users`, `courses`, `classes` 等)。
+  - [x] 透過一次性 GAS 腳本將所有資料從 Google Sheets 遷移至 Supabase。
+- [x] **使用者端 - 課程列表 (`courses.html`)**:
+  - [x] 升級為前端直連 Supabase。
+  - [x] 為 `courses` 表設定 RLS 安全規則。
+- [x] **使用者端 - 課表頁 (`schedule.html`)**:
+  - [x] 升級為前端直連 Supabase。
+  - [x] 為 `classes` 表設定 RLS 安全規則。
+  - [x] 解決時區問題，確保課表時間顯示正確。
+- [x] **使用者端 - 預約憑證 (`booking-details.html`)**:
+  - [x] 升級後端 `getBookingDetails` 函式，改為從 Supabase 讀取資料，解決資料不一致問題。
+- [x.5] **管理後台 - 預約管理 (`manager.html` - 查詢部分)**:
+  - [x] 建立 `search_bookings` RPC 函式，處理複雜的關聯查詢與篩選。
+  - [x] 將「預約管理」分頁的資料讀取升級為前端直連，呼叫 RPC 函式。
 
 ---
 
-## 前端開發任務 (Frontend)
+## ⏳ 待辦事項 (Phase 2: 寫入操作遷移 & 後台完善)
 
-1.  **[ ] 建立課程選擇頁面 (`/courses`)**
-    -   呼叫 `GET /api/courses` API。
-    -   將課程以卡片或列表形式渲染出來。
-    -   每個課程項目點擊後，導航至時段選擇頁，並帶上 `course_id`。
+### 🚀 最高優先級
 
-2.  **[ ] 建立時段選擇頁面 (`/courses/{course_id}/schedule`)**
-    -   從 URL 取得 `course_id`。
-    -   呼叫 `GET /api/courses/{course_id}/schedule` API。
-    -   根據回傳的資料，渲染出 7x12 的時間網格。
-    -   為表格容器添加 CSS，使其在小螢幕上可以水平滾動 (`overflow-x: auto`)。
-    -   處理不同時段狀態的顯示樣式（綠圈、灰叉、空白）。
+- [ ] **使用者端 - 建立預約 (`createBooking`)**:
+  - [ ] **目標**: 改造 `Code.gs` 中的 `createBooking` 函式。
+  - [ ] **作法**:
+    - [ ] 建立一個 Supabase RPC 函式 `create_booking_atomic`，該函式能以「原子性」方式完成以下操作：
+      1. 檢查課堂 (`classes`) 是否額滿。
+      2. 新增一筆預約紀錄到 `bookings` 表。
+      3. 更新 `classes` 表的 `current_students` 人數。
+    - [ ] 修改 `Code.gs` 中的 `createBooking`，讓它呼叫這個新的 RPC 函式。
 
-3.  **[ ] 開發預約互動功能**
-    -   為綠色圈圈格子綁定點擊事件。
-    -   點擊後，顯示一個原生的 `confirm()` 或自訂的 Modal 對話框。
-    -   若使用者確認，則呼叫 `POST /api/bookings` API，並傳入該時段的 `schedule_id`。
-    -   **錯誤處理**：如果 API 回傳 409 錯誤，需顯示清晰的提示訊息給使用者。
-    -   **成功處理**：顯示成功訊息，並可選擇性地將剛剛點擊的格子狀態更新為已預約（例如變成一個打勾圖示），或直接導向「我的預約」頁面。
+### 💻 管理後台 (`manager.html`)
+
+- [ ] **預約管理 (寫入)**:
+  - [ ] 改造 `reviewBooking` 函式，將「確認扣款」和「取消預約」的邏輯改為直接操作 Supabase。
+- [ ] **課表管理**:
+  - [ ] 升級 `loadManagerSchedule` (讀取) 為前端直連。
+  - [ ] 改造 `saveClass` 和 `deleteClass` (寫入)。
+- [ ] **課程型錄管理**:
+  - [ ] 升級 `loadCourses` (讀取) 為前端直連。
+  - [ ] 改造 `saveCourse` 和 `deleteCourse` (寫入)。
+- [ ] **客戶管理**:
+  - [ ] 升級 `loadUsers` (讀取) 為前端直連。
+  - [ ] 改造 `updateUserPoints` (寫入)。
+- [ ] **教練管理**:
+  - [ ] 升級 `loadCoaches` (讀取) 為前端直連。
+  - [ ] 改造 `saveCoach` 和 `deleteCoach` (寫入)。
