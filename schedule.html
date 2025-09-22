@@ -131,21 +131,32 @@
         window.addEventListener('DOMContentLoaded', main);
 
         async function main() {
+            // 步驟 1: 在所有操作之前，先檢查 URL 是否包含 debug 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const isDebugMode = urlParams.get('debug') === 'true';
+            
             try {
-                // 步驟 1: 不論在哪個環境，都先初始化 LIFF
-                await liff.init({ liffId: LIFF_ID });
+                if (isDebugMode) {
+                    // --- DEBUG 模式 ---
+                    // 如果是偵錯模式，直接使用固定的假資料，並跳過 LIFF 登入
+                    console.warn("注意：目前為 DEBUG 模式！");
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001',
+                        displayName: '開發者AA',
+                    };
 
-                // 步驟 2: 檢查登入狀態，若未登入則導向登入頁
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return; // 結束函式，等待重新導向
+                } else {
+                    // --- 正常 LIFF 模式 ---
+                    await liff.init({ liffId: LIFF_ID });
+
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return; // 結束函式，等待重新導向
+                    }
+                    userProfile = await liff.getProfile();
                 }
 
-                // 步驟 3: 取得已登入的使用者資料
-                userProfile = await liff.getProfile();
-
-                // 步驟 4: 從 URL 取得課程 ID 和名稱 (這部分邏輯不變)
-                const urlParams = new URLSearchParams(window.location.search);
+                // 共同步驟: 讀取課程 ID 和名稱
                 const courseId = urlParams.get('id');
                 const courseName = urlParams.get('name');
 
@@ -155,9 +166,9 @@
                     return;
                 }
 
-                // 步驟 5: 更新頁面標題並載入時段資料
+                // 共同步驟: 更新頁面標題並載入時段資料
                 document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} (${courseId})`;
-                await fetchSchedule(courseId);                
+                await fetchSchedule(courseId);
 
             } catch (err) {
                 console.error('初始化或載入時段失敗', err);
