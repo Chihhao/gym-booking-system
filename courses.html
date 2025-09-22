@@ -106,31 +106,55 @@
             const contentContainer = document.getElementById('content-container');
 
             try {
-                let welcomeName = '';
-                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
-                if (!liff.isInClient()) {
-                    // 7. 如果是開發模式，那麼XXX=小明
-                    welcomeName = '小明';
-                } else {
-                    await liff.init({ liffId: LIFF_ID });
-                    
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
-                    userProfile = await liff.getProfile();
-                    welcomeName = userProfile.displayName;
-                }
-                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
-                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
+                // 步驟 1: 不論在哪個環境，都先初始化 LIFF
+                await liff.init({ liffId: LIFF_ID });
                 
-                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
+                // 步驟 2: 檢查登入狀態
+                if (!liff.isLoggedIn()) {
+                    // 如果未登入，就呼叫 liff.login()。
+                    // 這會導致頁面跳轉，所以後面的程式碼不會立刻執行。
+                    liff.login();
+                    return; // 結束函式，等待重新導向
+                }
+                
+                // 步驟 3: 如果已經登入，就取得使用者資料
+                // (不論是在 LINE App 內，還是從外部瀏覽器登入成功後跳轉回來，都會執行到這裡)
+                userProfile = await liff.getProfile();
+                
+                // 步驟 4: 使用真實的使用者名稱來顯示歡迎訊息
+                headerContainer.innerHTML = `<p>歡迎 ${userProfile.displayName}，請點選喜愛的課程：</p>`;
+                
+                // 步驟 5: 載入課程列表
                 await fetchCourses();
+                
+                // let welcomeName = '';
+                // // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
+                // if (!liff.isInClient()) {
+                //     // 7. 如果是開發模式，那麼XXX=小明
+                //     welcomeName = '小明';
+                // } else {
+                //     await liff.init({ liffId: LIFF_ID });
+                //     
+                //     if (!liff.isLoggedIn()) {
+                //         liff.login();
+                //         return;
+                //     }
+                //     userProfile = await liff.getProfile();
+                //    welcomeName = userProfile.displayName;
+                // }
+                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
+                // headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
+                // 
+                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
+                // await fetchCourses();
     
             } catch (err) {
-                console.error('初始化失敗', err);
+                console.error('LIFF 初始化或取得資料失敗', err);
                 headerContainer.innerHTML = '<h1>錯誤</h1>';
-                contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
+                contentContainer.innerHTML = '<p class="error">頁面初始化失敗，請重新整理或檢查您的網路連線。</p>';
+                // console.error('初始化失敗', err);
+                // headerContainer.innerHTML = '<h1>錯誤</h1>';
+                // contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
         }
         
