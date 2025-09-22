@@ -47,9 +47,9 @@
 
 - [ ] **課表管理**:
   - [ ] 改造 `saveClass` 和 `deleteClass` (寫入)。
-- [ ] **課程型錄管理**:
-  - [ ] 改造 `saveCourse` 和 `deleteCourse` (寫入)。
-- [ ] **客戶管理**:
-  - [ ] 改造 `updateUserPoints` (寫入)。
-- [ ] **教練管理**:
-  - [ ] 改造 `saveCoach` 和 `deleteCoach` (寫入)。
+- [x] **課程型錄管理**:
+  - [x] 改造 `saveCourse` 和 `deleteCourse` (寫入)。
+- [x] **客戶管理**:
+  - [x] 改造 `updateUserPoints` (寫入)。
+- [x] **教練管理**:
+  - [x] 改造 `saveCoach` 和 `deleteCoach` (寫入)。

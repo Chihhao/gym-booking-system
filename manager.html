@@ -804,27 +804,30 @@
                 submitBtn.disabled = true;
                 submitBtn.textContent = '儲存中...';
 
-                const data = {
-                    coachId: document.getElementById('form-coach-id-hidden').value,
-                    coachName: document.getElementById('form-coach-name').value,
-                    specialty: document.getElementById('form-coach-specialty').value,
-                    lineId: document.getElementById('form-coach-line-id').value,
-                    phone: document.getElementById('form-coach-phone').value
+                const params = {
+                    p_coach_id: document.getElementById('form-coach-id-hidden').value,
+                    p_coach_name: document.getElementById('form-coach-name').value,
+                    p_specialty: document.getElementById('form-coach-specialty').value,
+                    p_line_id: document.getElementById('form-coach-line-id').value,
+                    p_phone_number: document.getElementById('form-coach-phone').value
                 };
 
                 try {
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'saveCoach', data: data })
-                    });
+                    // --- 方案二：前端直接呼叫 Supabase RPC ---
+                    const { data, error } = await supabaseClient.rpc('save_coach', params);
 
-                    const result = await response.json();
+                    if (error) throw error;
+
+                    const result = data[0];
                     alert(result.message);
 
                     if (result.status === 'success') {
                         closeCoachModal();
-                        loadCoaches(); // 重新載入教練列表
+                        // 重新載入教練列表，並清除快取
+                        currentCoaches = [];
+                        await loadCoaches();
+                        // 同時，由於教練變動可能影響課表，也重新載入課表
+                        await loadManagerSchedule();
                     }
                 } catch (error) {
                     console.error('儲存教練時發生錯誤:', error);
@@ -851,17 +854,18 @@
                 deleteBtn.textContent = '刪除中...';
 
                 try {
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'deleteCoach', data: { coachId } })
-                    });
-                    const result = await response.json();
+                    // --- 方案二：前端直接呼叫 Supabase RPC ---
+                    const { data, error } = await supabaseClient.rpc('delete_coach', { p_coach_id: coachId });
+
+                    if (error) throw error;
+
+                    const result = data[0];
                     alert(result.message);
 
                     if (result.status === 'success') {
                         closeCoachModal();
-                        loadCoaches(); // 重新載入教練列表
+                        currentCoaches = [];
+                        await loadCoaches(); // 重新載入教練列表
                     }
                 } catch (error) {
                     console.error('刪除教練時發生錯誤:', error);
@@ -892,23 +896,27 @@
                 submitBtn.disabled = true;
                 submitBtn.textContent = '儲存中...';
 
-                const data = {
-                    userId: document.getElementById('form-user-id-hidden').value,
-                    points: document.getElementById('form-user-points').value,
+                const params = {
+                    p_user_id: document.getElementById('form-user-id-hidden').value,
+                    p_points: parseInt(document.getElementById('form-user-points').value, 10)
                 };
 
                 try {
-                    const response = await fetch(GAS_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'updateUserPoints', data: data })
-                    });
-                    const result = await response.json();
+                    // --- 方案二：前端直接呼叫 Supabase RPC ---
+                    const { data, error } = await supabaseClient.rpc('update_user_points', params);
+
+                    if (error) throw error;
+
+                    const result = data[0];
                     alert(result.message);
+
                     if (result.status === 'success') {
                         closeUserModal();
-                        loadUsers(); // 重新載入使用者列表
+                        // 重新載入使用者列表，並清除快取
+                        currentUsers = [];
+                        await loadUsers();
                     }
+
                 } catch (error) {
                     console.error('更新使用者點數時發生錯誤:', error);
                     alert('操作失敗，請檢查網路或聯繫開發者。');
@@ -1654,8 +1662,9 @@
                 document.getElementById('course-modal-title').textContent = '新增課程型錄';
                 document.getElementById('delete-course-btn').style.display = 'none';
                 document.getElementById('form-course-id-hidden').value = '';
-                // 更新：為新課程設定預設顏色
-                document.querySelector('#form-course-color-picker .color-swatch[data-color="#64748b"]').click();
+                // 更新：為新課程設定預設顏色為第三種 (琥珀黃)
+                const thirdColor = '#eab308';
+                document.querySelector(`#form-course-color-picker .color-swatch[data-color="${thirdColor}"]`).click();
             }
 
             modal.classList.add('active');
@@ -1802,14 +1811,16 @@
                 document.getElementById('form-coach-id-hidden').value = coachId;
                 
                 try {
-                    const url = new URL(GAS_URL);
-                    url.searchParams.append('action', 'getCoachDetailsForManager');
-                    url.searchParams.append('coachId', coachId);
-                    const response = await fetch(url);
-                    const result = await response.json();
-                    if (result.status !== 'success') throw new Error(result.message);
+                    // --- 方案二：直接從 Supabase 讀取資料 ---
+                    const { data, error } = await supabaseClient
+                        .from('coaches')
+                        .select('*')
+                        .eq('coach_id', coachId)
+                        .single();
 
-                    const d = result.details;
+                    if (error) throw new Error(error.message || '找不到指定的教練');
+
+                    const d = data;
                     document.getElementById('form-coach-name').value = d.coach_name || '';
                     document.getElementById('form-coach-specialty').value = d.specialty || '';
                     document.getElementById('form-coach-line-id').value = d.line_id || '';
@@ -1941,14 +1952,16 @@
             form.reset();
 
             try {
-                const url = new URL(GAS_URL);
-                url.searchParams.append('action', 'getUserDetailsForManager');
-                url.searchParams.append('userId', userId);
-                const response = await fetch(url);
-                const result = await response.json();
-                if (result.status !== 'success') throw new Error(result.message);
+                // --- 方案二：直接從 Supabase 讀取資料 ---
+                const { data, error } = await supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('line_user_id', userId)
+                    .single();
 
-                const d = result.details;
+                if (error) throw new Error(error.message || '找不到指定的使用者');
+
+                const d = data;
                 document.getElementById('form-user-id-hidden').value = d.line_user_id;
                 document.getElementById('form-user-name').value = d.line_display_name;
                 document.getElementById('form-user-points').value = d.points;

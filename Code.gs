@@ -115,8 +115,6 @@ function doGet(e) {
         return createJsonResponse(getCoachDetailsForManager(e.parameter));
       case 'getAllUsersForManager': // 新增：管理後台獲取所有使用者的 API
         return createJsonResponse(getAllUsersForManager(e.parameter));
-      case 'getUserDetailsForManager': // 新增：管理後台獲取單一使用者詳情的 API
-        return createJsonResponse(getUserDetailsForManager(e.parameter));
       // 為了管理頁面保留的舊邏輯
       case 'admin': // 舊的 admin.html 使用 ?page=admin, 新的可以改成 ?action=admin
       case 'getPendingBookings':
@@ -568,8 +566,6 @@ function handleWebAppActions(request) {
         return saveCourse(request.data);
       case 'deleteCourse': // 新增：管理後台刪除課程型錄
         return deleteCourse(request.data);
-      case 'saveCoach': // 新增：管理後台儲存教練 (新增/更新)
-        return saveCoach(request.data);
       case 'updateUserPoints': // 新增：管理後台更新使用者點數
         return updateUserPoints(request.data);
       case 'deleteCoach': // 新增：管理後台刪除教練
@@ -894,74 +890,6 @@ function getAllUsersForManager(params) {
   } catch (error) {
     Logger.log('getAllUsersForManager 發生錯誤: ' + error.toString());
     return { status: 'error', message: '讀取使用者資料時發生錯誤: ' + error.toString() };
-  }
-}
-
-/**
- * [管理後台] 取得單一使用者的詳細資料
- * @param {object} params - 包含 userId 的請求參數
- * @returns {object} - 包含使用者詳細資訊的物件
- */
-function getUserDetailsForManager(params) {
-  try {
-    const { userId } = params;
-    if (!userId) {
-      throw new Error("缺少 userId 參數");
-    }
-
-    // 優化：使用快取讀取使用者資料
-    const userObjects = getCachedSheetData_(USER_SHEET, 'users_data', 300);
-    const targetUser = userObjects.find(u => u.line_user_id === userId);
-
-    if (!targetUser) {
-      return { status: 'error', message: '找不到指定的使用者' };
-    }
-
-    return { status: 'success', details: targetUser };
-  } catch (error) {
-    Logger.log('getUserDetailsForManager 發生錯誤: ' + error.toString());
-    return { status: 'error', message: '讀取使用者詳細資料時發生錯誤: ' + error.toString() };
-  }
-}
-
-/**
- * [管理後台] 更新使用者的點數
- * @param {object} data - 包含 userId 和 points 的物件
- * @returns {object} - 操作結果
- */
-function updateUserPoints(data) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
-
-  try {
-    const { userId, points } = data;
-    if (!userId || points === undefined || points === null) {
-      throw new Error("缺少 userId 或 points 參數");
-    }
-
-    const userValues = USER_SHEET.getDataRange().getValues();
-    const headers = userValues[0];
-    const userIdColIndex = headers.indexOf('line_user_id');
-    const pointsColIndex = headers.indexOf('points');
-
-    let targetRow = -1;
-    for (let i = 1; i < userValues.length; i++) {
-      if (userValues[i][userIdColIndex] === userId) {
-        targetRow = i + 1;
-        break;
-      }
-    }
-
-    if (targetRow === -1) return { status: 'error', message: '找不到要更新的使用者' };
-
-    USER_SHEET.getRange(targetRow, pointsColIndex + 1).setValue(points);
-    return { status: 'success', message: '使用者點數更新成功！' };
-
-  } catch (error) {
-    Logger.log('updateUserPoints 發生錯誤: ' + error.toString());
-    return { status: 'error', message: '更新使用者點數時發生錯誤: ' + error.toString() };
-  } finally {
-    lock.releaseLock();
   }
 }
 
