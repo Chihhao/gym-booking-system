@@ -6,6 +6,8 @@
     <title>課程預約</title>
     <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- 方案一：載入 Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
@@ -90,10 +92,17 @@
         <p class="loader">正在初始化並載入課程資料...</p>
     </div>
 
-    <script>      
-        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
-        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+    <script>
+        // --- 方案一：Supabase 直連設定 ---
+        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
+        const { createClient } = supabase; // 從全域 supabase 物件中解構出 createClient 方法
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // 建立客戶端實例
+
+        // --- 舊版 GAS 設定 (保留備用) ---
+        // const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
+        // const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
+        // const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
         const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/';
         const LIFF_ID = '2008135811-vNO5bYyx'; 
 
@@ -104,70 +113,33 @@
         async function main() {
             const headerContainer = document.getElementById('header-container');
             const contentContainer = document.getElementById('content-container');
-            
-            // 步驟 1: 在所有操作之前，先檢查 URL 是否包含 debug 參數
-            const urlParams = new URLSearchParams(window.location.search);
-            const isDebugMode = urlParams.get('debug') === 'true';
-            
+
             try {
                 let welcomeName = '';
-
-                if (isDebugMode) {
-                    // --- DEBUG 模式 ---
-                    // 如果是偵錯模式，直接使用假資料，並跳過所有 LIFF 相關操作
-                    console.warn("注意：目前為 DEBUG 模式！");
+                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
+                if (!liff.isInClient()) {
+                    // 7. 如果是開發模式，那麼XXX=小明
                     welcomeName = '小明';
-                    // 為了讓後續流程統一，我們也偽造一個 userProfile 物件
-                    userProfile = { displayName: '小明', userId: 'U_DEBUG_USER' };
-
                 } else {
-                    // --- 正常 LIFF 模式 ---
-                    // 初始化 LIFF
                     await liff.init({ liffId: LIFF_ID });
                     
-                    // 檢查登入狀態，若未登入則導向登入頁
                     if (!liff.isLoggedIn()) {
                         liff.login();
-                        return; // 結束函式，等待重新導向
+                        return;
                     }
-                    
-                    // 取得已登入的真實使用者資料
                     userProfile = await liff.getProfile();
                     welcomeName = userProfile.displayName;
                 }
-                
-                // 共同步驟: 不論是 debug 還是正常模式，最終都會執行這裡
-                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
-                await fetchCourses();
-                
-                // let welcomeName = '';
-                // // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
-                // if (!liff.isInClient()) {
-                //     // 7. 如果是開發模式，那麼XXX=小明
-                //     welcomeName = '小明';
-                // } else {
-                //     await liff.init({ liffId: LIFF_ID });
-                //     
-                //     if (!liff.isLoggedIn()) {
-                //         liff.login();
-                //         return;
-                //     }
-                //     userProfile = await liff.getProfile();
-                //    welcomeName = userProfile.displayName;
-                // }
                 // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
-                // headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
-                // 
+                headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
+                
                 // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
-                // await fetchCourses();
+                await fetchCourses();
     
             } catch (err) {
-                console.error('LIFF 初始化或取得資料失敗', err);
+                console.error('初始化失敗', err);
                 headerContainer.innerHTML = '<h1>錯誤</h1>';
-                contentContainer.innerHTML = '<p class="error">頁面初始化失敗，請重新整理或檢查您的網路連線。</p>';
-                // console.error('初始化失敗', err);
-                // headerContainer.innerHTML = '<h1>錯誤</h1>';
-                // contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
+                contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
         }
         
@@ -176,24 +148,31 @@
         async function fetchCourses() {
             const container = document.getElementById('content-container');
             container.innerHTML = '<p class="loader">課程資料載入中...</p>';
-            try {
-                const response = await fetch(GAS_URL);
-                if (!response.ok) throw new Error('網路回應錯誤');
-                const data = await response.json();
+            console.log('開始 fetchCourses...');
+
+            try {                
+                // --- 方案一：直接從 Supabase 讀取資料 ---
+                console.log('正在從 Supabase 查詢 active courses...');
+                const { data, error } = await supabaseClient
+                    .from('courses') // 注意：資料表名稱是小寫
+                    .select('*')
+                    .eq('status', 'Active');
+
+                if (error) {
+                    console.error('Supabase 查詢錯誤:', error);
+                    throw error;
+                }
+                console.log('成功從 Supabase 取得資料:', data);
                 
-                // 直接使用後端回傳的課程列表
-                if (data && data.courses) {
-                    if (data.courses.length > 0) {
-                        renderCourses(data.courses);
-                    } else {
-                        container.innerHTML = '<p>目前沒有可用的課程。</p>';
-                    }
+                if (data && data.length > 0) {
+                    renderCourses(data);
                 } else {
-                    container.innerHTML = '<p>目前沒有可預約的課程類型。</p>';
+                    console.log('Supabase 回傳成功，但沒有 active 的課程。');
+                    container.innerHTML = '<p>目前沒有可用的課程。</p>';
                 }
             } catch (error) {
-                console.error('讀取課程資料時發生錯誤:', error);
-                container.innerHTML = '<p class="error">載入課程失敗，請稍後再試。</p>';
+                console.error('讀取課程資料時發生嚴重錯誤:', error);
+                container.innerHTML = `<p class="error">載入課程失敗，請開啟開發者工具(F12)查看 Console 中的詳細錯誤訊息。<br><br>錯誤: ${error.message}</p>`;
             }
         }
         
@@ -218,17 +197,10 @@
             container.innerHTML = html;
         }
         function selectCourse(courseId, courseName) {
+            // 傳遞 course_id 用於查詢，course_name 用於顯示標題
             const encodedName = encodeURIComponent(courseName);
-            let targetUrl = `schedule.html?id=${courseId}&name=${encodedName}`;
-
-            // 檢查當前頁面是否處於偵錯模式
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('debug') === 'true') {
-                // 如果是，則將 debug 參數附加到目標 URL 上
-                targetUrl += '&debug=true';
-            }
-
-            window.location.href = targetUrl;
+            // 使用 id 和 name 作為參數，語意更清晰
+            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
         }
         
     </script>

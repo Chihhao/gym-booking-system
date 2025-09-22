@@ -1,3 +1,24 @@
+// 修正：為 Supabase 客戶端提供 GAS 環境中缺少的 self 全域物件
+const self = this;
+
+// =================================================================
+// Supabase 改造區
+// =================================================================
+
+// --- Supabase 連線設定 ---
+// 為了安全，建議未來將 SERVICE_KEY 存放在「專案設定」>「指令碼屬性」中
+const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
+
+const SUPABASE_HEADERS = {
+  'apikey': SUPABASE_SERVICE_KEY,
+  'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+};
+
+// =================================================================
+// (舊版 Google Sheet 程式碼保留於下方)
+// =================================================================
+
 // --- 全域變數設定 ---
 const VERSION = "2.1";
 const DEPLOYMENT_ID = "AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G"; // 固定的部署ID
@@ -72,6 +93,8 @@ function doGet(e) {
     switch (action) {
       case 'getSchedule':
         return createJsonResponse(getWeeklySchedule(e.parameter));
+      case 'getCourses': // 新增：專門處理課程列表的請求
+        return getCoursesFromSupabase();
       case 'getBookingDetails':
         return createJsonResponse(getBookingDetails(e.parameter));
       case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
@@ -101,9 +124,9 @@ function doGet(e) {
       // 測試用
       case 'test':
         return testDataRead();
-      // 預設行為：取得所有課程型錄 (給 index.html 使用)
+      // 預設行為：如果沒有 action，則渲染 index.html (首頁)
       default:
-        return getCourses();
+        return HtmlService.createTemplateFromFile('index').evaluate();
     }
   } catch (error) {
     return createJsonResponse({ status: 'error', message: '處理 GET 請求時發生錯誤: ' + error.toString() });
@@ -282,6 +305,55 @@ function getCourses() {
   return createJsonResponse({ courses: activeCourses });
 }
 
+/**
+ * [Supabase 版] 取得所有有效的課程型錄資訊
+ * @returns {object} - 包含所有課程資訊的 JSON 物件
+ */
+function getCoursesFromSupabase() {
+  // 短期優化：為 Supabase 請求加入快取，有效期 5 分鐘 (300秒)
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'supabase_courses_active';
+  const cached = cache.get(cacheKey);
+
+  if (cached != null) {
+    // 快取命中，直接回傳快取的資料
+    return createJsonResponse(JSON.parse(cached));
+  }
+
+  try {
+    // 1. 設定 API 端點和查詢參數
+    // 我們要查詢 courses 資料表，只選擇所有欄位 (*)，並且篩選 status 等於 Active 的資料
+    const tableName = 'courses';
+    const query = 'select=*&status=eq.Active';
+    const url = `${SUPABASE_URL}/rest/v1/${tableName}?${query}`;
+
+    // 2. 設定 UrlFetchApp 選項
+    const options = {
+      'method': 'get',
+      'headers': SUPABASE_HEADERS,
+      'muteHttpExceptions': true
+    };
+
+    // 3. 發送請求並處理回應
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseBody = response.getContentText();
+
+    if (responseCode >= 200 && responseCode < 300) {
+      const courses = JSON.parse(responseBody);
+      const dataToCache = { courses: courses };
+      // 快取未命中，將從 Supabase 取得的結果存入快取
+      cache.put(cacheKey, JSON.stringify(dataToCache), 300);
+
+      // 回傳與舊版 getCourses() 完全相同的格式
+      return createJsonResponse(dataToCache);
+    } else {
+      throw new Error(`Supabase API 錯誤 (HTTP ${responseCode}): ${responseBody}`);
+    }
+  } catch (error) {
+    return createJsonResponse({ status: 'error', message: '從 Supabase 讀取課程時發生錯誤: ' + error.toString() });
+  }
+}
 
 function getClassSchedule() {
   const coachObjects = sheetDataToObjects_(COACH_SHEET.getDataRange().getValues());
@@ -554,6 +626,138 @@ function createBooking(data) {
     return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * =================================================================
+ * 【一次性執行】將 Google Sheets 資料遷移至 Supabase
+ * =================================================================
+ * 執行此函式前，請務必：
+ * 1. 備份您的 Google Sheet 試算表。
+ * 2. 確認已在 Supabase 中建立好所有資料表 (Tables)。
+ * 3. 確認已將 Supabase-js 客戶端程式碼貼到 `SupabaseClient.gs` 檔案中。
+ * 4. 將下方的 SUPABASE_URL 和 SUPABASE_SERVICE_KEY 替換成您自己的金鑰。
+ *
+ * 執行方式：
+ * 1. 在 GAS 編輯器頂部的函式下拉選單中，選擇 `migrateDataToSupabase`。
+ * 2. 點擊「執行」按鈕。
+ * 3. 執行完畢後，到「執行紀錄」中查看日誌，確認所有步驟都成功。
+ */
+function migrateDataToSupabase() {
+  // --- ⚠️ 請將這裡替換成您自己的 Supabase 資訊 ---
+  const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+  const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
+  // ---------------------------------------------
+
+  Logger.log('🚀 開始進行資料遷移...');
+
+  // 輔助函式，用於執行插入並記錄日誌
+  async function insertData(tableName, sheet, transformFn = null) {
+    try {
+      Logger.log(`--- 正在處理: ${tableName} ---`);
+      let objects = sheetDataToObjects_(sheet.getDataRange().getValues());
+
+      // 如果提供了轉換函式，則對資料進行轉換
+      if (transformFn) {
+        objects = objects.map(transformFn);
+      }
+
+      if (objects.length === 0) {
+        Logger.log(`✅ ${tableName} 中沒有資料，跳過。`);
+        return;
+      }
+
+      // 直接使用 UrlFetchApp 呼叫 Supabase REST API
+      const url = `${SUPABASE_URL}/rest/v1/${tableName}`;
+      const options = {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          // 修正 #1: 使用 upsert 模式。如果主鍵已存在，則更新資料，否則新增。
+          // resolution=merge-duplicates 會合併資料，而不是直接覆蓋。
+          // return=minimal 表示我們不需要回傳插入的資料，這樣比較快。
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        payload: JSON.stringify(objects),
+        muteHttpExceptions: true // 讓 GAS 在遇到 4xx/5xx 錯誤時不要拋出例外，而是回傳回應物件
+      };
+
+      const response = UrlFetchApp.fetch(url, options);
+      const responseCode = response.getResponseCode();
+
+      // 201 Created (插入) 或 200 OK (更新) 都是成功的狀態碼
+      if (responseCode !== 201 && responseCode !== 200) {
+        const errorResponse = response.getContentText();
+        Logger.log(`❌ 遷移 ${tableName} 失敗 (HTTP ${responseCode}): ${errorResponse}`);
+        throw new Error(`Failed to insert data into ${tableName}. See logs for details.`);
+      } else {
+        Logger.log(`✅ 成功遷移 ${objects.length} 筆資料到 ${tableName}。`);
+      }
+    } catch (e) {
+      Logger.log(`❌ 執行 ${tableName} 遷移時發生嚴重錯誤: ${e.toString()}`);
+      throw e; // 拋出錯誤以終止後續操作
+    }
+  }
+
+  // 遷移順序很重要，先遷移沒有外鍵的表
+  try {
+    // 1. 遷移 Users, Coaches, Courses
+    // 對於日期欄位，Google Sheet 讀取出來可能是 Date 物件，Supabase 客戶端會自動轉為 ISO 字串，通常不需特別處理
+    // 但為保險起見，可以手動轉換
+    const userTransform = (user) => {
+      if (user.registration_date && user.registration_date instanceof Date) {
+        user.registration_date = user.registration_date.toISOString();
+      }
+      return user;
+    };
+    insertData('users', USER_SHEET, userTransform);
+    insertData('coaches', COACH_SHEET);
+    insertData('courses', COURSE_SHEET);
+
+    // 2. 遷移 Classes (依賴 Courses 和 Coaches)
+    const classTransform = (cls) => {
+      // 修正 #2: 處理數字欄位的空值
+      cls.max_students = parseInt(cls.max_students) || 1; // 如果為空，預設為 1
+      cls.current_students = parseInt(cls.current_students) || 0; // 如果為空，預設為 0
+      cls.points = parseInt(cls.points) || 0; // 如果為空，預設為 0
+
+      // 處理日期和時間格式，確保所有鍵都存在，無效值轉為 null
+      cls.class_date = (cls.class_date instanceof Date) ? cls.class_date.toISOString().split('T')[0] : null;
+      cls.start_time = (cls.start_time instanceof Date) ? cls.start_time.toISOString().split('T')[1].split('.')[0] : null;
+      cls.end_time = (cls.end_time instanceof Date) ? cls.end_time.toISOString().split('T')[1].split('.')[0] : null;
+      
+      // 修正：對於 NOT NULL 且有 default 值的欄位，如果來源為空，我們提供一個有效的預設值。
+      // 對於可為 NULL 的欄位，如果來源為空，我們傳遞 null。
+      cls.create_time = (cls.create_time instanceof Date) ? cls.create_time.toISOString() : new Date().toISOString();
+      cls.update_time = (cls.update_time instanceof Date) ? cls.update_time.toISOString() : null;
+
+      return cls;
+    };
+    insertData('classes', CLASS_SHEET, classTransform);
+
+    // 3. 遷移 Bookings (依賴 Classes 和 Users)
+    const bookingTransform = (booking) => {
+      // 修正：與 classes 表同樣的邏輯，確保所有鍵都存在
+      booking.booking_time = (booking.booking_time instanceof Date) ? booking.booking_time.toISOString() : new Date().toISOString();
+      booking.create_time = (booking.create_time instanceof Date) ? booking.create_time.toISOString() : new Date().toISOString();
+      booking.update_time = (booking.update_time instanceof Date) ? booking.update_time.toISOString() : null;
+
+      // 確保 create_user 和 update_user 鍵存在
+      booking.create_user = booking.create_user || null;
+      booking.update_user = booking.update_user || null;
+      return booking;
+    };
+    insertData('bookings', BOOKING_SHEET, bookingTransform);
+
+    Logger.log('🎉🎉🎉 所有資料遷移成功！🎉🎉🎉');
+    Browser.msgBox("資料遷移成功！請前往 Supabase Table Editor 檢查資料。");
+
+  } catch (e) {
+    Logger.log('🔴 資料遷移過程中斷，請檢查上方日誌找出錯誤原因。');
+    Browser.msgBox("資料遷移失敗！請檢查執行紀錄 (View -> Executions) 以了解詳細錯誤。");
   }
 }
 
