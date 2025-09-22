@@ -687,11 +687,10 @@
     <script>
         // --- 方案一：Supabase 直連設定 ---
         const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
-        // 在管理後台，我們仍然需要使用 service_role 金鑰，因為我們要讀取所有使用者的預約資料，
-        // 這超出了 RLS 允許匿名使用者執行的範圍。
-        const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
+        // 🔴 安全性升級：改用 anon (公開) 金鑰。寫入操作將透過安全的 RPC 函式執行。
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
         const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // --- 舊版 GAS 設定 (保留備用，寫入操作仍會用到) ---
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
@@ -1292,24 +1291,22 @@
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
 
             try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'reviewBooking',
-                        data: { bookingId, decision }
-                    })
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                const { data, error } = await supabaseClient.rpc('review_booking_atomic', {
+                    p_booking_id: bookingId,
+                    p_decision: decision
                 });
-                
-                const result = await response.json();
+
+                if (error) throw error;
+
+                const result = data[0]; // RPC 回傳的是陣列，取第一個元素
                 alert(result.message);
 
-                if (result.status === 'success') { 
+                if (result.status === 'success') {
                     // 重新載入會自動套用篩選和排序，體驗更好
                     applyFilters();
-                } else if (result.message.includes('無法執行此操作')) {
-                    // 操作成功後，重新載入整個列表以確保資料一致性
-                    loadBookings();
+                } else if (result.message && result.message.includes('無法執行此操作')) {
+                    applyFilters(); // 如果是狀態不符等邏輯錯誤，也重新整理列表
                 } else {
                     // 如果失敗，恢復按鈕
                     row.querySelectorAll('button').forEach(btn => btn.disabled = false);

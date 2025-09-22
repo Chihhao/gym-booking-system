@@ -586,101 +586,62 @@ function handleWebAppActions(request) {
  * @param {object} data - 包含 classId 和 liffData (使用者資訊)
  */
 function createBooking(data) {
-  const { classId, liffData } = data;
-  const { userId, displayName } = liffData;
+    const { classId, liffData } = data;
+    const { userId, displayName } = liffData;
 
-  const bookingObjects = sheetDataToObjects_(BOOKING_SHEET.getDataRange().getValues());
-  const hasBooked = bookingObjects.some(booking => 
-    booking.line_user_id === userId && 
-    booking.class_id === classId &&
-    (booking.status === '已預約' || booking.status === '已扣款')); // 檢查新狀態
+    if (!classId || !userId || !displayName) {
+        return { status: 'error', message: '缺少必要的預約資訊 (classId, userId, displayName)。' };
+    }
 
-  if (hasBooked) {
-      return { status: 'error', message: '您已預約此課程，請勿重複預約。' };
-  }
+    try {
+        Logger.log(`[RPC Call] Calling 'create_booking_atomic' for user ${userId} on class ${classId}.`);
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
-
-  try {
-    const classValues = CLASS_SHEET.getDataRange().getValues();
-    const classHeaders = classValues[0];
-    const currentStudentsColIndex = classHeaders.indexOf('current_students') + 1;
-
-    let targetClassRow = -1;
-    let classInfo = {};
-
-    for (let i = 1; i < classValues.length; i++) {
-      // class_id is in the first column (index 0)
-      if (classValues[i][classHeaders.indexOf('class_id')] === classId) {
-        targetClassRow = i + 1;
-        classInfo = { 
-          max: classValues[i][classHeaders.indexOf('max_students')], 
-          current: classValues[i][classHeaders.indexOf('current_students')] 
+        // 1. 設定要呼叫的 RPC 函式名稱和參數
+        const functionName = 'create_booking_atomic';
+        const params = {
+            p_class_id: classId,
+            p_user_id: userId,
+            p_display_name: displayName
         };
-        break;
-      }
+
+        // 2. 組合 RPC 請求的 URL
+        const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`;
+
+        // 3. 設定請求選項
+        const options = {
+            'method': 'post',
+            'contentType': 'application/json',
+            'headers': SUPABASE_HEADERS,
+            'payload': JSON.stringify(params),
+            'muteHttpExceptions': true
+        };
+
+        // 4. 發送請求
+        const response = UrlFetchApp.fetch(url, options);
+        const responseCode = response.getResponseCode();
+        const responseBody = response.getContentText();
+
+        if (responseCode !== 200) {
+            // 如果 Supabase 回傳非 200，記錄錯誤並回傳給前端
+            Logger.log(`[RPC Error] Supabase RPC (${functionName}) failed (HTTP ${responseCode}): ${responseBody}`);
+            throw new Error(`後端處理預約時發生錯誤，代碼: ${responseCode}`);
+        }
+
+        // 5. 解析從 RPC 函式回傳的結果
+        // RPC 回傳的是一個陣列，裡面只有一個物件，所以取 [0]
+        const result = JSON.parse(responseBody)[0];
+
+        // 6. 將 RPC 的結果直接回傳給前端
+        return {
+            status: result.status,
+            message: result.message,
+            bookingId: result.booking_id
+        };
+
+    } catch (error) {
+        Logger.log(`[createBooking] Error during RPC call: ${error.toString()}`);
+        return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
     }
-
-    if (targetClassRow === -1 || classInfo.current >= classInfo.max) {
-      return { status: 'error', message: '課程已額滿或不存在' };
-    }
-
-    // 更新已報名人數
-    CLASS_SHEET.getRange(targetClassRow, currentStudentsColIndex).setValue(classInfo.current + 1);
-    
-    const userObjects = sheetDataToObjects_(USER_SHEET.getDataRange().getValues());
-    const userExists = userObjects.some(user => user.line_user_id === userId);
-
-    if (!userExists) {
-      // 注意：這裡的 appendRow 順序必須和 Users 工作表欄位完全一致
-      USER_SHEET.appendRow([userId, displayName, new Date(), 0, '', '']); // points, line_id, phone_number
-    }
-
-    // --- 新的預約編號生成邏輯 ---
-    const now = new Date();
-    const year = now.getFullYear(); // YYYY
-    const month = (now.getMonth() + 1).toString().padStart(2, '0'); // MM
-    const idPrefix = `BK${year}${month}`;
-
-    // 找出該月份已存在的最大流水號
-    const bookingIdColIndex = bookingObjects[0] ? Object.keys(bookingObjects[0]).indexOf('booking_id') : -1;
-    const bookingIdsForMonth = bookingObjects
-      .map(b => b.booking_id)
-      .filter(id => id && typeof id === 'string' && id.startsWith(idPrefix));
-
-    let maxNum = 0;
-    bookingIdsForMonth.forEach(id => {
-      const numPart = parseInt(id.substring(idPrefix.length), 10);
-      if (!isNaN(numPart) && numPart > maxNum) {
-        maxNum = numPart;
-      }
-    });
-
-    const newNum = maxNum + 1;
-    // 格式化為五位數流水號，例如 "00001"
-    const bookingId = idPrefix + String(newNum).padStart(5, '0');
-
-    // 注意：這裡的 appendRow 順序必須和 Bookings 工作表欄位完全一致
-    BOOKING_SHEET.appendRow([
-      bookingId, 
-      classId, 
-      userId, 
-      now, 
-      '已預約', // 狀態直接設為 "已預約"
-      new Date(), // create_time
-      displayName, // create_user
-      '', // update_time
-      '' // update_user
-    ]);
-
-    return { status: 'success', message: '預約成功！', bookingId: bookingId };
-
-  } catch (error) {
-    return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 /**
@@ -1412,73 +1373,52 @@ function getClassDetails(params) {
  * @param {object} data - 包含 bookingId 和 decision ('approve' or 'reject')
  */
 function reviewBooking(data) {
-  const { bookingId, decision } = data;
-  // 對應新的狀態流程
-  // approve -> 已扣款
-  // reject -> 已取消
-  const newStatus = (decision === 'approve') ? '已扣款' : '已取消';
+    const { bookingId, decision } = data;
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
+    if (!bookingId || !decision) {
+        return { status: 'error', message: '缺少 bookingId 或 decision 參數。' };
+    }
 
-  try {
-    const bookingValues = BOOKING_SHEET.getDataRange().getValues();
-    const bookingHeaders = bookingValues[0];
-    const statusColIndex = bookingHeaders.indexOf('status') + 1;
-    const updateTimeColIndex = bookingHeaders.indexOf('update_time') + 1;
-    const updateUserColIndex = bookingHeaders.indexOf('update_user') + 1;
+    try {
+        Logger.log(`[RPC Call] Calling 'review_booking_atomic' for booking ${bookingId} with decision '${decision}'.`);
 
-    let targetBookingRow = -1;
-    let currentStatus = '';
-    let classId = '';
-    for (let i = 1; i < bookingValues.length; i++) {
-      if (bookingValues[i][bookingHeaders.indexOf('booking_id')] === bookingId) {
-        currentStatus = bookingValues[i][statusColIndex - 1];
-        // 防止重複操作已取消或已扣款的單據
-        if (currentStatus !== '已預約') {
-          return { status: 'error', message: `此預約狀態為「${currentStatus}」，無法執行此操作。` };
+        const functionName = 'review_booking_atomic';
+        const params = {
+            p_booking_id: bookingId,
+            p_decision: decision
+        };
+
+        const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`;
+        const options = {
+            'method': 'post',
+            'contentType': 'application/json',
+            'headers': SUPABASE_HEADERS,
+            'payload': JSON.stringify(params),
+            'muteHttpExceptions': true
+        };
+
+        const response = UrlFetchApp.fetch(url, options);
+        const responseCode = response.getResponseCode();
+        const responseBody = response.getContentText();
+
+        if (responseCode !== 200) {
+            Logger.log(`[RPC Error] Supabase RPC (${functionName}) failed (HTTP ${responseCode}): ${responseBody}`);
+            throw new Error(`後端處理審核時發生錯誤，代碼: ${responseCode}`);
         }
-        targetBookingRow = i + 1;
-        classId = bookingValues[i][bookingHeaders.indexOf('class_id')];
-        break;
-      }
+
+        // RPC 回傳的是一個陣列，裡面只有一個物件，所以取 [0]
+        const result = JSON.parse(responseBody)[0];
+
+        // 直接將 RPC 的結果回傳給前端
+        return {
+            status: result.status,
+            message: result.message
+        };
+
+    } catch (error) {
+        Logger.log(`[reviewBooking] Error during RPC call: ${error.toString()}`);
+        return { status: 'error', message: '處理審核時發生錯誤: ' + error.toString() };
     }
-
-    if (targetBookingRow === -1) {
-      return { status: 'error', message: '找不到該筆預約紀錄' };
-    }
-
-    // 更新預約狀態、更新時間、更新者
-    BOOKING_SHEET.getRange(targetBookingRow, statusColIndex).setValue(newStatus);
-    BOOKING_SHEET.getRange(targetBookingRow, updateTimeColIndex).setValue(new Date());
-    BOOKING_SHEET.getRange(targetBookingRow, updateUserColIndex).setValue('Admin'); // 假設是管理者操作
-
-    // 如果是「取消預約」，則需要將課程名額釋放 (current_students - 1)
-    if (decision === 'reject') { // 'reject' 對應到 '已取消'
-      const classValues = CLASS_SHEET.getDataRange().getValues();
-      const classHeaders = classValues[0];
-      const currentStudentsColIndex = classHeaders.indexOf('current_students') + 1;
-      let targetClassRow = -1;
-      let currentStudents = 0;
-      for (let i = 1; i < classValues.length; i++) {
-        if (classValues[i][classHeaders.indexOf('class_id')] === classId) {
-          targetClassRow = i + 1;
-          currentStudents = classValues[i][classHeaders.indexOf('current_students')];
-          break;
-        }
-      }
-      if (targetClassRow !== -1 && currentStudents > 0) {
-        CLASS_SHEET.getRange(targetClassRow, currentStudentsColIndex).setValue(currentStudents - 1);
-      }
-    }
-    
-    return { status: 'success', message: `操作成功：${newStatus}` };
-
-  } catch (error) {
-    return { status: 'error', message: '處理時發生錯誤: ' + error.toString() };
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 // 輔助函式，方便建立 JSON 回應

@@ -179,7 +179,6 @@
         async function fetchSchedule(courseId) {
             const container = document.getElementById('schedule-container');
             container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
-            console.log(`[1/5] 開始 fetchSchedule，courseId: ${courseId}`);
 
             try {
                 // --- 方案一：直接從 Supabase 讀取資料 (最終時區修正版) ---
@@ -195,7 +194,6 @@
                 // 取得本地時區的「今天」日期字串，作為所有操作的唯一基準
                 const todayString = getLocalDateString(localToday);
 
-                console.log(`[2/5] 正在查詢 Supabase 'classes' 表，基準日期: ${todayString}`);
                 // 2. 使用本地日期字串查詢 Supabase
                 const { data: classes, error: classesError } = await supabaseClient
                     .from('classes')
@@ -205,21 +203,14 @@
                     .gte('class_date', todayString);
 
                 if (classesError) throw classesError;
-                console.log(`[3/5] 'classes' 表查詢完畢，找到 ${classes ? classes.length : 0} 筆課堂資料。`, classes);
                 
-                // 新增：以表格形式印出從 Supabase 撈到的原始資料，方便檢視
-                console.log('--- Supabase 原始課堂資料 ---');
-                console.table(classes);
-
                 if (!classes || classes.length === 0) {
-                    console.log("沒有找到任何符合條件的課堂，結束流程。");
                     renderScheduleGrid({}); // 傳入空物件以顯示「無時段」訊息
                     return;
                 }
 
                 // 3. 查詢使用者在這些課堂中的預約紀錄
                 const classIds = classes.map(c => c.class_id);
-                console.log(`[4/5] 正在查詢使用者 (${userProfile.userId}) 在 ${classIds.length} 筆課堂中的預約紀錄...`);
                 let userBookings = new Map();
                 if (userProfile && userProfile.userId) {
                     const { data: bookings, error: bookingsError } = await supabaseClient
@@ -230,13 +221,10 @@
                         .in('status', ['已預約', '已扣款']);
 
                     if (bookingsError) throw bookingsError;
-                    console.log(`[4.1/5] 'bookings' 表查詢完畢，找到 ${bookings ? bookings.length : 0} 筆預約。`, bookings);
                     
                     bookings.forEach(b => userBookings.set(b.class_id, b.booking_id));
                 }
 
-                // 4. 將查詢結果轉換為前端網格需要的格式
-                console.log("[5/5] 開始將後端資料組合為前端網格格式...");
                 const scheduleData = {};
                 const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
 
@@ -265,13 +253,8 @@
                         // 最終修正：既然 DB 資料已乾淨，直接截取字串即可，無需任何轉換
                         startTimeString = cls.start_time.substring(0, 5); // e.g., "07:00"
                         hourKey = cls.start_time.substring(0, 2) + ':00'; // e.g., "07:00"
-                    }
-
-                    // 新增：追蹤每一筆課堂的處理過程
-                    console.log(`[Processing] class_id: ${cls.class_id}, Date: ${dateString}, Time: ${startTimeString}, HourKey: ${hourKey}`);
-                    // ... 後續放入網格的邏輯不變 ...
-                    // 只有當 hourKey 有效時才嘗試放入網格
-                    if (hourKey && scheduleData[dateString] && scheduleData[dateString][hourKey]) {
+                    }                    
+                    if (hourKey && scheduleData[dateString] && scheduleData[dateString][hourKey]) { // 只有當 hourKey 有效時才嘗試放入網格
                         if (userBookings.has(cls.class_id)) {
                             scheduleData[dateString][hourKey] = { status: 'booked_by_me', schedule_id: cls.class_id, booking_id: userBookings.get(cls.class_id) };
                         } else {
@@ -279,21 +262,9 @@
                             const status = remaining > 0 ? 'available' : 'full';
                             scheduleData[dateString][hourKey] = { status: status, schedule_id: cls.class_id, remaining: remaining };
                         }
-                        console.log(`  ✅ 成功放入網格 [${dateString}][${hourKey}]`);
-                    } else {
-                        // 新增：如果找不到對應的格子，印出詳細原因
-                        console.warn(`  🟡 無法放入網格 (或無須放入)，class_id: ${cls.class_id}`);
-                        if (!scheduleData[dateString]) {
-                            console.warn(`     原因: 找不到日期 key '${dateString}'。`);
-                        } else if (hourKey) {
-                            console.warn(`     原因: 在日期 '${dateString}' 中找不到時間 key '${hourKey}' (可能不在 09:00-21:00 範圍內)。`);
-                        } else {
-                            console.warn(`     原因: 課堂 start_time 為空。`);
-                        }
                     }
                 });
 
-                console.log("[5.1/5] 資料組合完畢，準備渲染網格。", scheduleData);
                 renderScheduleGrid(scheduleData);
 
             } catch (error) {
@@ -398,36 +369,34 @@
             element.classList.add('processing');
             element.innerHTML = '稍候';
 
-            try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 配合 GAS
-                    body: JSON.stringify({
-                        action: 'createBooking',
-                        data: {
-                            classId: scheduleId, // 後端接收的參數名為 classId
-                            liffData: userProfile
-                        }
-                    })
+            try {                
+                // --- 方案二：前端直接呼叫 Supabase RPC ---
+                console.log(`[Booking] 直接呼叫 Supabase RPC 'create_booking_atomic'，classId: ${scheduleId}`);
+                const { data, error } = await supabaseClient.rpc('create_booking_atomic', {
+                    p_class_id: scheduleId,
+                    p_user_id: userProfile.userId,
+                    p_display_name: userProfile.displayName
                 });
 
-                const result = await response.json();
-                alert(result.message); // 顯示後端回傳的訊息
+                if (error) throw error;
 
-                if (result.status === 'success' && result.bookingId) {
-                    // 預約成功，更新格子狀態
-                    element.classList.remove('processing');
-                    element.classList.add('booked-by-me');
-                    element.innerHTML = '已約';
-                    element.setAttribute('title', '已預約');
-                    element.onclick = () => showBookingDetails(result.bookingId);
+                const result = data[0]; // RPC 回傳的是陣列，取第一個元素
+                alert(result.message); // 顯示後端回傳的訊息
+                console.log('[Booking] 後端回傳結果:', result);
+
+                if (result.status === 'success') {
+                    // 預約成功，不再手動更新UI，而是直接重新載入整個課表以確保資料一致性
+                    console.log('[Booking] 預約成功，正在重新整理課表...');
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const courseId = urlParams.get('id');
+                    await fetchSchedule(courseId);
                 } else {
-                    // 如果成功但沒有 bookingId，或狀態不是 success，就拋出錯誤
+                    // 如果預約失敗，將格子恢復原狀
                     throw new Error(result.message || '預約失敗，請稍後再試。');
                 }
             } catch (error) {
-                console.error('預約時發生錯誤:', error);
-                // 恢復格子為可點擊狀態
+                console.error('[Booking] 預約時發生錯誤:', error);
+                // 恢復格子為可點擊狀態，讓使用者可以重試
                 element.innerHTML = originalContent;
                 element.classList.remove('processing');
                 element.classList.add('available');
