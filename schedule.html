@@ -6,6 +6,8 @@
     <title>選擇時段</title>
     <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- 方案一：載入 Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* --- 1. 暗色主題 --- */
         body { 
@@ -119,10 +121,14 @@
     </div>
 
     <script>
-        // 在實際應用中，這些常數可以放在共用檔案
-        const DEV_GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const PROD_GAS_URL = '<?= ScriptApp.getService().getUrl() ?>';
-        const GAS_URL = PROD_GAS_URL.startsWith('http') ? PROD_GAS_URL : DEV_GAS_URL;
+        // --- 方案一：Supabase 直連設定 ---
+        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- 舊版 GAS 設定 (保留備用，預約時仍會用到) ---
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
         const LIFF_ID = '2008135811-vNO5bYyx';
 
         // 全域變數，用來存放使用者資訊
@@ -131,32 +137,26 @@
         window.addEventListener('DOMContentLoaded', main);
 
         async function main() {
-            // 步驟 1: 在所有操作之前，先檢查 URL 是否包含 debug 參數
-            const urlParams = new URLSearchParams(window.location.search);
-            const isDebugMode = urlParams.get('debug') === 'true';
-            
             try {
-                if (isDebugMode) {
-                    // --- DEBUG 模式 ---
-                    // 如果是偵錯模式，直接使用固定的假資料，並跳過 LIFF 登入
-                    console.warn("注意：目前為 DEBUG 模式！");
+                // 1. 初始化 LIFF 並取得使用者資訊
+                if (!liff.isInClient()) {
+                    console.warn("注意：目前為外部瀏覽器開發模式！");
                     userProfile = {
                         userId: 'U_DEV_000000000000000000000000001',
                         displayName: '開發者AA',
                     };
-
+                    console.log("偽造的使用者資訊:", userProfile);
                 } else {
-                    // --- 正常 LIFF 模式 ---
                     await liff.init({ liffId: LIFF_ID });
-
                     if (!liff.isLoggedIn()) {
                         liff.login();
-                        return; // 結束函式，等待重新導向
+                        return;
                     }
                     userProfile = await liff.getProfile();
                 }
 
-                // 共同步驟: 讀取課程 ID 和名稱
+                // 2. 從 URL 取得課程 ID
+                const urlParams = new URLSearchParams(window.location.search);
                 const courseId = urlParams.get('id');
                 const courseName = urlParams.get('name');
 
@@ -166,7 +166,7 @@
                     return;
                 }
 
-                // 共同步驟: 更新頁面標題並載入時段資料
+                // 3. 更新頁面標題並載入時段資料
                 document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} (${courseId})`;
                 await fetchSchedule(courseId);
 
@@ -178,28 +178,124 @@
 
         async function fetchSchedule(courseId) {
             const container = document.getElementById('schedule-container');
-            // 使用 courseId 查詢，並附上 userId
-            let url = `${GAS_URL}?action=getSchedule&courseId=${courseId}`;
-            if (userProfile && userProfile.userId) {
-                url += `&userId=${userProfile.userId}`;
-            }
+            container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
+            console.log(`[1/5] 開始 fetchSchedule，courseId: ${courseId}`);
 
             try {
-                const response = await fetch(url);
-                const responseText = await response.text();
-
-                if (!response.ok) {
-                    // 讓錯誤訊息更詳細
-                    throw new Error(`網路回應錯誤: ${response.status}. Response: ${responseText}`);
-                }
+                // --- 方案一：直接從 Supabase 讀取資料 (最終時區修正版) ---
                 
-                const data = JSON.parse(responseText); // 使用已讀取的文字來解析
+                // 1. 建立一個輔助函式，確保任何 Date 物件都能被轉換為本地時區的 YYYY-MM-DD 字串
+                const localToday = new Date();
+                const getLocalDateString = (date) => {
+                    const year = date.getFullYear();
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+                // 取得本地時區的「今天」日期字串，作為所有操作的唯一基準
+                const todayString = getLocalDateString(localToday);
 
-                if (data.status === 'error') {
-                    throw new Error(`後端錯誤: ${data.message}`);
+                console.log(`[2/5] 正在查詢 Supabase 'classes' 表，基準日期: ${todayString}`);
+                // 2. 使用本地日期字串查詢 Supabase
+                const { data: classes, error: classesError } = await supabaseClient
+                    .from('classes')
+                    .select('*')
+                    .eq('course_id', courseId)
+                    .eq('status', '開放中') // 雖然 RLS 會擋，但明確寫出更好
+                    .gte('class_date', todayString);
+
+                if (classesError) throw classesError;
+                console.log(`[3/5] 'classes' 表查詢完畢，找到 ${classes ? classes.length : 0} 筆課堂資料。`, classes);
+                
+                // 新增：以表格形式印出從 Supabase 撈到的原始資料，方便檢視
+                console.log('--- Supabase 原始課堂資料 ---');
+                console.table(classes);
+
+                if (!classes || classes.length === 0) {
+                    console.log("沒有找到任何符合條件的課堂，結束流程。");
+                    renderScheduleGrid({}); // 傳入空物件以顯示「無時段」訊息
+                    return;
                 }
 
-                renderScheduleGrid(data);
+                // 3. 查詢使用者在這些課堂中的預約紀錄
+                const classIds = classes.map(c => c.class_id);
+                console.log(`[4/5] 正在查詢使用者 (${userProfile.userId}) 在 ${classIds.length} 筆課堂中的預約紀錄...`);
+                let userBookings = new Map();
+                if (userProfile && userProfile.userId) {
+                    const { data: bookings, error: bookingsError } = await supabaseClient
+                        .from('bookings')
+                        .select('class_id, booking_id')
+                        .eq('line_user_id', userProfile.userId)
+                        .in('class_id', classIds)
+                        .in('status', ['已預約', '已扣款']);
+
+                    if (bookingsError) throw bookingsError;
+                    console.log(`[4.1/5] 'bookings' 表查詢完畢，找到 ${bookings ? bookings.length : 0} 筆預約。`, bookings);
+                    
+                    bookings.forEach(b => userBookings.set(b.class_id, b.booking_id));
+                }
+
+                // 4. 將查詢結果轉換為前端網格需要的格式
+                console.log("[5/5] 開始將後端資料組合為前端網格格式...");
+                const scheduleData = {};
+                const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
+
+                for (let i = 0; i < 7; i++) {
+                    // 修正：從本地今天的日期物件開始計算，確保與查詢基準一致
+                    const currentDate = new Date(); // 取得本地當前時間
+                    currentDate.setHours(0, 0, 0, 0); // 設定為本地時間的零點
+                    currentDate.setDate(currentDate.getDate() + i);
+                    const dateString = getLocalDateString(currentDate);
+
+                    scheduleData[dateString] = {};
+                    hours.forEach(hour => {
+                        scheduleData[dateString][hour] = { status: 'no_class' };
+                    });
+                }
+
+                classes.forEach(cls => {
+                    // Supabase 回傳的 class_date 已經是 'YYYY-MM-DD' 格式，直接使用
+                    const dateString = cls.class_date; 
+
+                    // 修正：穩健地處理可能為 null 的 UTC 時間
+                    let hourKey = null;
+                    let startTimeString = '';
+
+                    if (cls.start_time) {
+                        // 最終修正：既然 DB 資料已乾淨，直接截取字串即可，無需任何轉換
+                        startTimeString = cls.start_time.substring(0, 5); // e.g., "07:00"
+                        hourKey = cls.start_time.substring(0, 2) + ':00'; // e.g., "07:00"
+                    }
+
+                    // 新增：追蹤每一筆課堂的處理過程
+                    console.log(`[Processing] class_id: ${cls.class_id}, Date: ${dateString}, Time: ${startTimeString}, HourKey: ${hourKey}`);
+                    // ... 後續放入網格的邏輯不變 ...
+                    // 只有當 hourKey 有效時才嘗試放入網格
+                    if (hourKey && scheduleData[dateString] && scheduleData[dateString][hourKey]) {
+                        if (userBookings.has(cls.class_id)) {
+                            scheduleData[dateString][hourKey] = { status: 'booked_by_me', schedule_id: cls.class_id, booking_id: userBookings.get(cls.class_id) };
+                        } else {
+                            const remaining = cls.max_students - cls.current_students;
+                            const status = remaining > 0 ? 'available' : 'full';
+                            scheduleData[dateString][hourKey] = { status: status, schedule_id: cls.class_id, remaining: remaining };
+                        }
+                        console.log(`  ✅ 成功放入網格 [${dateString}][${hourKey}]`);
+                    } else {
+                        // 新增：如果找不到對應的格子，印出詳細原因
+                        console.warn(`  🟡 無法放入網格 (或無須放入)，class_id: ${cls.class_id}`);
+                        if (!scheduleData[dateString]) {
+                            console.warn(`     原因: 找不到日期 key '${dateString}'。`);
+                        } else if (hourKey) {
+                            console.warn(`     原因: 在日期 '${dateString}' 中找不到時間 key '${hourKey}' (可能不在 09:00-21:00 範圍內)。`);
+                        } else {
+                            console.warn(`     原因: 課堂 start_time 為空。`);
+                        }
+                    }
+                });
+
+                console.log("[5.1/5] 資料組合完畢，準備渲染網格。", scheduleData);
+                renderScheduleGrid(scheduleData);
+
             } catch (error) {
                 console.error('讀取時段資料時發生錯誤:', error);
                 container.innerHTML = '<p class="error">載入時段資料失敗，請稍後再試或聯繫管理員。</p>';
@@ -241,8 +337,8 @@
                     let onClickAction = '';
                     let titleAttribute = ''; // 用於存放 tooltip 文字
 
-                    // 組合出該時段的完整時間
-                    const slotDateTime = new Date(`${date}T${hour}`);
+                    // 修正：組合出該時段的完整時間。將 'T' 換成空格，確保 JS 將其解析為本地時間而非 UTC。
+                    const slotDateTime = new Date(`${date} ${hour}`);
 
                     // 優先判斷：是否已過期
                     if (slotDateTime < now) {

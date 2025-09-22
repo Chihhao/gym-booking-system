@@ -95,8 +95,8 @@ function doGet(e) {
         return createJsonResponse(getWeeklySchedule(e.parameter));
       case 'getCourses': // 新增：專門處理課程列表的請求
         return getCoursesFromSupabase();
-      case 'getBookingDetails':
-        return createJsonResponse(getBookingDetails(e.parameter));
+      case 'getBookingDetails': // 改造點：指向新的 Supabase 函式
+        return createJsonResponse(getBookingDetailsFromSupabase(e.parameter));
       case 'getAllBookings': // 新增：管理後台獲取所有預約的 API
         return createJsonResponse(getAllBookings(e.parameter));
       case 'getClassesForManager': // 新增：管理後台獲取課表資料的 API
@@ -248,6 +248,60 @@ function getBookingDetails(params) {
     userName: targetUser.line_display_name,
     bookingStatus: targetBooking.status
   };
+}
+
+/**
+ * [Supabase版] 根據 bookingId 取得單筆預約的詳細資訊
+ * @param {object} params - 包含 bookingId 的請求參數
+ */
+function getBookingDetailsFromSupabase(params) {
+  const bookingId = params.bookingId;
+  if (!bookingId) {
+    throw new Error("缺少 bookingId 參數");
+  }
+
+  try {
+    const tableName = 'bookings';
+    // 使用關聯查詢，一次取得所有需要的資料
+    const query = `select=booking_id,status,classes(class_id,class_date,start_time,courses(course_id,course_name)),users(line_display_name)&booking_id=eq.${bookingId}`;
+    const url = `${SUPABASE_URL}/rest/v1/${tableName}?${query}`;
+
+    const options = {
+      'method': 'get',
+      'headers': {
+        ...SUPABASE_HEADERS,
+        // 要求 Supabase 回傳單一物件而非陣列，如果找不到會回傳 404
+        'Accept': 'application/vnd.pgrst.object+json' 
+      },
+      'muteHttpExceptions': true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseBody = response.getContentText();
+
+    if (responseCode !== 200) {
+      throw new Error(`Supabase API 錯誤 (HTTP ${responseCode}): ${responseBody}`);
+    }
+
+    const details = JSON.parse(responseBody);
+
+    // 組合前端需要的格式
+    return {
+      status: 'success',
+      bookingId: details.booking_id,
+      courseName: details.classes.courses.course_name,
+      courseId: details.classes.courses.course_id,
+      classId: details.classes.class_id,
+      classTime: `${details.classes.class_date} ${details.classes.start_time.substring(0, 5)}`,
+      userName: details.users.line_display_name,
+      bookingStatus: details.status
+    };
+
+  } catch (error) {
+    Logger.log(`getBookingDetailsFromSupabase 發生錯誤: ${error.toString()}`);
+    return { status: 'error', message: '讀取預約詳細資料時發生錯誤: ' + error.toString() };
+  }
 }
 
 function getPendingBookings() {
