@@ -136,11 +136,14 @@
             margin: 0; /* 覆蓋 p 的預設樣式 */
         }
 
-        /* 新增：用於控制手機版換行的 class */
+        .desktop-only-space {
+            display: inline; /* 或不寫，因為 span 預設就是 inline */
+        }
+        
         .mobile-only-break {
             display: none; /* 在桌面版預設隱藏 */
         }
-
+        
         /* 響應式設計：在小螢幕上調整字體大小 */
         @media (max-width: 600px) {
             h1 {
@@ -161,6 +164,9 @@
                 font-size: 0.75rem;
                 bottom: 1rem;
             }
+            .desktop-only-space {
+                display: none; /* 在手機版隱藏這個空格 */
+            }
             .mobile-only-break {
                 display: block; /* 在手機版顯示為區塊元素，強制換行 */
             }
@@ -169,7 +175,7 @@
 </head>
 <body>
     <main class="hero">
-        <h1>WALLY<br class="mobile-only-break">自由教練工作室</h1>
+        <h1>WALLY<span class="desktop-only-space"> </span><br class="mobile-only-break">自由教練工作室</h1>
         <p>打造理想體態，從這裡開始。</p>
         <a href="courses.html" class="btn btn-primary">立即預約課程</a>
         <div class="social-links">
