@@ -132,24 +132,19 @@
 
         async function main() {
             try {
-                // 1. 初始化 LIFF 並取得使用者資訊
-                if (!liff.isInClient()) {
-                    console.warn("注意：目前為外部瀏覽器開發模式！");
-                    userProfile = {
-                        userId: 'U_DEV_000000000000000000000000001',
-                        displayName: '開發者AA',
-                    };
-                    console.log("偽造的使用者資訊:", userProfile);
-                } else {
-                    await liff.init({ liffId: LIFF_ID });
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
-                    userProfile = await liff.getProfile();
+                // 步驟 1: 不論在哪個環境，都先初始化 LIFF
+                await liff.init({ liffId: LIFF_ID });
+
+                // 步驟 2: 檢查登入狀態，若未登入則導向登入頁
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return; // 結束函式，等待重新導向
                 }
 
-                // 2. 從 URL 取得課程 ID
+                // 步驟 3: 取得已登入的使用者資料
+                userProfile = await liff.getProfile();
+
+                // 步驟 4: 從 URL 取得課程 ID 和名稱 (這部分邏輯不變)
                 const urlParams = new URLSearchParams(window.location.search);
                 const courseId = urlParams.get('id');
                 const courseName = urlParams.get('name');
@@ -160,9 +155,9 @@
                     return;
                 }
 
-                // 3. 更新頁面標題並載入時段資料
+                // 步驟 5: 更新頁面標題並載入時段資料
                 document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} (${courseId})`;
-                await fetchSchedule(courseId);
+                await fetchSchedule(courseId);                
 
             } catch (err) {
                 console.error('初始化或載入時段失敗', err);
