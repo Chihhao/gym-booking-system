@@ -6,6 +6,8 @@
     <title>選擇時段</title>
     <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- 載入共用設定檔 -->
+    <script src="config.js"></script>
     <!-- 方案一：載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -121,15 +123,11 @@
     </div>
 
     <script>
-        // --- 方案一：Supabase 直連設定 ---
-        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
+        // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
 
         // --- 舊版 GAS 設定 (保留備用，預約時仍會用到) ---
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G/exec';
-        const LIFF_ID = '2008135811-vNO5bYyx';
 
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
@@ -147,7 +145,7 @@
                     };
                     console.log("偽造的使用者資訊:", userProfile);
                 } else {
-                    await liff.init({ liffId: LIFF_ID });
+                    await liff.init({ liffId: AppConfig.LIFF_ID_SCHEDULE });
                     if (!liff.isLoggedIn()) {
                         liff.login();
                         return;

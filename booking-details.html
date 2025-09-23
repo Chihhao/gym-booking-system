@@ -6,6 +6,8 @@
     <title>預約憑證</title>
     <!-- 載入 QRCode.js 函式庫 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- 載入共用設定檔 -->
+    <script src="config.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -95,11 +97,9 @@
     </div>
 
     <script>
-        // --- Supabase 直連設定 ---
-        const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U';
+        // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
 
         window.addEventListener('DOMContentLoaded', main);
 
