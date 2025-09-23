@@ -127,8 +127,8 @@
             padding: 1.5rem;
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            width: 90%;
-            max-width: 400px;
+            width: 80%;
+            max-width: 240px;
             text-align: center;
             position: relative;
         }
@@ -188,8 +188,9 @@
         <div class="modal-content">
             <h2 id="notification-title">通知</h2>
             <p id="notification-message"></p>
-            <div class="modal-actions" style="justify-content: center;">
-                <button id="notification-close-btn" class="btn">確認</button>
+            <div id="notification-actions" class="modal-actions" style="justify-content: center;">
+                <button id="notification-close-btn" class="btn btn-secondary">關閉</button>
+                <button id="notification-action-btn" class="btn btn-success">執行動作</button>
             </div>
         </div>
     </div>
@@ -444,9 +445,9 @@
                 return;
             }
 
-            const confirmed = await showConfirmation('您確定要預約這個時段嗎？', {
-                title: '請確認預約',
-                confirmText: '確認預約'
+            const confirmed = await showConfirmation('', {
+                title: '確認預約',
+                confirmText: '預約'
             });
             if (!confirmed) {
                 return;
@@ -475,11 +476,12 @@
 
                 if (result.status === 'success') {
                     // 預約成功，顯示客製化成功訊息
-                    showNotification('您的預約已完成，點擊按鈕可查看憑證。', {
+                    showNotification('', {
                         type: 'success',
-                        title: '預約成功',
-                        buttonText: '顯示預約憑證',
-                        buttonAction: () => {
+                        title: '預約成功！',
+                        closeButtonText: '關閉',
+                        actionButtonText: '查看憑證',
+                        action: () => {
                             showBookingDetails(result.booking_id);
                         }
                     });
@@ -540,48 +542,63 @@
             const modal = document.getElementById('notification-modal');
             const titleEl = document.getElementById('notification-title');
             const messageEl = document.getElementById('notification-message');
-            const closeBtn = document.getElementById('notification-close-btn');
+            const actionsContainer = document.getElementById('notification-actions');
+            const closeBtn = document.getElementById('notification-close-btn'); // The '關閉' button
+            const actionBtn = document.getElementById('notification-action-btn'); // The '執行動作' button
 
             const type = options.type || 'info';
 
             // 設定標題、訊息和按鈕文字
             titleEl.textContent = options.title || (type === 'success' ? '操作成功' : (type === 'error' ? '發生錯誤' : '通知'));
-            messageEl.textContent = message;
-            closeBtn.textContent = options.buttonText || '確認';
+            // 修正：如果 message 為空，則隱藏訊息段落，否則顯示它
+            if (message) {
+                messageEl.textContent = message;
+                messageEl.style.display = 'block';
+            } else {
+                messageEl.textContent = '';
+                messageEl.style.display = 'none';
+            }
 
             // 重設樣式
             titleEl.style.color = '';
-            closeBtn.style.backgroundColor = '';
-            closeBtn.style.color = '';
-            // 恢復為通用按鈕樣式
-            closeBtn.className = 'btn';
+            actionBtn.style.display = 'none'; // 預設隱藏動作按鈕
+            actionsContainer.style.justifyContent = 'center'; // 預設置中
 
             switch (type) {
                 case 'success':
                     titleEl.style.color = '#28a745';
-                    closeBtn.classList.add('btn-success');
                     break;
                 case 'error':
                     titleEl.style.color = '#dc3545';
-                    closeBtn.classList.add('btn-danger');
                     break;
                 default: // 'info' 或其他
                     titleEl.style.color = '#ffc107';
-                    closeBtn.classList.add('btn-secondary');
                     break;
+            }
+
+            // 處理按鈕
+            closeBtn.textContent = options.closeButtonText || '確認';
+
+            if (typeof options.action === 'function' && options.actionButtonText) {
+                actionBtn.textContent = options.actionButtonText;
+                actionBtn.style.display = 'inline-block';
+                actionBtn.onclick = () => {
+                    modal.style.display = 'none';
+                    options.action();
+                };
             }
 
             modal.style.display = 'flex'; // 顯示 Modal
 
             // 綁定按鈕事件
-            const closeAndAct = () => {
+            const closeModal = () => {
                 modal.style.display = 'none';
-                if (typeof options.buttonAction === 'function') {
-                    options.buttonAction();
-                }
+                // 移除事件監聽器以防記憶體洩漏
+                closeBtn.onclick = null;
+                actionBtn.onclick = null;
             };
 
-            closeBtn.onclick = closeAndAct;
+            closeBtn.onclick = closeModal;
         }
     </script>
 
