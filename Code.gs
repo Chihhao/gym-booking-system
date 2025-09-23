@@ -115,94 +115,16 @@ function doPost(e) {
           handlePostback(event);
         }
       });
-    }
-    // 如果請求來自我們的 LIFF 網頁 (有 action 屬性)
-    else if (request.action) {
-      // 網頁請求需要等待真實的處理結果，所以要 return 處理函式的回傳值
-      return createJsonResponse(handleWebAppActions(request));
+    } else {
+      // 如果請求不是來自 LINE Webhook，記錄下來以供除錯
+      console.log("收到非 LINE Webhook 的 POST 請求:", e.postData.contents);
     }
   } catch (err) {
     // 如果解析或處理過程中出錯，可以在日誌中記錄錯誤
     // 仍然回傳一個成功的 quickReply 給 LINE，避免 LINE 不斷重試
     console.error(err.toString());
   }
-  
   return quickReply;
-}
-
-// 新增一個專門處理網頁請求的函式，讓 doPost 更清晰 ---
-function handleWebAppActions(request) {
-    switch (request.action) {
-      case 'createBooking':
-        return createBooking(request.data);
-      case 'reviewBooking':
-        return reviewBooking(request.data);
-      default:
-        return { status: 'error', message: '無效的網頁操作' };
-    }
-}
-
-/**
- * 處理新增預約的核心函式
- * @param {object} data - 包含 classId 和 liffData (使用者資訊)
- */
-function createBooking(data) {
-    const { classId, liffData } = data;
-    const { userId, displayName } = liffData;
-
-    if (!classId || !userId || !displayName) {
-        return { status: 'error', message: '缺少必要的預約資訊 (classId, userId, displayName)。' };
-    }
-
-    try {
-        Logger.log(`[RPC Call] Calling 'create_booking_atomic' for user ${userId} on class ${classId}.`);
-
-        // 1. 設定要呼叫的 RPC 函式名稱和參數
-        const functionName = 'create_booking_atomic';
-        const params = {
-            p_class_id: classId,
-            p_user_id: userId,
-            p_display_name: displayName
-        };
-
-        // 2. 組合 RPC 請求的 URL
-        const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`;
-
-        // 3. 設定請求選項
-        const options = {
-            'method': 'post',
-            'contentType': 'application/json',
-            'headers': SUPABASE_HEADERS,
-            'payload': JSON.stringify(params),
-            'muteHttpExceptions': true
-        };
-
-        // 4. 發送請求
-        const response = UrlFetchApp.fetch(url, options);
-        const responseCode = response.getResponseCode();
-        const responseBody = response.getContentText();
-
-        if (responseCode !== 200) {
-            // 如果 Supabase 回傳非 200，記錄錯誤並回傳給前端
-            Logger.log(`[RPC Error] Supabase RPC (${functionName}) failed (HTTP ${responseCode}): ${responseBody}`);
-            throw new Error(`後端處理預約時發生錯誤，代碼: ${responseCode}`);
-        }
-
-        // 5. 解析從 RPC 函式回傳的結果
-        // RPC 回傳的是一個陣列，裡面只有一個物件，所以取 [0]
-        const result = JSON.parse(responseBody)[0];
-
-        // 6. 將 RPC 的結果直接回傳給前端
-        return {
-            status: result.status,
-            message: result.message,
-            bookingId: result.booking_id
-        };
-
-    } catch (error) {
-        Logger.log(`[createBooking] Error during RPC call: ${error.toString()}`);
-        return { status: 'error', message: '處理預約時發生錯誤: ' + error.toString() };
-    }
 }
 
 /**
@@ -341,59 +263,6 @@ function migrateDataToSupabase() {
     Logger.log('🔴 資料遷移過程中斷，請檢查上方日誌找出錯誤原因。');
     Browser.msgBox("資料遷移失敗！請檢查執行紀錄 (View -> Executions) 以了解詳細錯誤。");
   }
-}
-
-/**
- * 處理審核預約的核心函式
- * @param {object} data - 包含 bookingId 和 decision ('approve' or 'reject')
- */
-function reviewBooking(data) {
-    const { bookingId, decision } = data;
-
-    if (!bookingId || !decision) {
-        return { status: 'error', message: '缺少 bookingId 或 decision 參數。' };
-    }
-
-    try {
-        Logger.log(`[RPC Call] Calling 'review_booking_atomic' for booking ${bookingId} with decision '${decision}'.`);
-
-        const functionName = 'review_booking_atomic';
-        const params = {
-            p_booking_id: bookingId,
-            p_decision: decision
-        };
-
-        const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`;
-        const options = {
-            'method': 'post',
-            'contentType': 'application/json',
-            'headers': SUPABASE_HEADERS,
-            'payload': JSON.stringify(params),
-            'muteHttpExceptions': true
-        };
-
-        const response = UrlFetchApp.fetch(url, options);
-        const responseCode = response.getResponseCode();
-        const responseBody = response.getContentText();
-
-        if (responseCode !== 200) {
-            Logger.log(`[RPC Error] Supabase RPC (${functionName}) failed (HTTP ${responseCode}): ${responseBody}`);
-            throw new Error(`後端處理審核時發生錯誤，代碼: ${responseCode}`);
-        }
-
-        // RPC 回傳的是一個陣列，裡面只有一個物件，所以取 [0]
-        const result = JSON.parse(responseBody)[0];
-
-        // 直接將 RPC 的結果回傳給前端
-        return {
-            status: result.status,
-            message: result.message
-        };
-
-    } catch (error) {
-        Logger.log(`[reviewBooking] Error during RPC call: ${error.toString()}`);
-        return { status: 'error', message: '處理審核時發生錯誤: ' + error.toString() };
-    }
 }
 
 // 輔助函式，方便建立 JSON 回應
