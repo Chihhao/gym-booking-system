@@ -686,6 +686,20 @@
         </div>
     </div>
 
+    <!-- 新增：卡片式通知 Modal -->
+    <div id="notification-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <button id="notification-close-icon" class="modal-close-btn">&times;</button>
+            <h2 id="notification-title">通知</h2>
+            <div class="form-group">
+                <p id="notification-message" style="font-size: 1.1em; line-height: 1.6; margin: 0;"></p>
+            </div>
+            <div class="modal-actions" style="justify-content: center;">
+                <button id="notification-close-btn" class="btn">確認</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
@@ -768,9 +782,9 @@
                     const { data: rpcData, error } = await supabaseClient.rpc('save_course', data);
 
                     if (error) throw error;
-
+                    
                     const result = rpcData[0];
-                    alert(result.message);
+                    showNotification(result.message, result.status);
 
                     if (result.status === 'success') {
                         closeCourseModal();
@@ -783,7 +797,7 @@
 
                 } catch (error) {
                     console.error('儲存課程型錄時發生錯誤:', error);
-                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                    showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = originalBtnText;
@@ -817,7 +831,7 @@
                     if (error) throw error;
 
                     const result = data[0];
-                    alert(result.message);
+                    showNotification(result.message, result.status);
 
                     if (result.status === 'success') {
                         closeCoachModal();
@@ -829,7 +843,7 @@
                     }
                 } catch (error) {
                     console.error('儲存教練時發生錯誤:', error);
-                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                    showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = originalBtnText;
@@ -838,7 +852,7 @@
             document.getElementById('delete-coach-btn').addEventListener('click', async () => {
                 const coachId = document.getElementById('form-coach-id-hidden').value;
                 if (!coachId) {
-                    alert('錯誤：找不到教練 ID。');
+                    showNotification('錯誤：找不到教練 ID。', 'error');
                     return;
                 }
 
@@ -858,7 +872,7 @@
                     if (error) throw error;
 
                     const result = data[0];
-                    alert(result.message);
+                    showNotification(result.message, result.status);
 
                     if (result.status === 'success') {
                         closeCoachModal();
@@ -867,7 +881,7 @@
                     }
                 } catch (error) {
                     console.error('刪除教練時發生錯誤:', error);
-                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                    showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
                 } finally {
                     deleteBtn.disabled = false;
                     deleteBtn.textContent = originalBtnText;
@@ -906,7 +920,7 @@
                     if (error) throw error;
 
                     const result = data[0];
-                    alert(result.message);
+                    showNotification(result.message, result.status);
 
                     if (result.status === 'success') {
                         closeUserModal();
@@ -917,7 +931,7 @@
 
                 } catch (error) {
                     console.error('更新使用者點數時發生錯誤:', error);
-                    alert('操作失敗，請檢查網路或聯繫開發者。');
+                    showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = originalBtnText;
@@ -969,6 +983,21 @@
         if (localStorage.getItem('sidebarCollapsed') === 'true') {
             document.body.classList.add('sidebar-collapsed');
         }
+
+        // --- 新增：全域通知 Modal 關閉事件 ---
+        function closeNotificationModal() {
+            document.getElementById('notification-modal').classList.remove('active');
+        }
+        document.getElementById('notification-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeNotificationModal();
+            }
+        });
+        document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
+        document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
+
+
+
 
         function handleNavigation() {
             // 如果 URL 沒有 hash，預設導向 #bookings
@@ -1309,7 +1338,7 @@
                 if (error) throw error;
 
                 const result = data[0]; // RPC 回傳的是陣列，取第一個元素
-                alert(result.message);
+                showNotification(result.message, result.status);
 
                 if (result.status === 'success') {
                     // 重新載入會自動套用篩選和排序，體驗更好
@@ -1322,7 +1351,7 @@
                 }
             } catch (error) {
                 console.error('審核操作時發生錯誤:', error);
-                alert('操作失敗，請檢查網路或聯繫開發者。');
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
                 row.querySelectorAll('button').forEach(btn => btn.disabled = false);
             }
         }
@@ -1369,7 +1398,7 @@
                     document.getElementById('form-max-students').value = d.max_students;
 
                 } catch (error) {
-                    alert(`載入課堂資料失敗: ${error.message}`);
+                    showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
                     return; // 載入失敗則不顯示 Modal
                 }
             } else {
@@ -1420,7 +1449,7 @@
                 if (error) throw error;
 
                 const result = data[0];
-                alert(result.message);
+                showNotification(result.message, result.status);
 
                 if (result.status === 'success') {
                     closeClassModal();
@@ -1429,7 +1458,7 @@
 
             } catch (error) {
                 console.error('儲存課堂時發生錯誤:', error);
-                alert('操作失敗，請檢查網路或聯繫開發者。');
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalBtnText;
@@ -1439,7 +1468,7 @@
         async function handleDeleteClass() {
             const classId = document.getElementById('form-class-id').value;
             if (!classId) {
-                alert('錯誤：找不到課堂 ID。');
+                showNotification('錯誤：找不到課堂 ID。', 'error');
                 return;
             }
 
@@ -1460,7 +1489,7 @@
                 if (error) throw error;
 
                 const result = data[0];
-                alert(result.message);
+                showNotification(result.message, result.status);
 
                 if (result.status === 'success') {
                     closeClassModal();
@@ -1468,7 +1497,7 @@
                 }
             } catch (error) {
                 console.error('刪除課堂時發生錯誤:', error);
-                alert('操作失敗，請檢查網路或聯繫開發者。');
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
             } finally {
                 deleteBtn.disabled = false;
                 deleteBtn.textContent = '刪除課堂';
@@ -1489,7 +1518,7 @@
                 managerFormData = result; // 將結果儲存在全域變數中
             } catch (error) {
                 console.error('載入管理表單資料失敗:', error);
-                alert(`載入表單選項失敗: ${error.message}`);
+                showNotification(`載入表單選項失敗: ${error.message}`, 'error');
                 // 在下拉選單中顯示錯誤
                 document.getElementById('form-course-id').innerHTML = `<option value="">載入失敗</option>`;
                 document.getElementById('form-coach-id').innerHTML = `<option value="">載入失敗</option>`;
@@ -1650,7 +1679,7 @@
                     });
 
                 } catch (error) {
-                    alert(`載入課程資料失敗: ${error.message}`);
+                    showNotification(`載入課程資料失敗: ${error.message}`, 'error');
                     closeCourseModal();
                     return; // 載入失敗則不顯示 Modal
                 }
@@ -1675,7 +1704,7 @@
         document.getElementById('delete-course-btn').addEventListener('click', async () => {
             const courseId = document.getElementById('form-course-id-hidden').value;
             if (!courseId) {
-                alert('錯誤：找不到課程 ID。');
+                showNotification('錯誤：找不到課程 ID。', 'error');
                 return;
             }
 
@@ -1695,7 +1724,7 @@
                 if (error) throw error;
 
                 const result = data[0];
-                alert(result.message);
+                showNotification(result.message, result.status);
 
                 if (result.status === 'success') {
                     closeCourseModal();
@@ -1705,7 +1734,7 @@
                 }
             } catch (error) {
                 console.error('刪除課程型錄時發生錯誤:', error);
-                alert('操作失敗，請檢查網路或聯繫開發者。');
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
             } finally {
                 deleteBtn.disabled = false;
             }
@@ -1823,7 +1852,7 @@
                     document.getElementById('form-coach-line-id').value = d.line_id || '';
                     document.getElementById('form-coach-phone').value = d.phone_number || '';
                 } catch (error) {
-                    alert(`載入教練資料失敗: ${error.message}`);
+                    showNotification(`載入教練資料失敗: ${error.message}`, 'error');
                     closeCoachModal();
                     return;
                 }
@@ -1965,12 +1994,44 @@
 
                 modal.classList.add('active');
             } catch (error) {
-                alert(`載入使用者資料失敗: ${error.message}`);
+                showNotification(`載入使用者資料失敗: ${error.message}`, 'error');
             }
         }
 
         function closeUserModal() {
             document.getElementById('user-modal').classList.remove('active');
+        }
+    </script>
+
+    <script>
+        // --- 全域卡片式通知函式 ---
+        function showNotification(message, type = 'info') {
+            const modal = document.getElementById('notification-modal');
+            const titleEl = document.getElementById('notification-title');
+            const messageEl = document.getElementById('notification-message');
+            const closeBtn = document.getElementById('notification-close-btn');
+
+            messageEl.textContent = message;
+
+            // 重設按鈕 class
+            closeBtn.className = 'btn';
+
+            switch (type) {
+                case 'success':
+                    titleEl.textContent = '操作成功';
+                    closeBtn.classList.add('btn-success');
+                    break;
+                case 'error':
+                    titleEl.textContent = '發生錯誤';
+                    closeBtn.classList.add('btn-danger');
+                    break;
+                default: // 'info' 或其他
+                    titleEl.textContent = '通知';
+                    closeBtn.classList.add('btn-secondary');
+                    break;
+            }
+
+            modal.classList.add('active');
         }
     </script>
 

@@ -108,6 +108,67 @@
 
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
+
+        /* --- 新增：通用 Modal 樣式 (從 manager.html 借鑒並簡化) --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #343a40;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #495057;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+        .modal-content p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #e0e0e0;
+            margin-bottom: 1.5rem;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        /* --- 新增：通用按鈕樣式 (從 manager.html 借鑒) --- */
+        .btn {
+            border: none;
+            border-radius: 5px; /* 統一圓角 */
+            padding: 0.6rem 1.5rem; /* 統一 padding */
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-success { background-color: #28a745; color: #ffffff; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-secondary { background-color: #6c757d; color: #ffffff; }
+        .btn-secondary:hover { background-color: #5a6268; }
+
     </style>
 </head>
 <body>
@@ -121,6 +182,33 @@
             <p class="loader">正在載入時段資料...</p>
         </div>
     </div>
+
+    <!-- 新增：卡片式通知 Modal -->
+    <div id="notification-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="notification-title">通知</h2>
+            <p id="notification-message"></p>
+            <div class="modal-actions" style="justify-content: center;">
+                <button id="notification-close-btn" class="btn">確認</button>
+            </div>
+        </div>
+    </div>
+    <!-- 沿用 booking-details.html 的部分樣式，簡化通知卡片 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <!-- 新增：確認對話框 Modal -->
+    <div id="confirmation-modal" class="modal-overlay" style="z-index: 2001;">
+        <div class="modal-content">
+            <h2 id="confirmation-title" style="color: #ffc107;">請確認</h2>
+            <p id="confirmation-message"></p>
+            <div class="modal-actions" style="justify-content: center;">
+                <button id="confirmation-cancel-btn" class="btn btn-secondary">取消</button>
+                <button id="confirmation-confirm-btn" class="btn btn-success">確認</button>
+            </div>
+        </div>
+    </div>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
 
     <script>
         // --- 從 config.js 讀取設定 ---
@@ -352,11 +440,15 @@
 
         async function selectTimeslot(scheduleId, element) {
             if (!userProfile) {
-                alert('無法取得使用者資訊，請重新整理頁面。');
+                showNotification('無法取得使用者資訊，請重新整理頁面。', 'error');
                 return;
             }
 
-            if (!confirm(`您確定要預約這個時段嗎？`)) {
+            const confirmed = await showConfirmation('您確定要預約這個時段嗎？', {
+                title: '請確認預約',
+                confirmText: '確認預約'
+            });
+            if (!confirmed) {
                 return;
             }
 
@@ -379,15 +471,20 @@
                 if (error) throw error;
 
                 const result = data[0]; // RPC 回傳的是陣列，取第一個元素
-                alert(result.message); // 顯示後端回傳的訊息
                 console.log('[Booking] 後端回傳結果:', result);
 
                 if (result.status === 'success') {
-                    // 預約成功，不再手動更新UI，而是直接重新載入整個課表以確保資料一致性
-                    console.log('[Booking] 預約成功，正在重新整理課表...');
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const courseId = urlParams.get('id');
-                    await fetchSchedule(courseId);
+                    // 預約成功，顯示客製化成功訊息
+                    showNotification('您的預約已完成，點擊按鈕可查看憑證。', {
+                        type: 'success',
+                        title: '預約成功',
+                        buttonText: '顯示預約憑證',
+                        buttonAction: () => {
+                            showBookingDetails(result.booking_id);
+                        }
+                    });
+                    // 成功後，在背景重新載入課表，更新狀態
+                    fetchSchedule(new URLSearchParams(window.location.search).get('id'));
                 } else {
                     // 如果預約失敗，將格子恢復原狀
                     throw new Error(result.message || '預約失敗，請稍後再試。');
@@ -400,6 +497,91 @@
                 element.classList.add('available');
                 element.onclick = () => selectTimeslot(scheduleId, element);
             }
+        }
+
+        // --- 新增：確認對話框函式 (回傳 Promise) ---
+        function showConfirmation(message, options = {}) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmation-modal');
+                const titleEl = document.getElementById('confirmation-title');
+                const messageEl = document.getElementById('confirmation-message');
+                const confirmBtn = document.getElementById('confirmation-confirm-btn');
+                const cancelBtn = document.getElementById('confirmation-cancel-btn');
+
+                // 從 options 或預設值設定內容
+                titleEl.textContent = options.title || '請確認';
+                messageEl.textContent = message;
+                confirmBtn.textContent = options.confirmText || '確認';
+                cancelBtn.textContent = options.cancelText || '取消';
+
+                // 顯示 Modal
+                modal.style.display = 'flex';
+
+                const close = (result) => {
+                    // 隱藏 Modal
+                    modal.style.display = 'none';
+
+                    // 移除事件監聽器，避免重複綁定
+                    confirmBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    modal.onclick = null;
+                    resolve(result);
+                };
+
+                confirmBtn.onclick = () => close(true);
+                cancelBtn.onclick = () => close(false);
+                // 點擊背景遮罩等同於取消
+                modal.onclick = (event) => { if (event.target === modal) close(false); };
+            });
+        }
+
+        // --- 新增：卡片式通知函式 ---
+        function showNotification(message, options = {}) {
+            const modal = document.getElementById('notification-modal');
+            const titleEl = document.getElementById('notification-title');
+            const messageEl = document.getElementById('notification-message');
+            const closeBtn = document.getElementById('notification-close-btn');
+
+            const type = options.type || 'info';
+
+            // 設定標題、訊息和按鈕文字
+            titleEl.textContent = options.title || (type === 'success' ? '操作成功' : (type === 'error' ? '發生錯誤' : '通知'));
+            messageEl.textContent = message;
+            closeBtn.textContent = options.buttonText || '確認';
+
+            // 重設樣式
+            titleEl.style.color = '';
+            closeBtn.style.backgroundColor = '';
+            closeBtn.style.color = '';
+            // 恢復為通用按鈕樣式
+            closeBtn.className = 'btn';
+
+            switch (type) {
+                case 'success':
+                    titleEl.style.color = '#28a745';
+                    closeBtn.classList.add('btn-success');
+                    break;
+                case 'error':
+                    titleEl.style.color = '#dc3545';
+                    closeBtn.classList.add('btn-danger');
+                    break;
+                default: // 'info' 或其他
+                    titleEl.style.color = '#ffc107';
+                    closeBtn.classList.add('btn-secondary');
+                    break;
+            }
+
+            modal.style.display = 'flex'; // 顯示 Modal
+
+            // 綁定按鈕事件
+            const closeAndAct = () => {
+                modal.style.display = 'none';
+                if (typeof options.buttonAction === 'function') {
+                    options.buttonAction();
+                }
+            };
+
+            closeBtn.onclick = closeAndAct;
         }
     </script>
 
