@@ -182,8 +182,8 @@
                 // 組合出完整的圖片 URL
                 const imageUrl = course.image_url ? `${AppConfig.IMAGE_BASE_URL}${course.image_url}` : 'https://via.placeholder.com/400x180.png?text=No+Image';
                 html += `
-                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${course.course_name}')">
-                        <img src="${imageUrl}" alt="${course.course_name}">
+                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${encodeURIComponent(course.course_name)}')">
+                        <img src="${imageUrl}" alt="${course.course_name}" width="120" height="120" loading="lazy">
                         <div class="course-card-content">
                             <h2>${course.course_name}</h2>
                             <p class="description">${course.short_description || ''}</p>
@@ -197,9 +197,8 @@
         }
         function selectCourse(courseId, courseName) {
             // 傳遞 course_id 用於查詢，course_name 用於顯示標題
-            const encodedName = encodeURIComponent(courseName);
             // 使用 id 和 name 作為參數，語意更清晰
-            window.location.href = `schedule.html?id=${courseId}&name=${encodedName}`;
+            window.location.href = `schedule.html?id=${courseId}&name=${courseName}`;
         }
         
     </script>
