@@ -1,14 +1,24 @@
 // 修正：為 Supabase 客戶端提供 GAS 環境中缺少的 self 全域物件
 const self = this;
-
 // =================================================================
 // Supabase 改造區
 // =================================================================
 
-// --- Supabase 連線設定 ---
-// 為了安全，建議未來將 SERVICE_KEY 存放在「專案設定」>「指令碼屬性」中
+// --- 安全的金鑰管理 ---
+// 從「專案設定 > 指令碼屬性」讀取機密金鑰
+const properties = PropertiesService.getScriptProperties();
+const SUPABASE_SERVICE_KEY = properties.getProperty('SUPABASE_SERVICE_KEY');
+const CHANNEL_ACCESS_TOKEN = properties.getProperty('CHANNEL_ACCESS_TOKEN');
+
+// 在程式開始時就檢查金鑰是否存在，若否，則拋出錯誤
+if (!SUPABASE_SERVICE_KEY) {
+  throw new Error('錯誤：找不到 SUPABASE_SERVICE_KEY。請在「專案設定 > 指令碼屬性」中設定。');
+}
+if (!CHANNEL_ACCESS_TOKEN) {
+  throw new Error('錯誤：找不到 CHANNEL_ACCESS_TOKEN。請在「專案設定 > 指令碼屬性」中設定。');
+}
+
 const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
 
 const SUPABASE_HEADERS = {
   'apikey': SUPABASE_SERVICE_KEY,
@@ -18,9 +28,6 @@ const SUPABASE_HEADERS = {
 // =================================================================
 // (舊版 Google Sheet 程式碼保留於下方)
 // =================================================================
-
-// --- 全域變數設定 ---
-const CHANNEL_ACCESS_TOKEN = '6HTikANeIpIjHqztdhXHorN8XehTVjYJLHmbgTSWK/GuaKVztsg65IkK/JC7sRDi47nayqJPlr0wGHeZJSx/YOvWEjypEdMpwR0Mqb71JhhOumQ8Dj4PXIkxVX5cjIDtkDktRdwZcLwyUdXgiuLSTQdB04t89/1O/w1cDnyilFU=';
 
 function doGet(e) {
   // 新的 API 路由器
@@ -208,17 +215,9 @@ function createBooking(data) {
  * 3. 確認已將 Supabase-js 客戶端程式碼貼到 `SupabaseClient.gs` 檔案中。
  * 4. 將下方的 SUPABASE_URL 和 SUPABASE_SERVICE_KEY 替換成您自己的金鑰。
  *
- * 執行方式：
- * 1. 在 GAS 編輯器頂部的函式下拉選單中，選擇 `migrateDataToSupabase`。
- * 2. 點擊「執行」按鈕。
- * 3. 執行完畢後，到「執行紀錄」中查看日誌，確認所有步驟都成功。
+ * 執行方式：在 GAS 編輯器頂部的函式下拉選單中，選擇 `migrateDataToSupabase` 並點擊「執行」。
  */
 function migrateDataToSupabase() {
-  // --- ⚠️ 請將這裡替換成您自己的 Supabase 資訊 ---
-  const SUPABASE_URL = 'https://zseddmfljxtcgtzmvove.supabase.co';
-  const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwNjkyOCwiZXhwIjoyMDc0MDgyOTI4fQ.yCWYCPDqTib0Z-82zcqqK9axlNsXOm6L2S20F4nsHd4';
-  // ---------------------------------------------
-
   Logger.log('🚀 開始進行資料遷移...');
 
   // 輔助函式，用於執行插入並記錄日誌
@@ -249,9 +248,8 @@ function migrateDataToSupabase() {
       const options = {
         method: 'post',
         contentType: 'application/json',
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        headers: { // 修正：直接使用從指令碼屬性讀取的 SUPABASE_HEADERS
+          ...SUPABASE_HEADERS,
           // 修正 #1: 使用 upsert 模式。如果主鍵已存在，則更新資料，否則新增。
           // resolution=merge-duplicates 會合併資料，而不是直接覆蓋。
           // return=minimal 表示我們不需要回傳插入的資料，這樣比較快。

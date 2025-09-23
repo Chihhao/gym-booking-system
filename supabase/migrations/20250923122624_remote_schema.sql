@@ -1,5 +1,5 @@
 
-\restrict okG0xgSswSPWKuQBE6lAPvXA5uIFBjr0wDYLpRF0iirm6e1d6K6ER4fR5D3kw4e
+\restrict GEOUbIztIwRbfxRzYne8n1EhrSGk7fcGsBONCsj1LJAIksy4zUemtdbW8OjYAgL
 
 
 SET statement_timeout = 0;
@@ -755,6 +755,61 @@ ALTER TABLE ONLY "public"."classes"
 
 
 
+CREATE POLICY "Allow manager to read all bookings" ON "public"."bookings" FOR SELECT USING (true);
+
+
+
+CREATE POLICY "Allow public read access to active courses" ON "public"."courses" FOR SELECT USING (("status" = 'Active'::"text"));
+
+
+
+CREATE POLICY "Allow public read access to available classes" ON "public"."classes" FOR SELECT USING ((("status" = '開放中'::"text") AND ("class_date" >= ("timezone"('utc'::"text", "now"()))::"date")));
+
+
+
+CREATE POLICY "Allow public read-only access to coaches" ON "public"."coaches" FOR SELECT USING (true);
+
+
+
+CREATE POLICY "Allow public read-only access to users" ON "public"."users" FOR SELECT USING (true);
+
+
+
+CREATE POLICY "Disallow all access for public" ON "public"."coaches" USING (false);
+
+
+
+CREATE POLICY "Disallow all access for public" ON "public"."users" USING (false);
+
+
+
+CREATE POLICY "Disallow all write operations for public" ON "public"."bookings" USING (false);
+
+
+
+CREATE POLICY "Disallow all write operations for public" ON "public"."classes" USING (false);
+
+
+
+CREATE POLICY "Disallow all write operations for public" ON "public"."courses" USING (false);
+
+
+
+ALTER TABLE "public"."bookings" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."classes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."coaches" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."courses" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."users" ENABLE ROW LEVEL SECURITY;
+
+
 
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
@@ -1094,6 +1149,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
-\unrestrict okG0xgSswSPWKuQBE6lAPvXA5uIFBjr0wDYLpRF0iirm6e1d6K6ER4fR5D3kw4e
+\unrestrict GEOUbIztIwRbfxRzYne8n1EhrSGk7fcGsBONCsj1LJAIksy4zUemtdbW8OjYAgL
 
 RESET ALL;
