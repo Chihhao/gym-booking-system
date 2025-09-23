@@ -154,7 +154,8 @@
                 const { data, error } = await supabaseClient
                     .from('courses') // 注意：資料表名稱是小寫
                     .select('*')
-                    .eq('status', 'Active');
+                    .eq('status', 'Active')
+                    .order('course_id', { ascending: true }); // 新增：依照 course_id 升序排列
 
                 if (error) {
                     console.error('Supabase 查詢錯誤:', error);
