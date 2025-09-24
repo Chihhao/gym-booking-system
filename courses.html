@@ -112,30 +112,37 @@
             const headerContainer = document.getElementById('header-container');
             const contentContainer = document.getElementById('content-container');
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const debugMode = urlParams.get('debug') === 'true';
+            console.log('Debug mode:', debugMode);
+
             try {
+                // 步驟 1: 無論如何都先初始化 LIFF
+                await liff.init({ liffId: AppConfig.LIFF_ID_COURSES });
+                console.log('LIFF initialized');
+
                 let welcomeName = '';
-                // 檢查是否在 LINE App 的環境外 (例如 PC 瀏覽器)
-                if (!liff.isInClient()) {
-                    // 7. 如果是開發模式，那麼XXX=小明
-                    welcomeName = '小明';
-                } else {
-                    await liff.init({ liffId: AppConfig.LIFF_ID_COURSES });
-                    
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
+
+                // 步驟 2: 判斷是否登入
+                if (liff.isLoggedIn()) {
+                    // 已登入，取得使用者資料
                     userProfile = await liff.getProfile();
                     welcomeName = userProfile.displayName;
+                    console.log('LIFF 登入成功，welcomeName 設為:', welcomeName);
+                } else if (debugMode && !liff.isInClient()) {
+                    // 未登入，但處於開發模式
+                    welcomeName = '小明';
+                    console.log('未登入，進入開發模式 (非 LINE 環境 + debug=true)，welcomeName 設為:', welcomeName);
+                } else {
+                    // 未登入，且非開發模式，導向登入頁
+                    console.log('未登入，準備導向 LINE 登入頁...');
+                    liff.login();
+                    return; // liff.login() 會跳轉頁面，此處 return 避免後續程式碼執行
                 }
-                // 7. 不管是不是開發模式，最上面都是寫"歡迎XXX，請點選喜愛的課程："
                 headerContainer.innerHTML = `<p>歡迎 ${welcomeName}，請點選喜愛的課程：</p>`;
-                
-                // 無論在哪種模式，使用者資訊設定完畢後，都去抓取課程表
                 await fetchCourses();
-    
             } catch (err) {
-                console.error('初始化失敗', err);
+             console.error('初始化失敗', err);
                 headerContainer.innerHTML = '<h1>錯誤</h1>';
                 contentContainer.innerHTML = '<p class="error">初始化失敗，請確認您是在 LINE App 中開啟此頁面，或檢查 LIFF ID 是否正確。</p>';
             }
@@ -143,7 +150,7 @@
         
         main();
 
-        async function fetchCourses() {
+         async function fetchCourses() {
             const container = document.getElementById('content-container');
             container.innerHTML = '<p class="loader">課程資料載入中...</p>';
             console.log('開始 fetchCourses...');
@@ -151,7 +158,7 @@
             try {                
                 // --- 方案一：直接從 Supabase 讀取資料 ---
                 console.log('正在從 Supabase 查詢 active courses...');
-                const { data, error } = await supabaseClient
+             const { data, error } = await supabaseClient
                     .from('courses') // 注意：資料表名稱是小寫
                     .select('*')
                     .eq('status', 'Active')
@@ -202,6 +209,8 @@
         }
         
     </script>
+
+
 
 </body>
 </html>
