@@ -204,8 +204,10 @@
         }
         function selectCourse(courseId, courseName) {
             // 傳遞 course_id 用於查詢，course_name 用於顯示標題
-            // 使用 id 和 name 作為參數，語意更清晰
-            window.location.href = `schedule.html?id=${courseId}&name=${courseName}`;
+            const urlParams = new URLSearchParams(window.location.search);
+            //如果網址有帶debug=true, 則 schedule.html?id=${courseId}&name=${courseName}&debug=true
+            const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
+            window.location.href = `schedule.html?id=${courseId}&name=${courseName}${debugParam}`;
         }
         
     </script>

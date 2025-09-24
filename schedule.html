@@ -149,6 +149,13 @@
             justify-content: flex-end;
             gap: 1rem;
         }
+        #confirmation-message, #notification-message {
+            display: flex;
+            justify-content: flex-start;
+            gap: 1rem;
+            text-align: left;
+            padding: 0 1.5rem;
+        }
 
         /* --- 新增：通用按鈕樣式 (從 manager.html 借鑒) --- */
         .btn {
@@ -454,7 +461,28 @@
                 return;
             }
 
-            const confirmed = await showConfirmation('', {
+            // Fetch class details to display in confirmation modal
+            const { data: classData, error: classError } = await supabaseClient
+                .from('classes_with_details')
+                .select('*')
+                .eq('class_id', scheduleId)
+                .single();
+
+            if (classError) {
+                showNotification('無法取得課程資訊，請稍後再試。', 'error');
+                return;
+            }
+
+            const { course_name, class_date, start_time, coach_name } = classData;
+
+            // 將 YYYY-MM-DD 格式的日期轉換為 MM/DD
+            const dateParts = class_date.split('-');
+            const formattedDate = `${dateParts[1]}/${dateParts[2]}`;
+            const classTime = `${formattedDate} ${start_time.substring(0, 5)}`;
+            const message = `課程名稱 : ${course_name}<br>上課時間 : ${classTime}<br>教練名稱 : ${coach_name}`;
+
+
+            const confirmed = await showConfirmation(message, {
                 title: '確認預約',
                 confirmText: '預約'
             });
@@ -485,7 +513,7 @@
 
                 if (result.status === 'success') {
                     // 預約成功，顯示客製化成功訊息
-                    showNotification('', {
+                    showNotification(message, {
                         type: 'success',
                         title: '預約成功！',
                         closeButtonText: '關閉',
@@ -521,7 +549,7 @@
 
                 // 從 options 或預設值設定內容
                 titleEl.textContent = options.title || '請確認';
-                messageEl.textContent = message;
+                messageEl.innerHTML = message; // 使用 innerHTML 來解析 <br> 標籤
                 confirmBtn.textContent = options.confirmText || '確認';
                 cancelBtn.textContent = options.cancelText || '取消';
 
@@ -561,10 +589,10 @@
             titleEl.textContent = options.title || (type === 'success' ? '操作成功' : (type === 'error' ? '發生錯誤' : '通知'));
             // 修正：如果 message 為空，則隱藏訊息段落，否則顯示它
             if (message) {
-                messageEl.textContent = message;
+                messageEl.innerHTML = message; // 使用 innerHTML 來解析 <br> 標籤
                 messageEl.style.display = 'block';
             } else {
-                messageEl.textContent = '';
+                messageEl.innerHTML = '';
                 messageEl.style.display = 'none';
             }
 
