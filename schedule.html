@@ -225,25 +225,34 @@
 
         async function main() {
             try {
-                // 1. 初始化 LIFF 並取得使用者資訊
-                if (!liff.isInClient()) {
-                    console.warn("注意：目前為外部瀏覽器開發模式！");
+                const urlParams = new URLSearchParams(window.location.search);
+                const debugMode = urlParams.get('debug') === 'true';
+                console.log('Debug mode:', debugMode);
+
+                // 步驟 1: 無論如何都先初始化 LIFF
+                await liff.init({ liffId: AppConfig.LIFF_ID_SCHEDULE });
+                console.log('LIFF initialized');
+
+                // 步驟 2: 判斷是否登入
+                if (liff.isLoggedIn()) {
+                    // 已登入，取得使用者資料
+                    userProfile = await liff.getProfile();
+                    console.log('LIFF 登入成功，使用者:', userProfile.displayName);
+                } else if (debugMode && !liff.isInClient()) {
+                    // 未登入，但處於開發模式
                     userProfile = {
                         userId: 'U_DEV_000000000000000000000000001',
                         displayName: '開發者AA',
                     };
-                    console.log("偽造的使用者資訊:", userProfile);
+                    console.log('未登入，進入開發模式 (非 LINE 環境 + debug=true)，偽造的使用者資訊:', userProfile);
                 } else {
-                    await liff.init({ liffId: AppConfig.LIFF_ID_SCHEDULE });
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                        return;
-                    }
-                    userProfile = await liff.getProfile();
+                    // 未登入，且非開發模式，導向登入頁
+                    console.log('未登入，準備導向 LINE 登入頁...');
+                    liff.login();
+                    return; // liff.login() 會跳轉頁面，此處 return 避免後續程式碼執行
                 }
 
                 // 2. 從 URL 取得課程 ID
-                const urlParams = new URLSearchParams(window.location.search);
                 const courseId = urlParams.get('id');
                 const courseName = urlParams.get('name');
 
