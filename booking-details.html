@@ -15,35 +15,46 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
             margin: 0;
             background-color: #212529; 
-            color: #e0e0e0; 
-            padding: 1em; /* 為 body 增加 padding，創造邊界 */
+            color: #e0e0e0;
+            /* 新增：讓 body 填滿螢幕並加上邊距 */
+            height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+            overflow: hidden; /* 確保螢幕不會出現捲軸 */
         }
         .card {
             background-color: #343a40;
             border-radius: 12px;
             padding: 1em;
-            max-width: 420px; /* 可選：稍微增加最大寬度 */
+            width: 100%; /* 填滿帶有 padding 的 body */
+            height: 100%; /* 填滿帶有 padding 的 body */
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            text-align: center;
-            margin: 0 auto; /* 移除上下 margin，並水平置中 */
             box-sizing: border-box; /* 確保寬度計算包含 padding */
+            /* 新增：使用 Flexbox 來管理內部佈局 */
+            display: flex;
+            flex-direction: column;
         }
         h1 {
             margin-top: 0;
+            text-align: center; /* 將標題置中 */
+            flex-shrink: 0; /* 防止標題被壓縮 */
             font-size: 1.8em;
             color: #ffffff;
         }
-        #qrcode {
-            margin: 0 auto auto auto;
+        #qrcode {            
             padding: 1em;
             background-color: rgb(255, 255, 255);
             border-radius: 8px;
             display: inline-block;
+            align-self: center; /* 讓 QR Code 自身水平置中 */
         }
         .details-list {
             list-style: none;
             padding: 0;
             text-align: left;
+            /* 新增：讓列表可以滾動 */
+            overflow-y: auto;
+            margin-top: 1em; /* 與 QR Code 保持間距 */
         }
         .details-list li {
             padding: 0.75em 0;
@@ -55,14 +66,39 @@
         .details-list li:last-child {
             border-bottom: none;
         }
+        /* 新增：用於處理同一列有多個項目的樣式 */
+        .details-list .multi-item-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 1em; /* 項目之間的間距 */
+        }
+        .details-list .detail-item {
+            flex: 1; /* 讓項目平分空間 */
+            min-width: 0; /* 關鍵：讓 flex-shrink 和 text-overflow 生效 */
+            display: flex; /* 新增：讓 label 和 value 在同一行 */
+            align-items: baseline; /* 讓 label 和 value 的文字基線對齊 */
+            justify-content: space-between; /* 新增：讓 label 和 value 分散對齊 */
+        }
+        /* 新增：用於分隔項目的垂直線 */
+        .details-list .separator {
+            width: 1px;
+            background-color: #495057;
+            align-self: stretch; /* 讓分隔線填滿 flex item 的高度 */
+            margin: 0 0.5em; /* 分隔線左右的間距 */
+        }
         .details-list .label {
             color: #b0b0b0;
-            margin-right: 1em;
+            margin-right: 0.5em; /* 調整右邊距，避免與值太近 */
+            flex-shrink: 0; /* 防止 label 被壓縮 */
         }
         .details-list .value {
             color: #ffffff;
             font-weight: bold;
-            word-break: break-all;
+            /* 新增：處理文字過長時顯示省略符號 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .status-badge {
             display: inline-block;
@@ -76,11 +112,23 @@
             vertical-align: baseline;
             border-radius: 0.25rem;
             margin-left: 0.5em;
-            margin-right: 0.5em;
+            margin-right: 0.5em; /* 保持與文字的間距 */
+            background-color: transparent; /* 移除背景色 */
+            border: 1px solid; /* 預設邊框 */
         }
         .status-badge.paid {
-            background-color: #28a745; /* 綠色 */
+            color: #28a745; /* 綠色文字 */
+            border-color: #28a745; /* 綠色邊框 */
         }
+        .status-badge.pending {
+            color: #ffc107; /* 黃色文字 */
+            border-color: #ffc107; /* 黃色邊框 */
+        }
+
+        .status-badge.cancelled {
+            background-color: #6c757d; /* 灰色 */
+        }
+
         .loader, .error {
              text-align: center; 
              font-size: 1.1em; 
@@ -124,7 +172,8 @@
                             class_id,
                             class_date,
                             start_time,
-                            courses ( course_id, course_name )
+                            courses ( course_id, course_name ),
+                            coaches ( coach_name )
                         ),
                         users ( line_display_name )
                     `)
@@ -133,13 +182,19 @@
 
                 if (error) throw error;
 
+                // 將 YYYY-MM-DD 格式的日期轉換為 MM/DD
+                const dateParts = data.classes.class_date.split('-');
+                const formattedDate = `${dateParts[1]}/${dateParts[2]}`;
+                const classTime = data.classes.start_time.substring(0, 5);
+
                 // 將從 Supabase 取得的資料，轉換為 renderDetails 函式需要的格式
                 const formattedData = {
                     bookingId: data.booking_id,
                     courseName: data.classes.courses.course_name,
-                    courseId: data.classes.courses.course_id,
-                    classTime: `${data.classes.class_date} ${data.classes.start_time.substring(0, 5)}`,
                     userName: data.users.line_display_name,
+                    coachName: data.classes.coaches.coach_name,
+                    classDate: formattedDate,
+                    classTime: classTime,
                     bookingStatus: data.status
                 };
 
@@ -157,20 +212,38 @@
             const qrCodeUrl = window.location.href; // QR Code 內容就是當前頁面的網址
 
             // 根據預約狀態，產生不同的顯示內容
-            let statusDisplay = `<span class="value">${data.bookingStatus}</span>`;
-            if (data.bookingStatus.trim() === '已扣款') {
+            let statusDisplay;
+            const status = data.bookingStatus.trim();
+            if (status === '已扣款') {
                 statusDisplay = `<span class="value"><span class="status-badge paid">已付款</span> 已預約</span>`;
+            } else if (status === '已預約') {
+                statusDisplay = `<span class="value"><span class="status-badge pending">待付款</span> 已預約</span>`;
+            } else if (status === '已取消') {
+                statusDisplay = `<span class="value"><span class="status-badge cancelled">已取消</span></span>`;
+            } else {
+                statusDisplay = `<span class="value">${data.bookingStatus}</span>`;
             }
 
             container.innerHTML = `
                 <h1>預約憑證</h1>
                 <div id="qrcode"></div>
                 <ul class="details-list">
-                    <li><span class="label">課程名稱</span><span class="value">${data.courseName} (${data.courseId})</span></li>
-                    <li><span class="label">上課時間</span><span class="value">${data.classTime}</span></li>
-                    <li><span class="label">預約學員</span><span class="value">${data.userName}</span></li>
-                    <li><span class="label">預約狀態</span>${statusDisplay}</li>
+                    <li><span class="label">課程名稱</span><span class="value" style="white-space: normal;">${data.courseName}</span></li>
                     <li><span class="label">預約編號</span><span class="value">${data.bookingId}</span></li>
+                    <li><span class="label">預約狀態</span>${statusDisplay}</li>
+                    <li>
+                        <div class="multi-item-row">
+                            <div class="detail-item"><span class="label">日期</span><span class="value">${data.classDate}</span></div>
+                            <div class="detail-item"><span class="label">時間</span><span class="value">${data.classTime}</span></div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="multi-item-row">
+                            <div class="detail-item" style="flex-grow: 1;"><span class="label">教練</span><span class="value">${data.coachName}</span></div>
+                            <div class="detail-item" style="flex-grow: 1;"><span class="label">學員</span><span class="value">${data.userName}</span></div>
+                        </div>
+                    </li>
+
                 </ul>
             `;
 
