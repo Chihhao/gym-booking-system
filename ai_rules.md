@@ -122,9 +122,35 @@
 *   **3.2. 資料庫函式 (RPC)**:
     *   複雜的資料庫操作（特別是涉及多個步驟或需要交易安全性的寫入操作）應封裝在 `SECURITY DEFINER` 的 RPC 函式中。
     *   函式應包含錯誤處理，並回傳統一格式的物件，例如 `{ status: 'success' | 'error', message: '...' }`。
+
 *   **3.3. 安全性 (RLS)**:
     *   所有資料表都應啟用 RLS (Row Level Security)。
     *   預設應拒絕所有操作，並根據需求為特定角色 (`anon`, `authenticated`) 建立最小權限的 `POLICY`。
+
+*   **3.4. 資料庫變更流程 (Migration Workflow)**:
+    *   **原則 (Principle)**: 嚴格禁止直接修改舊的 migration 檔案 (例如 `..._remote_schema.sql`)。所有資料庫的變更都必須透過建立一個**新的** migration 檔案來記錄。這就像 Git 的 commit 一樣，保留了完整的變更歷史。
+
+    *   **操作步驟 (Steps)**:
+        1.  **建立新的 Migration 檔案**: 當您需要修改資料庫結構（例如修改 `FUNCTION`, `VIEW`, 或 `TABLE`）時，請在終端機執行以下指令來建立一個新的、帶有時間戳的 SQL 檔案。
+            ```bash
+            # 為您的變更取一個有意義的名稱
+            supabase migration new <your_change_description>
+            ```
+            例如：`supabase migration new add_sorting_to_manager_functions`
+
+        2.  **撰寫變更內容**: 在新建立的 SQL 檔案中，只寫入您**實際變更**的 SQL 指令。
+            *   **修改函式/視圖**: 貼上完整的 `CREATE OR REPLACE FUNCTION ...` 或 `CREATE OR REPLACE VIEW ...` 區塊。
+            *   **修改資料表**: 寫入 `ALTER TABLE ...` 指令。
+
+        3.  **推送至雲端**: 儲存檔案後，執行以下指令將變更同步到 Supabase 雲端資料庫。
+            ```bash
+            supabase db push
+            ```
+
+    *   **Push 後會發生什麼 (What Happens After Push)**:
+        *   Supabase CLI 會比對本地 `migrations` 資料夾與雲端資料庫的執行紀錄，只執行尚未被執行的**新** migration 檔案。
+        *   您的雲端資料庫結構會被更新。
+        *   您本地的 `supabase/migrations` 資料夾現在會包含多個 SQL 檔案（一個初始檔 + 數個變更檔）。**這是完全正常且正確的行為**，它代表了您資料庫的演進歷史。本地的 SQL 結構現在是由這些檔案**共同定義**的。
 
 ---
 
