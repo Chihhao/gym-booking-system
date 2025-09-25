@@ -260,18 +260,20 @@
                 }
 
                 // 2. 從 URL 取得課程 ID
-                const courseId = urlParams.get('id');
-                const courseName = urlParams.get('name');
+                const courseId = urlParams.get('courseId');
+                const courseName = urlParams.get('courseName');
+                const coachId = urlParams.get('coachId');
+                const coachName = urlParams.get('coachName');
 
-                if (!courseId || !courseName) {
-                    document.getElementById('schedule-container').innerHTML = '<p class="error">錯誤：未指定課程 ID。</p>';
+                if (!courseId || !courseName || !coachId || !coachName) {
+                    document.getElementById('schedule-container').innerHTML = '<p class="error">錯誤：缺少必要的課程或教練資訊。</p>';
                     document.getElementById('course-name-title').innerText = '錯誤';
                     return;
                 }
 
                 // 3. 更新頁面標題並載入時段資料
-                document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} (${courseId})`;
-                await fetchSchedule(courseId);
+                document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} - ${decodeURIComponent(coachName)}`;
+                await fetchSchedule(courseId, coachId);
 
             } catch (err) {
                 console.error('初始化或載入時段失敗', err);
@@ -279,7 +281,7 @@
             }
         }
 
-        async function fetchSchedule(courseId) {
+        async function fetchSchedule(courseId, coachId) {
             const container = document.getElementById('schedule-container');
             container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
 
@@ -301,7 +303,8 @@
                 const { data: classes, error: classesError } = await supabaseClient
                     .from('classes')
                     .select('*')
-                    .eq('course_id', courseId)
+                    .eq('course_id', courseId) // 篩選課程
+                    .eq('coach_id', coachId)   // 篩選教練
                     .eq('status', '開放中') // 雖然 RLS 會擋，但明確寫出更好
                     .gte('class_date', todayString);
 
@@ -523,7 +526,7 @@
                         }
                     });
                     // 成功後，在背景重新載入課表，更新狀態
-                    fetchSchedule(new URLSearchParams(window.location.search).get('id'));
+                    fetchSchedule(new URLSearchParams(window.location.search).get('courseId'), new URLSearchParams(window.location.search).get('coachId'));
                 } else {
                     // 如果預約失敗，將格子恢復原狀
                     throw new Error(result.message || '預約失敗，請稍後再試。');

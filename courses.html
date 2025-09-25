@@ -203,11 +203,11 @@
             container.innerHTML = html;
         }
         function selectCourse(courseId, courseName) {
-            // 傳遞 course_id 用於查詢，course_name 用於顯示標題
+            // 流程變更：導向到新的教練選擇頁面 (coaches.html)
             const urlParams = new URLSearchParams(window.location.search);
-            //如果網址有帶debug=true, 則 schedule.html?id=${courseId}&name=${courseName}&debug=true
             const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
-            window.location.href = `schedule.html?id=${courseId}&name=${courseName}${debugParam}`;
+            // 將 courseId 和 courseName 傳遞給新的教練選擇頁面
+            window.location.href = `coaches.html?courseId=${courseId}&courseName=${encodeURIComponent(courseName)}${debugParam}`;
         }
         
     </script>

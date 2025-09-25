@@ -656,6 +656,14 @@
                     <label for="form-coach-phone">電話</label>
                     <input type="text" id="form-coach-phone">
                 </div>
+                <div class="form-group">
+                    <label for="form-coach-bio">簡介 (顯示於選單)</label>
+                    <input type="text" id="form-coach-bio" placeholder="例如：擁有AFAA WT國際教練證照...">
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-image">圖片檔名 (顯示於選單)</label>
+                    <input type="text" id="form-coach-image" placeholder="例如：coach001.jpg">
+                </div>
                 <div class="modal-actions">
                     <button type="button" id="delete-coach-btn" class="btn btn-danger">刪除教練</button>
                     <button type="submit" class="btn btn-success">儲存</button>
@@ -821,7 +829,9 @@
                     p_coach_name: document.getElementById('form-coach-name').value,
                     p_specialty: document.getElementById('form-coach-specialty').value,
                     p_line_id: document.getElementById('form-coach-line-id').value,
-                    p_phone_number: document.getElementById('form-coach-phone').value
+                    p_phone_number: document.getElementById('form-coach-phone').value,
+                    p_bio: document.getElementById('form-coach-bio').value,
+                    p_image_url: document.getElementById('form-coach-image').value
                 };
 
                 try {
@@ -1851,6 +1861,8 @@
                     document.getElementById('form-coach-specialty').value = d.specialty || '';
                     document.getElementById('form-coach-line-id').value = d.line_id || '';
                     document.getElementById('form-coach-phone').value = d.phone_number || '';
+                    document.getElementById('form-coach-bio').value = d.bio || '';
+                    document.getElementById('form-coach-image').value = d.image_url || '';
                 } catch (error) {
                     showNotification(`載入教練資料失敗: ${error.message}`, 'error');
                     closeCoachModal();
