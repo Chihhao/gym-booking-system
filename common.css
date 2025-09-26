@@ -1,0 +1,65 @@
+/* --- 預約流程狀態顯示 --- */
+.step-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* 讓圓圈和箭頭垂直置中對齊 */
+    width: 100%;
+    margin-bottom: 10px; /* 調整與下方卡片的間距 */
+    padding: 0 2px; /* 左右留白避免貼邊 */
+    box-sizing: border-box;
+}
+.step {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    /* 移除 min-width，讓寬度由內容決定，確保箭頭能置中 */
+    flex-shrink: 0; /* 防止被壓縮 */
+}
+.step-box {
+    width: auto;
+    height: auto;
+    padding: 0.5rem 0.8rem;
+    border-radius: 8px;
+    background-color: transparent; /* 背景改為透明 */
+    color: #adb5bd;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.3em; /* 調整字體大小以適應矩形 */
+    line-height: 1.2; /* 調整行高 */
+    border-style: solid;
+    border-color: #495057; /* 預設：灰色邊框 */
+    border-width: 1px 1px 1px 1px; /* 上右下左 */
+    transition: all 0.3s ease;
+}
+.connector {
+    /* 這是新的箭頭圖示樣式 */
+    font-size: 28px; /* 調整箭頭大小 */
+    color: #495057; /* 預設：灰色 */
+    flex-grow: 1; /* 填滿剩餘空間，讓步驟分散 */
+    text-align: center; /* 確保箭頭在 flex item 中置中 */
+}
+
+/* 狀態樣式 */
+.step.active .step-box {
+    background-color: transparent; /* 背景透明 */
+    color: #4dabf7; /* 亮藍色文字 */
+    border-color: #4dabf7; /* 亮藍色邊框 */
+    font-weight: bold;
+}
+.step.completed .step-box {
+    background-color: transparent; /* 背景透明 */
+    color: #adb5bd;
+    border-color: #495057; /* 完成的步驟也使用灰色邊框 */
+}
+/* 新增：用偽元素顯示打勾圖示 */
+.step.completed .step-box::after {
+    content: '✓';
+    font-size: 1.5em;
+    color: #adb5bd;
+}
+.step.completed .step-box > span { display: none; } /* 隱藏原本的文字 */
+.connector.completed {
+    color: #4dabf7; /* 完成的連接線：亮藍色 */
+}
