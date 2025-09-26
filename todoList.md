@@ -3,6 +3,12 @@
 * 優化 qr code 顯示區
 在頁面上方，新增一個長方形的卡片，左側用直式的書寫「預約憑證」四個字，右側放qrcode。如此可以解決qrcode左右兩側太空曠的問題。
 
+### 優化「回到上一頁」的按鈕顯示 (`schedules.html`, `coaches.html`)
+
+* 將按鈕樣式調整成與 `booking-details.html` 頁面風格一致
+
+
+
 ---
 
 * 將 Google Apps Script 中的 SERVICE_KEY 移至更安全的「指令碼屬性」中。

@@ -160,20 +160,23 @@
         /* --- 新增：通用按鈕樣式 (從 manager.html 借鑒) --- */
         .btn {
             border: none;
-            border-radius: 5px; /* 統一圓角 */
-            padding: 0.6rem 1.5rem; /* 統一 padding */
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
             cursor: pointer;
             color: white;
             font-weight: bold;
-            font-size: 1em;
+            font-size: 1.1em;
             transition: background-color 0.2s, transform 0.2s;
+            width: 100%;
+            max-width: 400px; /* 與其他頁面按鈕最大寬度一致 */
+            display: inline-block; /* 讓 max-width 生效 */
         }
         .btn:hover {
             transform: translateY(-1px);
         }
         .btn-success { background-color: #28a745; color: #ffffff; }
         .btn-success:hover { background-color: #218838; }
-        .btn-secondary { background-color: #6c757d; color: #ffffff; }
+        .btn-secondary { background-color: #495057; color: #ffffff; }
         .btn-secondary:hover { background-color: #5a6268; }
 
         /* 新增：按鈕容器樣式 */
