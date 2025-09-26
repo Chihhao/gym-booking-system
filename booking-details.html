@@ -20,7 +20,7 @@
             height: 100vh;
             padding: 1rem;
             box-sizing: border-box;
-            overflow: hidden; /* 確保螢幕不會出現捲軸 */
+            overflow: hidden;
         }
         .card {
             background-color: #343a40;
@@ -28,7 +28,6 @@
             padding: 1em;
             width: 100%; /* 填滿帶有 padding 的 body */
             height: 100%; /* 填滿帶有 padding 的 body */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             box-sizing: border-box; /* 確保寬度計算包含 padding */
             /* 新增：使用 Flexbox 來管理內部佈局 */
             display: flex;
@@ -53,6 +52,7 @@
             padding: 0;
             text-align: left;
             /* 新增：讓列表可以滾動 */
+            flex-grow: 1; /* 讓列表填滿剩餘空間 */
             overflow-y: auto;
             margin-top: 1em; /* 與 QR Code 保持間距 */
         }
@@ -136,6 +136,31 @@
              padding: 2em; 
         }
         .error { color: #dc3545; }
+
+        /* 新增：按鈕容器樣式 */
+        .btn-container {
+            text-align: center;
+            margin-top: 1.5rem; /* 與上方內容的間距 */
+            flex-shrink: 0; /* 防止按鈕容器被壓縮 */
+        }
+        .btn {
+            border: none;
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: background-color 0.2s, transform 0.2s;
+            width: 100%;
+            max-width: 400px;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-secondary { background-color: #495057; color: #ffffff; }
+        .btn-secondary:hover { background-color: #5a6268; }
+
     </style>
 </head>
 <body>
@@ -245,6 +270,9 @@
                     </li>
 
                 </ul>
+                <div class="btn-container">
+                    <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+                </div>
             `;
 
             // 產生 QR Code

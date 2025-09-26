@@ -1,3 +1,10 @@
+### 優化預約憑證頁面 (`booking-details.html`)
+
+* 優化 qr code 顯示區
+在頁面上方，新增一個長方形的卡片，左側用直式的書寫「預約憑證」四個字，右側放qrcode。如此可以解決qrcode左右兩側太空曠的問題。
+
+---
+
 * 將 Google Apps Script 中的 SERVICE_KEY 移至更安全的「指令碼屬性」中。
 * 請幫我為這些資料表撰寫 Supabase 的 RLS (Row Level Security) 規則，以確保資料安全。
 

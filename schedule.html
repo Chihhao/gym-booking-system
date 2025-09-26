@@ -530,18 +530,14 @@
                 console.log('[Booking] 後端回傳結果:', result);
 
                 if (result.status === 'success') {
-                    // 預約成功，顯示客製化成功訊息
-                    showNotification(message, {
-                        type: 'success',
-                        title: '預約成功！',
-                        closeButtonText: '關閉',
-                        actionButtonText: '查看憑證',
-                        action: () => {
-                            showBookingDetails(result.booking_id);
-                        }
-                    });
-                    // 成功後，在背景重新載入課表，更新狀態
-                    fetchSchedule(new URLSearchParams(window.location.search).get('courseId'), new URLSearchParams(window.location.search).get('coachId'));
+                    // 預約成功，直接導向到「預約完成」頁面，不再顯示彈窗
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
+                    const bookingId = result.booking_id;
+                    // 將 bookingId 和 debug 參數一起傳遞下去
+                    window.location.href = `booking-complete.html?bookingId=${bookingId}${debugParam}`;
+                    // 因為頁面即將跳轉，所以不需要再重新載入課表
+
                 } else {
                     // 如果預約失敗，將格子恢復原狀
                     throw new Error(result.message || '預約失敗，請稍後再試。');
