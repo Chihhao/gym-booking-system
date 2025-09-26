@@ -176,6 +176,11 @@
         .btn-secondary { background-color: #6c757d; color: #ffffff; }
         .btn-secondary:hover { background-color: #5a6268; }
 
+        /* 新增：按鈕容器樣式 */
+        .btn-container {
+            text-align: center;
+            margin: 1.5rem 0;
+        }
     </style>
 </head>
 <body>
@@ -188,6 +193,11 @@
         <div id="schedule-container">
             <p class="loader">正在載入時段資料...</p>
         </div>
+    </div>
+
+    <!-- 新增：回到上一頁按鈕的容器 -->
+    <div id="back-button-container" class="btn-container" style="display: none;">
+        <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
     </div>
 
     <!-- 新增：卡片式通知 Modal -->
@@ -382,7 +392,9 @@
         function renderScheduleGrid(scheduleData) {
             const container = document.getElementById('schedule-container');
             if (!scheduleData || Object.keys(scheduleData).length === 0) {
-                container.innerHTML = '<p>此課程目前沒有可預約的時段。</p>';
+                // 修正：即使沒有時段，也要顯示提示訊息和返回按鈕
+                container.innerHTML = '<p style="padding: 2em 0;">此課程目前沒有可預約的時段。</p>';
+                document.getElementById('back-button-container').style.display = 'block';
                 return;
             }
             const dates = Object.keys(scheduleData).sort();
@@ -452,6 +464,9 @@
             });
 
             container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+            
+            // 新增：顯示返回按鈕
+            document.getElementById('back-button-container').style.display = 'block';
         }
 
         function showBookingDetails(bookingId) {

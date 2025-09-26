@@ -81,6 +81,27 @@
         }
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
+
+        /* --- 新增：通用按鈕樣式 --- */
+        .btn-container {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            border: none;
+            border-radius: 5px;
+            padding: 0.6rem 1.5rem;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-secondary { background-color: #6c757d; color: #ffffff; }
+        .btn-secondary:hover { background-color: #5a6268; }
     </style>
 </head>
 <body>
@@ -200,6 +221,11 @@
                 `;
             });
             html += '</div>';
+            // 新增：在卡片列表下方加入「回到上一頁」的按鈕
+            html += `
+                <div class="btn-container">
+                    <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+                </div>`;
             container.innerHTML = html;
         }
 
