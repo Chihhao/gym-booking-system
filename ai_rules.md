@@ -218,6 +218,28 @@
         *   您本地的 `supabase/migrations` 資料夾現在會包含多個 SQL 檔案（一個初始檔 + 數個變更檔）。**這是完全正常且正確的行為**，它代表了您資料庫的演進歷史。本地的 SQL 結構現在是由這些檔案**共同定義**的。
 
 ---
+*   **3.5. 推薦工作流程：雲端優先原型開發 (Recommended Workflow: Cloud-First Prototyping)**
+    *   **情境 (Scenario)**: 此工作流程適用於快速開發和原型製作階段。開發者可以直接在 Supabase Studio（網站介面）上修改資料庫，然後將變更同步回本地專案。
+    *   **核心原則 (Core Principle)**: 雲端是唯一的真相來源 (Single Source of Truth)。本地的 migration 檔案是雲端狀態的備份。
+
+    *   **操作步驟 (Steps)**:
+        1.  **【關鍵】喚醒專案 (Wake Up Project)**: 在執行任何 `supabase` CLI 指令前，**務必先登入 Supabase 網站的專案儀表板**。這個動作可以確保免費專案從「暫停 (Paused)」狀態恢復為「活躍 (Active)」，避免 `connection refused` 錯誤。
+        2.  **在雲端修改 (Modify in the Cloud)**: 使用 Supabase Studio 的 SQL Editor 或圖形化介面，安全地進行資料庫變更 (例如 `CREATE FUNCTION`, `ALTER TABLE` 等)。
+        3.  **同步回本地 (Sync to Local)**: 在雲端完成修改並測試後，**立即**在本地終端機執行以下指令：
+            ```bash
+            supabase db pull
+            ```
+        4.  **結果 (Result)**: `db pull` 會自動比較雲端與本地的差異，並在 `supabase/migrations` 資料夾中建立一個新的 SQL 檔案，記錄您剛剛的所有變更。您的本地專案現在就完整地備份了雲端的最新結構。
+
+    *   **疑難排解 (Troubleshooting)**:
+        *   **`connection refused`**: 當 CLI 工具無法連線到資料庫時發生。可能原因有：
+            1.  **專案已暫停 (Project Paused)**: 免費專案若一週無活動會被暫停。**解決方案**: 登入 Supabase 儀表板以「喚醒」專案。
+            2.  **網路不穩定 (Network Instability)**: 您與 Supabase 伺服器之間的連線暫時不通。**解決方案**: 等待幾秒後重試指令。CLI 的內建重試機制通常能解決此問題。
+            3.  **防火牆 (Firewall)**: 公司或家用網路的防火牆阻擋了 `5432` 或 `6543` 連接埠。**解決方案**: 暫時更換到手機熱點網路進行測試。
+        *   **`migration history does not match`**: 如果在 `pull` 時遇到此錯誤，通常是因為雲端的歷史紀錄表 (`supabase.schema_migrations`) 記住了一些舊的、不存在於本地的變更。
+            *   **解決方案**: 根據錯誤訊息提示，使用 `supabase migration repair --status reverted <MIGRATION_ID>` 指令，將雲端多餘的歷史紀錄逐一標記為無效，然後再重新執行 `supabase db pull`。
+
+---
 
 ## 4. Google Apps Script (GAS) 維護
 *   **4.1. 職責單一**: `Code.gs` 目前的唯一職責是接收 LINE Webhook 事件 (例如：使用者點擊圖文選單)，並根據事件內容回覆訊息。

@@ -554,8 +554,18 @@
             <form id="class-form">
                 <input type="hidden" id="form-class-id">
                 <div class="form-group">
-                    <label for="form-date-time">上課時間</label>
-                    <input type="text" id="form-date-time" readonly>
+                    <label for="form-class-date">上課日期</label>
+                    <input type="date" id="form-class-date" required>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="form-start-time">開始時間</label>
+                        <input type="time" id="form-start-time" step="900" required> <!-- step="900" for 15-min intervals -->
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="form-end-time">結束時間</label>
+                        <input type="time" id="form-end-time" step="900" required>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="form-course-id">課程型錄</label>
@@ -1387,21 +1397,24 @@
 
                 try {
                     // --- 方案二：直接從 Supabase 讀取資料 ---
+                    // 修正：改為查詢 classes_with_details 視圖，確保結果唯一性
                     const { data, error } = await supabaseClient
-                        .from('classes')
-                        .select('*, courses(course_name), coaches(coach_name)')
+                        .from('classes_with_details')
+                        .select('*')
                         .eq('class_id', classId)
                         .single();
 
                     if (error) throw new Error(error.message || '找不到指定的課堂');
 
                     const d = data;
-                    const dateTime = `${d.class_date} ${d.start_time.substring(0, 5)}`;
                     
                     // 修正：先填充下拉選單，再設定表單的值
                     populateFormDropdowns(); 
 
-                    document.getElementById('form-date-time').value = dateTime;
+                    document.getElementById('form-class-date').value = d.class_date;
+                    document.getElementById('form-start-time').value = d.start_time.substring(0, 5); // "HH:mm"
+                    // 如果 end_time 存在，就填入；否則預設為 start_time + 1 小時
+                    document.getElementById('form-end-time').value = d.end_time ? d.end_time.substring(0, 5) : (parseInt(d.start_time.substring(0, 2)) + 1).toString().padStart(2, '0') + ':' + d.start_time.substring(3, 5);
                     document.getElementById('form-course-id').value = d.course_id;
                     document.getElementById('form-class-name').value = d.class_name;
                     document.getElementById('form-coach-id').value = d.coach_id;
@@ -1416,7 +1429,10 @@
                 document.getElementById('modal-title').textContent = '新增課堂';
                 document.getElementById('delete-class-btn').style.display = 'none';
                 document.getElementById('form-class-id').value = '';
-                document.getElementById('form-date-time').value = `${date} ${time}`;
+                document.getElementById('form-class-date').value = date;
+                document.getElementById('form-start-time').value = time;
+                // 預設結束時間為開始時間後一小時
+                document.getElementById('form-end-time').value = (parseInt(time.substring(0, 2)) + 1).toString().padStart(2, '0') + ':' + time.substring(3, 5);
 
                 populateFormDropdowns(); // 填充下拉選單
             }
@@ -1445,7 +1461,9 @@
 
             const params = {
                 p_class_id: document.getElementById('form-class-id').value,
-                p_date_time: document.getElementById('form-date-time').value,
+                p_class_date: document.getElementById('form-class-date').value,
+                p_start_time: document.getElementById('form-start-time').value,
+                p_end_time: document.getElementById('form-end-time').value,
                 p_course_id: document.getElementById('form-course-id').value,
                 p_class_name: document.getElementById('form-class-name').value,
                 p_coach_id: document.getElementById('form-coach-id').value,
