@@ -8,6 +8,8 @@
     <script src="config.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 新增：載入 interact.js 用於拖曳與縮放 -->
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -27,7 +29,7 @@
         }
 
         .schedule-container {
-            padding: 2rem;
+            padding: 0rem;
         }
 
         .schedule-controls {
@@ -52,9 +54,11 @@
             flex: 1; /* 讓每個日期頭部等寬 */
             text-align: center;
             padding: 0.75rem 0;
-            font-weight: 600;
-            font-size: 1.1rem;
+            font-weight: 500; /* 調整字體粗細以符合舊版 */
+            font-size: 1.2rem; /* 放大字體 */
             border-left: 1px solid var(--border-color);
+            background-color: #e9ecef; /* 設定灰色背景 */
+            color: var(--text-color); /* 明確設定為黑色文字 */
         }
 
         .schedule-canvas-grid {
@@ -93,6 +97,16 @@
             left: 0;
         }
 
+        /* 新增：用於斑馬紋背景的樣式 */
+        .hour-background {
+            position: absolute;
+            width: 100%;
+            left: 0;
+            background-color: #f2f2f2; /* 與舊版表格相同的斑馬紋顏色 */
+            z-index: 1; /* 確保背景在課程卡片(z-index: 10)之下 */
+            height: var(--hour-height); /* 高度為一小時 */
+        }
+
         /* 這是未來要放置課程的樣式，先定義好 */
         .class-item {
             position: absolute;
@@ -113,6 +127,31 @@
             transition: left 0.2s, width 0.2s; /* 新增：讓排版變化有動畫效果 */
         }
 
+        /* 新增：拖曳時的樣式 */
+        .class-item.dragging {
+            opacity: 0.7;
+            z-index: 20;
+        }
+
+        /* 新增：用於調整時長的「把手」樣式 */
+        .resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 8px; /* 把手的可點擊高度 */
+        }
+        .resize-handle-top {
+            top: 0;
+            cursor: ns-resize;
+        }
+        .resize-handle-bottom {
+            bottom: 0;
+            cursor: ns-resize;
+        }
+        .class-item-content {
+            /* 移除 pointer-events: none，讓 interact.js 可以監聽到 tap 事件 */
+        }
+
         .class-item strong {
             display: block;
             white-space: nowrap;
@@ -124,27 +163,21 @@
             opacity: 0.8;
         }
 
-        .student-count {
-            position: absolute;
-            bottom: 0.5rem; /* 與 padding 相同 */
-            right: 0.5rem;  /* 與 padding 相同 */
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-
         /* 按鈕樣式 */
         .btn {
-            border: 1px solid var(--border-color);
+            border: none;
             border-radius: 4px;
-            padding: 6px 12px;
+            padding: 8px 16px; /* 修正：加大按鈕內距，與舊版一致 */
             cursor: pointer;
-            background-color: white;
-            color: var(--text-color);
+            color: white;
             font-size: 0.9em;
             transition: background-color 0.2s;
         }
-        .btn:hover {
-            background-color: #e9ecef;
+        .btn-secondary { 
+            background-color: #6c757d; /* 舊版的灰色 */
+        }
+        .btn-secondary:hover { 
+            background-color: #5a6268; /* 舊版的滑鼠懸停顏色 */
         }
 
         /* --- Modal 彈窗樣式 --- */
@@ -238,9 +271,8 @@
         <div class="schedule-controls">
             <h1>🗓️ 課表管理 (畫布版)</h1>
             <div>
-                <button id="prev-week-btn" class="btn">&lt; 上一週</button>
-                <span id="week-range-display" style="margin: 0 1rem; font-weight: 500;"></span>
-                <button id="next-week-btn" class="btn">下一週 &gt;</button>
+                <button id="prev-week-btn" class="btn btn-secondary" style="margin-right: 1rem;">&lt; 上一週</button>
+                <button id="next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
             </div>
         </div>
         
@@ -398,8 +430,9 @@
                     handleCanvasClick(dayIndex, offsetY);
                 }
             });
-            document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
-            document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
+
+            // 初始化拖曳與縮放功能
+            initDragAndResize();
         });
 
         /**
@@ -426,9 +459,17 @@
             let dayColumnsHtml = '';
             for (let i = 0; i < 7; i++) {
                 let dayColumnContent = '';
-                for (let hour = startHour + 1; hour <= endHour; hour++) {
+                // 迴圈產生水平線和斑馬紋背景
+                for (let hour = startHour; hour < endHour; hour++) { // 從 9 點到 20 點
                     const topPosition = (hour - startHour) * hourHeight;
-                    dayColumnContent += `<div class="hour-line" style="top: ${topPosition}px;"></div>`;
+                    // 畫出下一小時的頂部線條 (10:00, 11:00...)
+                    if (hour > startHour - 1) {
+                         dayColumnContent += `<div class="hour-line" style="top: ${topPosition + hourHeight}px;"></div>`;
+                    }
+                    // 為偶數小時加上背景色塊 (10:00, 12:00, ...)
+                    if (hour % 2 === 0) {
+                        dayColumnContent += `<div class="hour-background" style="top: ${topPosition}px;"></div>`;
+                    }
                 }
                 // 為每日畫布加上 data-day 屬性，方便後續選取
                 dayColumnsHtml += `<div class="day-column" data-day="${i}">${dayColumnContent}</div>`;
@@ -450,9 +491,6 @@
             const formatDate = (date) => date.toISOString().split('T')[0];
             const startDateString = formatDate(startOfWeek);
             const endDateString = formatDate(endDate);
-
-            // 更新頂部的日期範圍顯示
-            document.getElementById('week-range-display').textContent = `${startDateString} ~ ${endDateString}`;
 
             // 更新星期標頭
             updateDayHeaders(startOfWeek);
@@ -563,7 +601,6 @@
                     const classEl = document.createElement('div');
                     classEl.className = 'class-item';
                     classEl.dataset.classId = cls.class_id;
-                    classEl.onclick = () => openClassModal(cls.class_id);
 
                     classEl.style.top = `${top}px`;
                     classEl.style.height = `${height}px`;
@@ -572,10 +609,13 @@
                     classEl.style.borderLeftColor = cls.color || '#6c757d';
 
                     classEl.innerHTML = `
-                        <strong>${cls.class_name}</strong>
-                        <div class="info">${cls.coach_name}</div>
-                        <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
-                        <div class="student-count">(${cls.current_students}/${cls.max_students})</div>
+                        <div class="class-item-content">
+                            <strong>${cls.class_name}</strong>
+                            <div class="info">${cls.coach_name} (${cls.current_students}/${cls.max_students})</div>
+                            <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
+                        </div>
+                        <div class="resize-handle resize-handle-top"></div>
+                        <div class="resize-handle resize-handle-bottom"></div>
                     `;
 
                     if (dayColumn) {
@@ -583,34 +623,6 @@
                     }
                 });
             }
-        }
-
-        /**
-         * 更新星期標頭以顯示日期
-         * @param {Date} startOfWeek - 當週的星期日
-                const classEl = document.createElement('div');
-                classEl.className = 'class-item';
-                classEl.dataset.classId = cls.class_id; // 儲存 class_id 以便點擊時使用
-                classEl.onclick = () => openClassModal(cls.class_id); // 綁定點擊事件
-
-                classEl.style.top = `${top}px`;
-                classEl.style.height = `${height}px`;
-                // 直接使用課程型錄的顏色作為左側邊框顏色
-                classEl.style.borderLeftColor = cls.color || '#6c757d';
-
-                classEl.innerHTML = `
-                    <strong>${cls.class_name}</strong>
-                    <div class="info">${cls.coach_name}</div>
-                    <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
-                    <div class="student-count">(${cls.current_students}/${cls.max_students})</div>
-                `;
-
-                // 找到對應的每日畫布並附加課程
-                const dayColumn = document.querySelector(`.day-column[data-day="${dayIndex}"]`);
-                if (dayColumn) {
-                    dayColumn.appendChild(classEl);
-                }
-            });
         }
 
         /**
@@ -878,6 +890,241 @@
                     break;
             }
             modal.classList.add('active');
+        }
+
+        // --- 新增：拖曳與縮放相關函式 ---
+
+        function initDragAndResize() {
+            const snapSize = pixelsPerMinute * 15; // 15 分鐘對應的像素高度
+
+            // 1. 拖曳移動功能
+            interact('.class-item')
+                .draggable({
+                    listeners: {
+                        start(event) {
+                            event.target.classList.add('dragging');
+                        },
+                        move(event) {
+                            const target = event.target;
+                            const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                            const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+                            // 根據移動更新位置
+                            target.style.transform = `translate(${x}px, ${y}px)`;
+
+                            // 更新 data-x 和 data-y 屬性
+                            target.setAttribute('data-x', x);
+                            target.setAttribute('data-y', y);
+                        },
+                        end(event) {
+                            const target = event.target;
+                            target.classList.remove('dragging');
+
+                            const classId = target.dataset.classId;
+                            const dayColumnWidth = target.parentElement.offsetWidth;
+
+                            // 計算移動了多少天和多少分鐘
+                            const dayOffset = Math.round(parseFloat(target.getAttribute('data-x')) / dayColumnWidth);
+                            const rawMinuteOffset = parseFloat(target.getAttribute('data-y')) / pixelsPerMinute;
+                            
+                            // 強制對齊到 15 分鐘單位
+                            const minuteOffset = Math.round(rawMinuteOffset / 15) * 15;
+
+                            // 重設 transform 和 data 屬性
+                            target.style.transform = '';
+                            target.setAttribute('data-x', 0);
+                            target.setAttribute('data-y', 0);
+
+                            if (dayOffset === 0 && minuteOffset === 0) return;
+
+                            updateClassByDrag(classId, dayOffset, minuteOffset);
+                        }
+                    },
+                    modifiers: [
+                        // 垂直方向對齊到 15 分鐘網格
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ x: 1, y: snapSize })],
+                            range: Infinity,
+                            relativePoints: [{ x: 0, y: 0 }]
+                        })
+                    ],
+                    modifiers: [
+                        // 新增：限制拖曳範圍在父容器 (每日畫布) 內
+                        interact.modifiers.restrictRect({ restriction: 'parent' }),
+                        // 垂直方向對齊到 15 分鐘網格
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ x: 1, y: snapSize })],
+                            range: Infinity,
+                            relativePoints: [{ x: 0, y: 0 }]
+                        })
+                    ],
+                    inertia: true
+                })
+                // 3. 新增：點擊 (tap) 功能，取代原本的 onclick
+                .on('tap', function (event) {
+                    const classId = event.currentTarget.dataset.classId;
+                    if (classId) {
+                        openClassModal(classId);
+                    }
+                    event.preventDefault();
+                });
+
+            // 2. 縮放調整時長功能
+            interact('.class-item')
+                .resizable({
+                    edges: { top: '.resize-handle-top', bottom: '.resize-handle-bottom' },
+                    listeners: {
+                        start(event) {
+                            event.target.classList.add('dragging');
+                        },
+                        move(event) {
+                            let { x, y } = event.target.dataset;
+                            x = (parseFloat(x) || 0);
+                            y = (parseFloat(y) || 0);
+
+                            // 更新尺寸
+                            event.target.style.width = event.rect.width + 'px';
+                            event.target.style.height = event.rect.height + 'px';
+
+                            // 更新位置
+                            x += event.deltaRect.left;
+                            y += event.deltaRect.top;
+                            event.target.style.transform = `translate(${x}px, ${y}px)`;
+
+                            event.target.setAttribute('data-x', x);
+                            event.target.setAttribute('data-y', y);
+                        },
+                        end(event) {
+                            const target = event.target;
+                            target.classList.remove('dragging');
+
+                            const classId = target.dataset.classId;
+                            const newTop = target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0);
+                            const newHeight = target.offsetHeight;
+
+                            // 重設 transform 和 data 屬性
+                            target.style.transform = '';
+                            target.setAttribute('data-x', 0);
+                            target.setAttribute('data-y', 0);
+
+                            updateClassByResize(classId, newTop, newHeight);
+                        }
+                    },
+                    modifiers: [
+                        // 垂直方向對齊到 15 分鐘網格
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ y: snapSize })],
+                            range: Infinity,
+                            relativePoints: [{ x: 0, y: 0 }]
+                        })
+                    ],
+                    modifiers: [
+                        // 新增：限制縮放範圍在父容器 (每日畫布) 內
+                        interact.modifiers.restrictRect({ restriction: 'parent' }),
+                        // 垂直方向對齊到 15 分鐘網格
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ y: snapSize })],
+                            range: Infinity,
+                            relativePoints: [{ x: 0, y: 0 }]
+                        })
+                    ],
+                    inertia: true
+                });
+        }
+
+        /**
+         * 處理拖曳結束後的資料更新
+         * @param {string} classId - 課堂 ID
+         * @param {number} dayOffset - 日期偏移量
+         * @param {number} minuteOffset - 分鐘偏移量
+         */
+        async function updateClassByDrag(classId, dayOffset, minuteOffset) {
+            await quickSaveClass(classId, { dayOffset, minuteOffset });
+        }
+
+        /**
+         * 處理縮放結束後的資料更新
+         * @param {string} classId - 課堂 ID
+         * @param {number} newTop - 新的頂部像素位置
+         * @param {number} newHeight - 新的高度像素值
+         */
+        async function updateClassByResize(classId, newTop, newHeight) {
+            // 強制將新的 top 和 height 對齊到 15 分鐘單位
+            const rawStartMinutes = newTop / pixelsPerMinute;
+            const rawDurationMinutes = newHeight / pixelsPerMinute;
+            const startMinutesFrom9AM = Math.round(rawStartMinutes / 15) * 15;
+            const durationMinutes = Math.max(15, Math.round(rawDurationMinutes / 15) * 15); // 確保課程最短為 15 分鐘
+
+            await quickSaveClass(classId, { startMinutesFrom9AM, durationMinutes });
+        }
+
+        /**
+         * 快速儲存課堂變更（用於拖曳和縮放）
+         * @param {string} classId - 要更新的課堂 ID
+         * @param {object} changes - 包含變更內容的物件
+         * @property {number} [changes.dayOffset] - 日期偏移量
+         * @property {number} [changes.minuteOffset] - 分鐘偏移量
+         * @property {number} [changes.startMinutesFrom9AM] - 從早上9點起算的開始分鐘數
+         * @property {number} [changes.durationMinutes] - 課程持續分鐘數
+         */
+        async function quickSaveClass(classId, changes) {
+            const { data: oldClass, error: fetchError } = await supabaseClient.from('classes_with_details').select('*').eq('class_id', classId).single();
+            if (fetchError) {
+                showNotification('找不到原始課程資料，無法更新。', 'error');
+                return;
+            }
+
+            let newDate = new Date(oldClass.class_date);
+            let [startH, startM] = oldClass.start_time.split(':').map(Number);
+            let [endH, endM] = oldClass.end_time.split(':').map(Number);
+
+            if (changes.dayOffset !== undefined && changes.minuteOffset !== undefined) {
+                // 處理拖曳
+                newDate.setDate(newDate.getDate() + changes.dayOffset);
+                const newStartTime = new Date(0, 0, 0, startH, startM + changes.minuteOffset);
+                const newEndTime = new Date(0, 0, 0, endH, endM + changes.minuteOffset);
+                startH = newStartTime.getHours();
+                startM = newStartTime.getMinutes();
+                endH = newEndTime.getHours();
+                endM = newEndTime.getMinutes();
+            } else if (changes.startMinutesFrom9AM !== undefined && changes.durationMinutes !== undefined) {
+                // 處理縮放
+                const newStart = new Date(0, 0, 0, startHour, changes.startMinutesFrom9AM);
+                const newEnd = new Date(0, 0, 0, startHour, changes.startMinutesFrom9AM + changes.durationMinutes);
+                startH = newStart.getHours();
+                startM = newStart.getMinutes();
+                endH = newEnd.getHours();
+                endM = newEnd.getMinutes();
+            }
+
+            const formatTime = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+            const params = {
+                p_class_id: classId,
+                p_class_date: newDate.toISOString().split('T')[0],
+                p_start_time: formatTime(startH, startM),
+                p_end_time: formatTime(endH, endM),
+                p_course_id: oldClass.course_id,
+                p_class_name: oldClass.class_name,
+                p_coach_id: oldClass.coach_id,
+                p_max_students: oldClass.max_students
+            };
+
+            try {
+                const { data, error } = await supabaseClient.rpc('save_class', params);
+                if (error) throw error;
+                const result = data[0];
+                if (result.status === 'success') {
+                    // showNotification('課表已更新！', 'success'); // 根據使用者要求，拖拉成功後不顯示通知
+                    loadSchedule(); // 成功後重新載入整個課表
+                } else {
+                    showNotification(result.message, 'error');
+                    loadSchedule(); // 即使失敗也重新載入，讓卡片回到原位
+                }
+            } catch (error) {
+                showNotification(`更新失敗: ${error.message}`, 'error');
+                loadSchedule(); // 發生嚴重錯誤時也重新載入
+            }
         }
 
     </script>

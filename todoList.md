@@ -17,27 +17,30 @@
     -   [x] 修改 `openClassModal` 函式，使其能正確載入與填充彈性的起訖時間。
     -   [x] 修改表單提交邏輯，呼叫新版 `save_class` RPC 函式。
     -   [x] 修正 `classes_with_details` 視圖，確保編輯時能正確帶入課程與教練 ID。
--   [ ] **重新設計課表介面 (視覺化時間軸)**：
+-   [x] **重新設計課表介面 (視覺化時間軸)**：
     -   [x] **Part 2.1: HTML/CSS 結構重塑 (畫布系統)**
-        -   [x] 移除 `manager.html` 中舊的 `schedule-grid` `<table>` 樣式。
+        -   [x] 移除 `manager.html` 中舊的 `schedule-grid` `<table>` 樣式。(已在新版 `manager-schedule.html` 中完成)
         -   [x] 建立新的 `div` 畫布結構樣式：
             -   [x] `.schedule-canvas-grid`: Flex 容器，包含時間軸和所有日期欄。
             -   [x] `.time-axis`: 左側時間軸欄。
             -   [x] `.day-column`: 每日的「畫布」容器，設定 `position: relative`。
             -   [x] `.class-item`: 課堂區塊，設定 `position: absolute`。
             -   [x] (可選) 在 `.day-column` 內加入代表小時的水平線 `div` 作為視覺輔助。
-    -   [ ] **Part 2.2: JavaScript 渲染邏輯重構**
-        -   [ ] 修改 `loadManagerSchedule`，直接獲取一週內所有課堂的完整列表，不再按小時分組。
-        -   [ ] 重構 `renderManagerScheduleGrid` 函式：
-            -   [ ] 動態生成時間軸和空的「每日畫布」(`div.day-column`)。
-            -   [ ] 遍歷課堂資料，為每堂課計算其 `top` (開始時間) 和 `height` (持續時間) 的像素值。
-            -   [ ] 動態建立課堂 `div` (`.class-item`)，將計算出的 `style` 賦予它，並將其附加到對應日期的畫布中。
-    -   [ ] **Part 2.3: 處理重疊課堂 (進階)**
-        -   [ ] 在渲染邏輯中加入演算法，偵測同一天內的重疊課堂。
-        -   [ ] 當偵測到重疊時，動態調整這些課堂的 `width` 和 `left` 樣式，使其並排顯示。
--   [ ] **實作新的互動方式 (UX)**：
-    -   [ ] **新增課堂**：允許管理員透過在時間軸上「拖曳選取」一個時間範圍來快速設定新課堂的起訖時間。
-    -   [ ] **修改課堂**：允許管理員拖曳課堂區塊的頂部/底部來調整時間，或拖曳整個區塊來移動時間點。
+    -   [x] **Part 2.2: JavaScript 渲染邏輯重構**
+        -   [x] 修改 `loadManagerSchedule`，直接獲取一週內所有課堂的完整列表，不再按小時分組。
+        -   [x] 重構 `renderManagerScheduleGrid` 函式：
+            -   [x] 動態生成時間軸和空的「每日畫布」(`div.day-column`)。
+            -   [x] 遍歷課堂資料，為每堂課計算其 `top` (開始時間) 和 `height` (持續時間) 的像素值。
+            -   [x] 動態建立課堂 `div` (`.class-item`)，將計算出的 `style` 賦予它，並將其附加到對應日期的畫布中。
+    -   [x] **Part 2.3: 處理重疊課堂 (進階)**
+        -   [x] 在渲染邏輯中加入演算法，偵測同一天內的重疊課堂。
+        -   [x] 當偵測到重疊時，動態調整這些課堂的 `width` 和 `left` 樣式，使其並排顯示。
+-   [x] **實作新的互動方式 (UX)**：
+    -   [x] **新增課堂**：允許管理員透過在時間軸上「點擊」來快速設定新課堂的起訖時間。
+    -   [x] **修改課堂**：允許管理員拖曳課堂區塊的頂部/底部來調整時間，或拖曳整個區塊來移動時間點。
+-   [ ] **Part 2.5: 整合與樣式統一 (Integration & Styling)**
+    -   [ ] **樣式統一**: 調整 `manager-schedule.html` 的樣式（如按鈕、標題、顏色），使其與 `manager.html` 的整體風格保持一致。
+    -   [ ] **整合畫布課表**: 將 `manager-schedule.html` 的功能完全整合進 `manager.html`，並移除舊的表格課表，讓新版課表成為預設。
 
 #### Part 3: 學員介面調整 (User UI - `schedule.html`)
 
