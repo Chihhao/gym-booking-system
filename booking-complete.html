@@ -20,30 +20,30 @@
             margin: 0; /* 移除預設邊距 */
             background-color: #212529;
             color: #e0e0e0;
-            display: flex; /* 讓 body 成為 flex 容器 */
-            height: 100dvh; /* 使用動態可視高度，填滿整個螢幕 */
+            display: flex;
+            justify-content: center;
+            /* 移除 padding，避免與 100dvh 衝突 */
         }
 
-        #page-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center; /* 水平置中所有子元素 */
-            /* 移除 justify-content，讓內容從頂部開始排列 */
-            flex-grow: 1; /* 填滿 body 的所有空間 */
-            padding: 1rem; /* 增加內邊距，避免內容貼邊 */
+        /* 修正：讓 .main-container 佔滿整個畫面高度，並使其內部元素正確佈局 */
+        .main-container {
+            /* 繼承來自 common.css 的 display: flex 和 flex-direction: column */
+            /* 修正：加回 align-items: center 來水平置中其所有子元素 */
+            align-items: center;
+            text-align: center;
+            /* 新增：讓 .main-container 佔滿整個可視高度 */
+            height: 100dvh;
+            /* 新增：將上下留白移至此處，並使用 box-sizing 確保總高不變 */
+            padding: 20px 10px;
             box-sizing: border-box;
         }
 
-        .container {
-            /* 新增：讓 main-container 填滿剩餘空間並置中其內容 */
+        /* 修正：讓內容容器填滿剩餘空間，並垂直置中其內容 */
+        #content-container {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            /* --- */
-            text-align: center;
-            width: 100%;
-            max-width: 400px;
         }
 
         .success-icon {
@@ -109,11 +109,9 @@
 </head>
 <body>
 
-    <div id="page-container">
-        <div id="header-container" style="width: 100%;"></div>
-        <div id="main-container" class="container">
-            <!-- 內容將由 JS 動態生成 -->
-        </div>
+    <div class="main-container">
+        <div id="header-container"></div>
+        <div id="content-container"></div>
     </div>
 
     <script>
@@ -121,7 +119,7 @@
         const { createClient } = supabase;
         const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
         document.addEventListener('DOMContentLoaded', async () => {
-            const container = document.getElementById('main-container');
+            const container = document.getElementById('content-container');
             const urlParams = new URLSearchParams(window.location.search);
             const bookingId = urlParams.get('bookingId');
             const debugMode = urlParams.get('debug') === 'true';

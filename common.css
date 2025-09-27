@@ -1,3 +1,14 @@
+/* --- 通用主要容器 (新增) --- */
+.main-container {
+    width: 100%;
+    max-width: 480px; /* 統一最大寬度，與 booking-details 一致 */
+    padding: 0 10px; /* 左右留白，避免內容貼邊 */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* 讓 header 和 content 之間有預設間距 */
+}
+
 /* --- 預約流程狀態顯示 --- */
 .step-indicator {
     display: flex;

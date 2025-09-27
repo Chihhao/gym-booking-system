@@ -111,6 +111,47 @@
         }
     }
     ```
+*   **2.4. 進階 CSS 佈局模式 (Advanced CSS Layout Patterns)**
+    *   **全螢幕垂直置中佈局 (Full-Screen Vertical Centering Layout)**
+        *   **情境 (Scenario)**: 需要一個全螢幕頁面，其中頁首 (`header`) 固定在頂部，而主要內容 (`content`) 在剩餘的空間內垂直置中。同時，整個頁面有最大寬度限制、水平置中，且不能出現不必要的垂直捲軸。
+        *   **解決方案 (Solution)**:
+            1.  **HTML 結構**:
+                ```html
+                <body>
+                    <div class="main-container">
+                        <div id="header-container">...</div>
+                        <div id="content-container">...</div>
+                    </div>
+                </body>
+                ```
+            2.  **CSS 樣式**:
+                *   **`body`**: 負責將 `.main-container` 水平置中。
+                    ```css
+                    body {
+                        display: flex;
+                        justify-content: center;
+                        margin: 0;
+                    }
+                    ```
+                *   **`.main-container`**: 負責撐滿全螢幕高度，並處理內部留白。
+                    ```css
+                    .main-container {
+                        display: flex;
+                        flex-direction: column;
+                        height: 100dvh; /* 關鍵：撐滿可視高度 */
+                        padding: 20px 10px; /* 將留白放在內部 */
+                        box-sizing: border-box; /* 關鍵：確保 padding 不會讓總高超出 100dvh */
+                    }
+                    ```
+                *   **`#content-container`**: 負責佔滿剩餘空間，並將其內容垂直置中。
+                    ```css
+                    #content-container {
+                        flex-grow: 1; /* 關鍵：佔滿 header 以外的剩餘空間 */
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center; /* 關鍵：將內容垂直置中 */
+                    }
+                    ```
 
 ---
 

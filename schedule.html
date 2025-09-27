@@ -17,10 +17,13 @@
     <style>
         /* --- 1. 暗色主題 --- */
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            margin: 10px; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
             background-color: #212529; 
-            color: #e0e0e0; 
+            color: #e0e0e0;
+            padding: 20px 0; /* 上下留白 */
+            display: flex;
+            justify-content: center; /* 水平置中 .main-container */
         }
         .header h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
         .header p { margin: 5px 0 0; color: #b0b0b0; }
@@ -187,17 +190,19 @@
 </head>
 <body>
 
-    <div id="header-container"></div>
-
-    <div class="schedule-wrapper">
-        <div id="schedule-container">
-            <p class="loader">正在載入時段資料...</p>
+    <!-- 新增：使用通用容器包裹所有內容 -->
+    <div class="main-container">
+        <div id="header-container"></div>
+    
+        <div class="schedule-wrapper">
+            <div id="schedule-container">
+                <p class="loader">正在載入時段資料...</p>
+            </div>
         </div>
-    </div>
-
-    <!-- 新增：回到上一頁按鈕的容器 -->
-    <div id="back-button-container" class="btn-container" style="display: none;">
-        <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+        <!-- 新增：回到上一頁按鈕的容器 -->
+        <div id="back-button-container" class="btn-container" style="display: none;">
+            <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+        </div>
     </div>
 
     <!-- 新增：卡片式通知 Modal -->
