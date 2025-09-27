@@ -2139,7 +2139,7 @@
             const snapSize = canvasPixelsPerMinute * 15;
             // 優化：將共用的修飾器抽離出來
             const commonModifiers = [
-                interact.modifiers.restrictRect({ restriction: 'parent' }),
+                interact.modifiers.restrictRect({ restriction: '#day-columns-container' }), // 修正：將拖曳範圍限制從 'parent' 改為整個畫布容器
                 interact.modifiers.snap({ targets: [interact.snappers.grid({ x: 1, y: snapSize })], range: Infinity, relativePoints: [{ x: 0, y: 0 }] })
             ];
 
