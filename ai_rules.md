@@ -111,47 +111,52 @@
         }
     }
     ```
-*   **2.4. 進階 CSS 佈局模式 (Advanced CSS Layout Patterns)**
-    *   **全螢幕垂直置中佈局 (Full-Screen Vertical Centering Layout)**
-        *   **情境 (Scenario)**: 需要一個全螢幕頁面，其中頁首 (`header`) 固定在頂部，而主要內容 (`content`) 在剩餘的空間內垂直置中。同時，整個頁面有最大寬度限制、水平置中，且不能出現不必要的垂直捲軸。
-        *   **解決方案 (Solution)**:
-            1.  **HTML 結構**:
-                ```html
-                <body>
-                    <div class="main-container">
-                        <div id="header-container">...</div>
-                        <div id="content-container">...</div>
-                    </div>
-                </body>
+*   **2.4. 進階 CSS 佈局：含固定頁首/頁尾的垂直置中 (Advanced CSS: Vertical Centering with Fixed Header/Footer)**
+    *   **情境 (Scenario)**: 當頁面有使用 `position: fixed` 的頁首和頁尾時，如何讓主要內容區塊在剩餘的可視空間內實現完美的垂直與水平置中。
+    *   **挑戰 (Challenge)**: `body` 上的 `padding`（為了避開頁首/頁尾）會干擾子元素的高度計算，使得傳統的 `height: 100%` 或 `justify-content: center` 失效。
+    *   **解決方案 (Solution)**: 採用一個由外到內的巢狀 Flexbox 佈局。
+        1.  **HTML 結構**:
+            ```html
+            <body>
+                <div class="main-container">
+                    <div id="header-container">... (e.g., Progress Bar)</div>
+                    <div id="content-container">... (The content to be centered)</div>
+                </div>
+            </body>
+            ```
+        2.  **CSS 樣式**:
+            *   **`body`**: 負責撐滿整個螢幕，並處理為頁首/頁尾預留的空間。
+                ```css
+                body {
+                    height: 100dvh; /* 關鍵：撐滿可視高度 */
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center; /* 水平置中 .main-container */
+                    padding: 40px 0; /* 為 Header/Footer 預留空間 */
+                    box-sizing: border-box; /* 關鍵：確保 padding 不會讓總高超出 100dvh */
+                    margin: 0;
+                }
                 ```
-            2.  **CSS 樣式**:
-                *   **`body`**: 負責將 `.main-container` 水平置中。
-                    ```css
-                    body {
-                        display: flex;
-                        justify-content: center;
-                        margin: 0;
-                    }
-                    ```
-                *   **`.main-container`**: 負責撐滿全螢幕高度，並處理內部留白。
-                    ```css
-                    .main-container {
-                        display: flex;
-                        flex-direction: column;
-                        height: 100dvh; /* 關鍵：撐滿可視高度 */
-                        padding: 20px 10px; /* 將留白放在內部 */
-                        box-sizing: border-box; /* 關鍵：確保 padding 不會讓總高超出 100dvh */
-                    }
-                    ```
-                *   **`#content-container`**: 負責佔滿剩餘空間，並將其內容垂直置中。
-                    ```css
-                    #content-container {
-                        flex-grow: 1; /* 關鍵：佔滿 header 以外的剩餘空間 */
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center; /* 關鍵：將內容垂直置中 */
-                    }
-                    ```
+            *   **`.main-container`**: 負責填滿 `body` 內部的剩餘空間。
+                ```css
+                .main-container {
+                    flex-grow: 1; /* 關鍵：填滿 body 內部的所有可用垂直空間 */
+                    min-height: 0; /* Flexbox 安全設置，防止內容溢出 */
+                    display: flex;
+                    flex-direction: column;
+                    width: 100%;
+                    max-width: 480px; /* 限制最大寬度 */
+                }
+                ```
+            *   **`#content-container`**: 負責在 `.main-container` 的剩餘空間內，將自己的內容垂直置中。
+                ```css
+                #content-container {
+                    flex-grow: 1; /* 關鍵：填滿 header-container 以外的剩餘空間 */
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center; /* 關鍵：將內容垂直置中 */
+                }
+                ```
 *   **2.5. CSS 開發原則與版面一致性 (CSS Principles & Layout Consistency)**
     *   **問題根源 (Root Cause of Inconsistency)**: 專案初期，各頁面獨立開發，導致樣式分散在各自的 `<style>` 標籤中，缺乏統一規範。這造成了「改東壞西」的維護困難，且難以實現全站一致的視覺體驗。
 
@@ -160,10 +165,6 @@
             *   **識別通用元件**: 在開發新功能前，先思考 UI 元件（如卡片、按鈕、容器）是否可重用。
             *   **優先使用 `common.css`**: 將所有可重用的樣式（如 `.main-container`, `.card`, `.btn`）全部集中到 `common.css`。
             *   **避免頁面級樣式**: 盡量避免在個別 HTML 檔案的 `<style>` 標籤中編寫通用或可重用的樣式。
-
-        2.  **建立並遵循規則文件 (Build & Adhere to Rule Documents)**:
-            *   **`ai_rules.md` 是開發聖經**: 本文件是專案的「開發聖經」。當遇到複雜的版面需求時，應**先查閱**是否有已定義好的模式（如 Rule 2.4 的全螢幕垂直置中佈局）。
-            *   **記錄新模式**: 當解決了一個新的、可重用的版面問題後，應將其解決方案**記錄到本文件中**，供團隊未來參考。
 
         3.  **保持 HTML 結構的一致性 (Maintain Consistent HTML Structure)**:
             *   所有主要頁面都應遵循一個標準的 HTML 骨架，特別是使用通用的容器 class，例如：
