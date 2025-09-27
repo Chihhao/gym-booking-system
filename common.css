@@ -6,7 +6,7 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 10px; /* 讓 header 和 content 之間有預設間距 */
+    gap: 10px; /* 您已將此處改為 10px */
 }
 
 /* --- 預約流程狀態顯示 --- */
@@ -15,8 +15,8 @@
     justify-content: space-between;
     align-items: center; /* 讓圓圈和箭頭垂直置中對齊 */
     width: 100%;
-    margin-top: -10px; /* 調整與下方卡片的間距 */
-    margin-bottom: 0px; /* 調整與下方卡片的間距 */
+    /* 移除 margin-top，改由父容器的 gap 控制間距 */
+    /* margin-top: -10px; */
     padding: 0 2px; /* 左右留白避免貼邊 */
     box-sizing: border-box;
 }

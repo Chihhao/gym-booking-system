@@ -22,38 +22,22 @@
             margin: 0; /* 移除預設邊距 */
             background-color: #212529; 
             color: #e0e0e0;
-            /* 修正：讓 body 佔滿整個可視高度，並成為 flex 容器 */
-            height: 100dvh;
+            /* 根本原因修正：與 courses.html 和 ai_rules.md 的佈局對齊 */
             display: flex;
-            flex-direction: column; /* 讓子元素垂直排列 */
-            justify-content: center;
-            align-items: center; /* 水平置中子元素 */
-            padding: 40px 0; /* 為 Header/Footer 留出空間 */
-            box-sizing: border-box; /* 確保 padding 不會讓總高超出 100dvh */
+            justify-content: center; /* 水平置中 .main-container */
+            /* 補上缺少的 align-items，確保在 flex 容器中行為一致 */
+            align-items: flex-start; /* 讓內容從頂部開始對齊，防止垂直置中 */
         }
 
-        /* 修正：讓 .main-container 填滿剩餘的可用空間 */
-        .main-container {
-            flex-grow: 1;
-            min-height: 0; /* 解決 flex item 溢出問題 */
-        }
-
+        /* 關鍵：移除所有 flex-grow 和 wrapper，讓內容從上到下自然排列 */
         #content-container {
-            flex-grow: 1; /* 關鍵：佔滿 header 以外的剩餘空間 */
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* 關鍵：將內容垂直置中 */
             text-align: center;
-        }
-
-        /* 新增：讓 header 和 content 填滿容器寬度 */
-        #header-container, #content-container {
-            width: 100%;
-            box-sizing: border-box;
+            /* 移除此處的 padding-top，間距應由父容器 .main-container 的 gap 屬性統一控制 */
         }
 
         #content-container .success-icon {
             font-size: 6rem;
+            margin-top: 2rem; /* 新增：加大與上方流程圖的間距 */
             margin-bottom: 1rem;
         }
 
@@ -262,6 +246,7 @@
                 }
             });
         });
+
     </script>
 
 </body>
