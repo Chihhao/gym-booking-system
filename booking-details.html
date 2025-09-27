@@ -230,6 +230,38 @@
             color: #000;
             word-break: break-all;
         }
+
+        /* --- 新增：按鈕樣式 --- */
+        .btn {
+            border: none;
+            border-radius: 8px;
+            padding: 0.8rem 0.8rem;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: background-color 0.2s, transform 0.2s;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-secondary { background-color: #495057; color: #ffffff; }
+        .btn-secondary:hover { background-color: #5a6268; }
+
+        .button-group-split {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 24px;
+        }
+        .button-group-split .btn {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -375,6 +407,18 @@
                             </ul>
                         </div>
                     </div>
+
+                    <!-- 新增：底部按鈕區 -->
+                    <div class="button-group-split">
+                        <button id="back-btn" class="btn btn-secondary">
+                            <span class="material-symbols-outlined">arrow_back</span>
+                            上一頁
+                        </button>
+                        <button id="close-btn" class="btn btn-secondary">
+                            <span class="material-symbols-outlined">close</span>
+                            關閉
+                        </button>
+                    </div>
                 </div>
             `;
 
@@ -414,6 +458,24 @@
             qrModal.addEventListener('click', (event) => {
                 if (event.target === qrModal) {
                     qrModal.style.display = 'none';
+                }
+            });
+
+            // --- 新增：綁定底部按鈕事件 ---
+            const backBtn = document.getElementById('back-btn');
+            const closeBtn = document.getElementById('close-btn');
+
+            backBtn.addEventListener('click', () => {
+                window.history.back();
+            });
+
+            closeBtn.addEventListener('click', () => {
+                // 嘗試使用 LIFF 的關閉視窗功能
+                if (typeof liff !== 'undefined' && liff.isInClient()) {
+                    liff.closeWindow();
+                } else {
+                    // 如果不在 LIFF 環境，則提供提示
+                    alert('此功能僅在 LINE App 中有效。');
                 }
             });
         }
