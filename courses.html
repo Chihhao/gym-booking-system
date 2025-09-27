@@ -21,67 +21,7 @@
             background-color: #212529; /* 1. 調整為較柔和的深灰色 */
             color: #e0e0e0; /* 1. 預設淺色文字 */
         }
-        
-        .course-grid {
-            display: grid;
-            grid-template-columns: 1fr; /* 手機上預設單欄 */
-            gap: 10px;
-        }
-        .course-card {
-            background-color: #343a40; /* 1. 調整為較淺的卡片背景 */
-            border-radius: 8px;
-            overflow: hidden; /* 讓圖片的圓角生效 */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            cursor: pointer;
-            transition: background-color 0.2s, box-shadow 0.2s; /* 修改 transition 效果 */
-            display: flex;
-            flex-direction: row; /* 改為水平排列 */
-            align-items: center; /* 垂直置中 */
-            height: 140px; /* 3. 卡片的高度是 140 */
-            /* padding-left: 10px;  */
-        }
-        .course-card:hover {
-            background-color: #495057; /* 改變背景顏色 */
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        }
-        .course-card img {
-            width: 120px; /* 2. 我希望圖片是120x120 */
-            height: 120px; /* 2. 我希望圖片是120x120 */
-            object-fit: cover; /* 讓圖片不變形地填滿容器 */
-            flex-shrink: 0; /* 防止圖片被壓縮 */
-            border-radius: 4px; /* 圖片圓角 */
-            margin-left: 10px;
-        }
-        .course-card-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* 6. 圖片右側的文字，整個區塊上下置中 */
-            padding: 0 1rem; /* 調整左右內距 */
-            gap: 0.25rem; /* 增加文字行之間的間距 */
-            text-align: left; /* 文字靠左 */
-            flex-grow: 1; /* 佔滿剩餘空間 */
-            overflow: hidden; /* 為了讓文字截斷生效 */
-        }
-        .course-card h2 { 
-            margin: 0; /* 移除所有外部間距 */
-            color: #ffffff; /* 1. 標題亮白色 */
-        }
-        .course-card .description { 
-            margin: 0; /* 移除所有外部間距 */
-            color: #b0b0b0; /* 1. 描述文字淺灰色 */
-            font-size: 0.9em;
-            /* 3. 處理文字過多，最多顯示兩行 */
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .course-card .price {
-            margin: 0; /* 移除所有外部間距 */
-            font-weight: bold;
-            color: #4dabf7; /* 1. 價格亮藍色 */
-            font-size: 1.1em;
-        }
+        /* 移除已移至 common.css 的卡片樣式 */
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
 
@@ -206,17 +146,17 @@
         
         function renderCourses(courses) {
             const container = document.getElementById('content-container');
-            let html = '<div class="course-grid">';
+            let html = '<div class="card-grid">';
             courses.forEach(course => {
                 // 組合出完整的圖片 URL
                 const imageUrl = course.image_url ? `${AppConfig.IMAGE_BASE_URL}${course.image_url}` : 'https://via.placeholder.com/400x180.png?text=No+Image';
                 html += `
-                    <div class="course-card" onclick="selectCourse('${course.course_id}', '${encodeURIComponent(course.course_name)}')">
-                        <img src="${imageUrl}" alt="${course.course_name}" width="120" height="120" loading="lazy">
-                        <div class="course-card-content">
-                            <h2>${course.course_name}</h2>
-                            <p class="description">${course.short_description || ''}</p>
-                            <p class="price">每小時 $${course.price}</p>
+                    <div class="card" onclick="selectCourse('${course.course_id}', '${encodeURIComponent(course.course_name)}')">
+                        <img class="card-image" src="${imageUrl}" alt="${course.course_name}" loading="lazy">
+                        <div class="card-content">
+                            <h2 class="card-title">${course.course_name}</h2>
+                            <p class="card-description">${course.short_description || ''}</p>
+                            <p class="card-highlight">每小時 $${course.price}</p>
                         </div>
                     </div>
                 `;

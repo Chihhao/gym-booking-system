@@ -8,20 +8,24 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 新增：載入共用樣式表 -->
+    <link rel="stylesheet" href="common.css">
+    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <!-- 載入共用設定檔 -->
     <script src="config.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
+            margin: 10px;
             background-color: #212529;
             color: #e0e0e0;
+        }
+
+        #page-container {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
-            padding: 1rem;
-            box-sizing: border-box;
         }
 
         .container {
@@ -38,13 +42,13 @@
         h1 {
             color: #ffffff;
             font-size: 2rem;
-            margin-top: 0;
+            margin-top: 1rem;
             margin-bottom: 0.5rem;
         }
 
         p {
             color: #b0b0b0;
-            font-size: 1.1rem;
+            font-size: 1.1rem; /* 移除 p 標籤的 margin-bottom，改由 booking-summary 控制 */
             margin-bottom: 2.5rem;
         }
 
@@ -53,7 +57,7 @@
             background-color: #343a40;
             border-radius: 8px;
             padding: 1rem;
-            margin-bottom: 2rem;
+            margin: 1rem 0 2rem 0;
             text-align: left;
             border: 1px solid #495057;
         }
@@ -84,39 +88,6 @@
             flex-direction: column;
             gap: 1rem;
         }
-
-        .btn {
-            border: none;
-            border-radius: 8px;
-            padding: 0.8rem 1.5rem;
-            cursor: pointer;
-            color: white;
-            font-weight: bold;
-            font-size: 1.1em;
-            transition: background-color 0.2s, transform 0.2s;
-            width: 100%;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-primary {
-            background-color: #28a745; /* 綠色，表示主要成功操作 */
-            color: #ffffff;
-        }
-        .btn-primary:hover {
-            background-color: #218838;
-        }
-
-        .btn-secondary {
-            background-color: #495057; /* 較深的灰色 */
-            color: #ffffff;
-        }
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
         .error {
             color: #dc3545;
             font-size: 1.2em;
@@ -125,15 +96,17 @@
 </head>
 <body>
 
-    <div id="main-container" class="container">
-        <!-- 內容將由 JS 動態生成 -->
+    <div id="page-container">
+        <div id="header-container" style="width: 100%;"></div>
+        <div id="main-container" class="container">
+            <!-- 內容將由 JS 動態生成 -->
+        </div>
     </div>
 
     <script>
         // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
         const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-
         document.addEventListener('DOMContentLoaded', async () => {
             const container = document.getElementById('main-container');
             const urlParams = new URLSearchParams(window.location.search);
@@ -157,15 +130,35 @@
                 return;
             }
 
+            // 渲染流程圖
+            document.getElementById('header-container').innerHTML = `
+                <div class="step-indicator">
+                    <div class="step completed">
+                        <div class="step-box"><span>課程</span></div>
+                    </div>
+                    <span class="material-symbols-outlined connector completed">arrow_forward</span>
+                    <div class="step completed">
+                        <div class="step-box"><span>教練</span></div>
+                    </div>
+                    <span class="material-symbols-outlined connector completed">arrow_forward</span>
+                    <div class="step completed">
+                        <div class="step-box"><span>時間</span></div>
+                    </div>
+                    <span class="material-symbols-outlined connector completed">arrow_forward</span>
+                    <div class="step active">
+                        <div class="step-box"><span>完成</span></div>
+                    </div>
+                </div>`;
+
             // 渲染基本畫面
             container.innerHTML = `
                 <div class="success-icon">🎉</div>
                 <h1>預約成功</h1>
-                <div id="summary-container"></div>                
+                <div id="summary-container"></div>
                 <div class="button-group">
                     <button id="view-booking-btn" class="btn btn-primary">顯示預約憑證</button>
                     <button id="book-another-btn" class="btn btn-secondary">預約其他課程</button>
-                    <!--button id="back-btn" class="btn btn-secondary">回到上一頁</button-->
+                    <button id="back-btn" class="btn btn-secondary">回到上一頁</button>
                     <button id="close-btn" class="btn btn-secondary">關閉</button>
                 </div>
             `;

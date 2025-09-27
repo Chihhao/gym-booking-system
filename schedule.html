@@ -10,18 +10,17 @@
     <script src="config.js"></script>
     <!-- 方案一：載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 新增：載入共用樣式表 -->
+    <link rel="stylesheet" href="common.css">
+    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
         /* --- 1. 暗色主題 --- */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            margin: 0; 
+            margin: 10px; 
             background-color: #212529; 
             color: #e0e0e0; 
-        }
-        .header { 
-            padding: 1.0em; 
-            background-color: #343a40; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
         }
         .header h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
         .header p { margin: 5px 0 0; color: #b0b0b0; }
@@ -188,9 +187,7 @@
 </head>
 <body>
 
-    <div class="header">
-        <h1 id="course-name-title">課程名稱</h1>
-    </div>
+    <div id="header-container"></div>
 
     <div class="schedule-wrapper">
         <div id="schedule-container">
@@ -279,13 +276,31 @@
                 const coachName = urlParams.get('coachName');
 
                 if (!courseId || !courseName || !coachId || !coachName) {
+                    document.getElementById('header-container').innerHTML = '<h1>錯誤</h1>';
                     document.getElementById('schedule-container').innerHTML = '<p class="error">錯誤：缺少必要的課程或教練資訊。</p>';
-                    document.getElementById('course-name-title').innerText = '錯誤';
                     return;
                 }
 
-                // 3. 更新頁面標題並載入時段資料
-                document.getElementById('course-name-title').innerText = `${decodeURIComponent(courseName)} - ${decodeURIComponent(coachName)}`;
+                // 3. 顯示流程圖並載入時段資料
+                document.getElementById('header-container').innerHTML = `
+                    <div class="step-indicator">
+                        <div class="step completed">
+                            <div class="step-box"><span>課程</span></div>
+                        </div>
+                        <span class="material-symbols-outlined connector completed">arrow_forward</span>
+                        <div class="step completed">
+                            <div class="step-box"><span>教練</span></div>
+                        </div>
+                        <span class="material-symbols-outlined connector completed">arrow_forward</span>
+                        <div class="step active">
+                            <div class="step-box"><span>時間</span></div>
+                        </div>
+                        <span class="material-symbols-outlined connector">arrow_forward</span>
+                        <div class="step">
+                            <div class="step-box"><span>完成</span></div>
+                        </div>
+                    </div>`;
+
                 await fetchSchedule(courseId, coachId);
 
             } catch (err) {
@@ -540,7 +555,7 @@
                     // 將 bookingId 和 debug 參數一起傳遞下去
                     window.location.href = `booking-complete.html?bookingId=${bookingId}${debugParam}`;
                     // 因為頁面即將跳轉，所以不需要再重新載入課表
-
+                    
                 } else {
                     // 如果預約失敗，將格子恢復原狀
                     throw new Error(result.message || '預約失敗，請稍後再試。');
