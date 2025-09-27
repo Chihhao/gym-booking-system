@@ -402,14 +402,14 @@
                     return `${year}-${month}-${day}`;
                 };
 
-                // 2. 計算本週的開始（星期日）與結束日期
-                const startOfWeek = new Date(refDate);
-                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // 將日期設為本週的星期日
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6); // 本週的星期六
+                // 2. 計算要查詢的七天日期範圍
+                // 修正：查詢範圍的起始日應為 referenceDate，與 renderScheduleGrid 的邏輯保持一致
+                const startDate = new Date(refDate);
+                const endDate = new Date(refDate);
+                endDate.setDate(startDate.getDate() + 6); // 從起始日往後推 6 天，共 7 天
 
-                const startDateString = getLocalDateString(startOfWeek);
-                const endDateString = getLocalDateString(endOfWeek);
+                const startDateString = getLocalDateString(startDate);
+                const endDateString = getLocalDateString(endDate);
 
                 // 3. 使用計算出的一週範圍查詢 Supabase
                 const { data: classes, error: classesError } = await supabaseClient
@@ -417,9 +417,9 @@
                     .select('*')
                     .eq('course_id', courseId) // 篩選課程
                     .eq('coach_id', coachId)   // 篩選教練
-                    .eq('status', '開放中') // 雖然 RLS 會擋，但明確寫出更好
-                    .gte('class_date', startDateString) // 大於等於本週日
-                    .lte('class_date', endDateString);  // 小於等於本週六
+                    .eq('status', '開放中')
+                    .gte('class_date', startDateString) // 大於等於起始日
+                    .lte('class_date', endDateString);  // 小於等於結束日
 
                 if (classesError) throw classesError;
                 
@@ -428,9 +428,9 @@
                     return;
                 }
 
-                // 4. 查詢使用者在這些課堂中的預約紀錄
+                // 4. 查詢使用者在這些課堂中的有效預約紀錄
                 const classIds = classes.map(c => c.class_id);
-                let userBookings = new Map();
+                const userBookings = new Map();
                 if (userProfile && userProfile.userId) {
                     const { data: bookings, error: bookingsError } = await supabaseClient
                         .from('bookings')
@@ -444,21 +444,24 @@
                     bookings.forEach(b => userBookings.set(b.class_id, b.booking_id));
                 }
 
+                // 5. 建立一個空的七天空白課表資料結構
                 const scheduleData = {};
                 const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
 
+                // 修正：建立空白課表時，也應從 referenceDate 開始，而不是固定的星期日
                 for (let i = 0; i < 7; i++) {
-                    // 從本週的星期日開始，產生連續七天的日期
-                    const currentDate = new Date(startOfWeek);
+                    // 從 referenceDate 開始，產生連續七天的日期
+                    const currentDate = new Date(refDate);
                     currentDate.setDate(currentDate.getDate() + i);
                     const dateString = getLocalDateString(currentDate);
 
-                    scheduleData[dateString] = {};
+                    scheduleData[dateString] = {}; // 確保每天的物件都存在
                     hours.forEach(hour => {
                         scheduleData[dateString][hour] = { status: 'no_class' };
                     });
                 }
 
+                // 6. 將從資料庫取得的課堂資料填入課表結構中
                 classes.forEach(cls => {
                     // Supabase 回傳的 class_date 已經是 'YYYY-MM-DD' 格式，直接使用
                     const dateString = cls.class_date; 
@@ -471,7 +474,9 @@
                         // 最終修正：既然 DB 資料已乾淨，直接截取字串即可，無需任何轉換
                         startTimeString = cls.start_time.substring(0, 5); // e.g., "07:00"
                         hourKey = cls.start_time.substring(0, 2) + ':00'; // e.g., "07:00"
-                    }                    
+                    }
+                    
+                    // 7. 根據課堂狀態和使用者預約情況，決定格子要顯示的內容
                     if (hourKey && scheduleData[dateString] && scheduleData[dateString][hourKey]) { // 只有當 hourKey 有效時才嘗試放入網格
                         if (userBookings.has(cls.class_id)) {
                             scheduleData[dateString][hourKey] = { status: 'booked_by_me', schedule_id: cls.class_id, booking_id: userBookings.get(cls.class_id) };
@@ -483,6 +488,7 @@
                     }
                 });
 
+                // 8. 渲染最終的課表網格
                 renderScheduleGrid(scheduleData, referenceDate);
 
             } catch (error) {
@@ -495,11 +501,11 @@
             const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
             const now = new Date();
 
-            // 根據 referenceDate 計算當週的日期
-            const startOfWeek = new Date(referenceDate);
-            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            // 根據 referenceDate 計算要顯示的七天日期
+            // 修正：不再將一週的開始固定為星期日，而是直接從 referenceDate 開始
+            const weekStartDate = new Date(referenceDate);
             const dates = Array.from({ length: 7 }, (_, i) => {
-                const d = new Date(startOfWeek);
+                const d = new Date(weekStartDate);
                 d.setDate(d.getDate() + i);
                 const year = d.getFullYear();
                 const month = (d.getMonth() + 1).toString().padStart(2, '0');
