@@ -46,6 +46,14 @@
             margin-bottom: 3px; /* 新增：與下方表格的間距 */
         }
         /* 新增：下方資訊列的樣式調整 */
+        /* 新增：無時段提示的樣式 */
+        .no-slots-message {
+            text-align: center;
+            padding: 4rem 0 !important; /* 增加上下間距，讓提示更突出 */
+            font-size: 2rem;
+            color: #868e96; /* 使用較柔和的灰色 */
+        }
+
         .schedule-info-bar.bottom {
             margin-bottom: 0; /* 移除下方外距 */
             margin-top: 3px; /* 改為上方外距 */
@@ -528,56 +536,63 @@
             const headerHtml = dateRow + dayRow;
 
             let bodyHtml = '';
-            hours.forEach(hour => {
-                bodyHtml += `<tr><td class="time-label">${hour}</td>`;
-                dates.forEach(date => {
-                    let slotClass = 'slot';
-                    let slotContent = '';
-                    let onClickAction = '';
-                    let titleAttribute = ''; // 用於存放 tooltip 文字
+            // 檢查 scheduleData 是否為空物件
+            if (Object.keys(scheduleData).length === 0) {
+                // 如果沒有任何課堂資料，顯示全寬度提示訊息
+                bodyHtml += `
+                    <tr>
+                        <td colspan="8" class="no-slots-message">此週無時段</td>
+                    </tr>
+                `;
+            } else {
+                // 如果有資料，才一行一行地畫出時段
+                hours.forEach(hour => {
+                    bodyHtml += `<tr><td class="time-label">${hour}</td>`;
+                    dates.forEach(date => {
+                        let slotClass = 'slot';
+                        let slotContent = '';
+                        let onClickAction = '';
+                        let titleAttribute = ''; // 用於存放 tooltip 文字
 
-                    // 修正：組合出該時段的完整時間。將 'T' 換成空格，確保 JS 將其解析為本地時間而非 UTC。
-                    const slotDateTime = new Date(`${date} ${hour}`);
+                        // 修正：組合出該時段的完整時間。將 'T' 換成空格，確保 JS 將其解析為本地時間而非 UTC。
+                        const slotDateTime = new Date(`${date} ${hour}`);
 
-                    // 優先判斷：是否已過期
-                    if (slotDateTime < now) {
-                        slotClass += ' expired';
-                        slotContent = '-';
-                    } else {
-                        // 若未過期，才根據後端資料來判斷狀態
-                        const slotData = (scheduleData[date] && scheduleData[date][hour]) 
-                                         ? scheduleData[date][hour] 
-                                         : { status: 'no_class' };
-                        
-                        switch (slotData.status) {
-                            case 'available':
-                                slotClass += ' available';
-                                slotContent = `剩 ${slotData.remaining}`;
-                                onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
-                                break;
-                            case 'full':
-                                slotClass += ' full';
-                                slotContent = '額滿';
-                                break;
-                            case 'booked_by_me':
-                                slotClass += ' booked-by-me';
-                                slotContent = '已約';
-                                onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
-                                titleAttribute = 'title="已預約"'; // 設定 tooltip
-                                break;
-                            // 'no_class' 狀態則維持 slotContent 為空字串
-                            default:
-                                // 如果沒有資料，檢查 scheduleData 是否為空物件
-                                if (Object.keys(scheduleData).length === 0 && hour === '15:00' && dates.indexOf(date) === 3) {
-                                    slotContent = '此週無時段';
-                                }
-                                break;
+                        // 優先判斷：是否已過期
+                        if (slotDateTime < now) {
+                            slotClass += ' expired';
+                            slotContent = '-';
+                        } else {
+                            // 若未過期，才根據後端資料來判斷狀態
+                            const slotData = (scheduleData[date] && scheduleData[date][hour]) 
+                                             ? scheduleData[date][hour] 
+                                             : { status: 'no_class' };
+                            
+                            switch (slotData.status) {
+                                case 'available':
+                                    slotClass += ' available';
+                                    slotContent = `剩 ${slotData.remaining}`;
+                                    onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
+                                    break;
+                                case 'full':
+                                    slotClass += ' full';
+                                    slotContent = '額滿';
+                                    break;
+                                case 'booked_by_me':
+                                    slotClass += ' booked-by-me';
+                                    slotContent = '已約';
+                                    onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
+                                    titleAttribute = 'title="已預約"'; // 設定 tooltip
+                                    break;
+                                default:
+                                    // 'no_class' 狀態則維持 slotContent 為空字串
+                                    break;
+                            }
                         }
-                    }
-                    bodyHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>${slotContent}</td>`;
+                        bodyHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>${slotContent}</td>`;
+                    });
+                    bodyHtml += '</tr>';
                 });
-                bodyHtml += '</tr>';
-            });
+            }
 
             // 檢查表格是否已存在
             let grid = container.querySelector('.schedule-grid');
