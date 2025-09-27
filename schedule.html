@@ -16,6 +16,8 @@
     <script src="ui-components.js"></script>
     <!-- 新增：載入 Google Material Symbols 圖示庫 -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <!-- 新增：載入 Material Design Icons (MDI) 圖示庫 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
     <style>
         /* --- 1. 暗色主題 --- */
         body { 
@@ -122,30 +124,46 @@
         
         /* 時段狀態樣式 */
         .slot {
-            font-size: 1.2em; /* 放大狀態文字 */
+            /* 移除 font-size，改為直接控制圖示大小 */
             cursor: default;
         }
-        .slot.available {
-            color: #28a745;
-            cursor: pointer;
-            text-decoration: underline; /* 加上底線，暗示可點擊 */
+        /* 新增：MDI 圖示的通用樣式 */
+        .slot .mdi {
+            font-size: 1.6em; /* 調整圖示大小 */
+            vertical-align: middle;
         }
+
+        .slot.available {
+            color: #ffc107; /* 橘黃色 */
+            cursor: pointer;
+        }
+        .slot.available:hover .mdi {
+            transform: scale(1.15); /* 滑鼠懸停時放大圖示 */
+        }
+
         /* 當滑鼠經過可點擊的格子時，改變背景顏色 */
         .schedule-grid td.available:hover,
         .schedule-grid td.booked-by-me:hover {
             background-color: #495057;
         }
         .slot.full {
-            color: #868e96;
+            color: #dc3545; /* 紅色，表示禁止 */
         }
+
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
             cursor: wait;
+            /* 新增：處理中狀態使用旋轉動畫 */
+            animation: spin 1s linear infinite;
         }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .slot.booked-by-me {
-            color: #ffc107; /* 改為橘黃色 */
+            color: #28a745; /* 綠色 */
             cursor: pointer; /* 讓圖示看起來可以點擊 */
-            text-decoration: underline; /* 加上底線，暗示可點擊 */
         }
         .slot.expired {
             color: #6c757d; /* 灰色橫線 */
@@ -561,7 +579,7 @@
                         // 優先判斷：是否已過期
                         if (slotDateTime < now) {
                             slotClass += ' expired';
-                            slotContent = '-';
+                            slotContent = '<span class="mdi mdi-minus-circle-outline"></span>';
                         } else {
                             // 若未過期，才根據後端資料來判斷狀態
                             const slotData = (scheduleData[date] && scheduleData[date][hour]) 
@@ -571,25 +589,27 @@
                             switch (slotData.status) {
                                 case 'available':
                                     slotClass += ' available';
-                                    slotContent = `剩 ${slotData.remaining}`;
+                                    slotContent = '<span class="mdi mdi-circle-outline"></span>';
                                     onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
+                                    titleAttribute = `title="剩下 ${slotData.remaining} 位"`; // 新增：可預約提示
                                     break;
                                 case 'full':
                                     slotClass += ' full';
-                                    slotContent = '額滿';
+                                    slotContent = '<span class="mdi mdi-close"></span>';
+                                    titleAttribute = 'title="額滿"'; // 新增：額滿提示
                                     break;
                                 case 'booked_by_me':
                                     slotClass += ' booked-by-me';
-                                    slotContent = '已約';
+                                    slotContent = '<span class="mdi mdi-check"></span>';
                                     onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
-                                    titleAttribute = 'title="已預約"'; // 設定 tooltip
+                                    titleAttribute = 'title="查看憑證"'; // 修改：已預約提示
                                     break;
                                 default:
                                     // 'no_class' 狀態則維持 slotContent 為空字串
                                     break;
                             }
                         }
-                        bodyHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>${slotContent}</td>`;
+                        bodyHtml += `<td ${onClickAction} ${titleAttribute}><div class="${slotClass}">${slotContent}</div></td>`;
                     });
                     bodyHtml += '</tr>';
                 });
@@ -689,7 +709,7 @@
             element.onclick = null;
             element.classList.remove('available');
             element.classList.add('processing');
-            element.innerHTML = '稍候';
+            element.innerHTML = '<div class="slot processing"><span class="mdi mdi-loading"></span></div>';
 
             try {                
                 // --- 方案二：前端直接呼叫 Supabase RPC ---
