@@ -44,6 +44,13 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
+        }
+
+        /* 新增：讓 header 和 content 填滿容器寬度 */
+        #header-container, #content-container {
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .success-icon {
@@ -67,7 +74,7 @@
         /* 新增：預約摘要樣式 */
         .booking-summary {
             /* 移除背景、邊框、內距，與背景融為一體 */
-            margin: 1.5rem 2rem 2.5rem 2rem;
+            margin: 1.5rem 0 2.5rem 0; /* 修正：移除左右 margin，讓寬度填滿容器 */
             text-align: left;
         }
 
@@ -100,6 +107,8 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            /* 新增：讓按鈕容器填滿可用寬度 */
+            width: 100%;
         }
         .error {
             color: #dc3545;
