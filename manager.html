@@ -9,6 +9,8 @@
     <!-- 修正：必須先載入 Supabase 主函式庫，再載入使用它的工具函式 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="manager-utils.js"></script>
+    <!-- 新增：載入 interact.js 用於畫布課表的拖曳與縮放 -->
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -33,6 +35,12 @@
             /* 新增：預約狀態專用顏色 */
             --info-bg-light: #cce5ff;
             --info-text-dark: #004085;
+        }
+        /* 新增：畫布課表專用 CSS 變數 */
+        :root {
+            --hour-line-color: #e9ecef;
+            --time-axis-width: 80px;
+            --hour-height: 80px; /* 每小時的高度 */
         }
 
         body {
@@ -100,19 +108,6 @@
 
         .content-section.active {
             display: block;
-        }
-
-        /* 新增：用於 iframe 容器的樣式 */
-        .content-section.iframe-container {
-            /* 移除內距，讓 iframe 填滿 */
-            padding: 0; 
-            /* 設定高度以填滿可視區域，減去 main-content 的上下 padding (2rem * 2) */
-            height: calc(100vh - 4rem); 
-        }
-        .content-section.iframe-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
         }
 
         /* 修正：移除 h1 的獨立樣式，改由 page-header 控制 */
@@ -235,92 +230,11 @@
             text-align: center; /* 水平置中 */
         }
 
-        /* --- Phase 2: 課表管理樣式 --- */
-        .schedule-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .schedule-controls h3 {
-            margin: 0;
-            font-size: 1.5em;
-        }
-
-        .schedule-grid-container {
-            overflow-x: auto;
-        }
-
-        .schedule-grid {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed; /* 恢復為 fixed，確保所有日期欄位等寬 */
-            min-width: 800px; /* 確保在小螢幕上也能正常滾動 */
-        }
-
-        /* 1. 表頭(第一行)使用不同顏色，並垂直置中 */
-        .schedule-grid thead th {
-            background-color: #e9ecef; /* 使用一個比內容區稍深的顏色 */
-            vertical-align: middle;
-            height: 60px;
-            font-size: 1.3em; 
-        }
-
-        .schedule-grid th, .schedule-grid td {
-            border: 1px solid var(--border-color);
-            text-align: center;
-            vertical-align: top;
-            padding: 0.5rem;
-            min-height: 60px; /* 修正：使用 min-height 確保最小高度，並允許內容擴展 */
-        }
-
-        /* 2. 奇數與偶數行使用不同顏色 (Zebra Striping) */
-        .schedule-grid tbody tr:nth-child(odd) {
-            background-color: var(--content-bg); /* e.g., #ffffff */
-        }
-        .schedule-grid tbody tr:nth-child(even) {
-            background-color: #f2f2f2; /* 使用一個比預設更深的灰色，增加對比度 */
-        }
-
-        .schedule-grid .time-label {
-            vertical-align: middle;
-            font-weight: bold;
-            font-size: 1.3em; /* 3. 加大時間字體 */
-        }
-
-        /* 修正：為課表的時間欄設定一個固定的、合理的寬度 */
-        .schedule-grid .time-col {
-            width: 80px; /* 提供足夠的寬度顯示 HH:MM */
-        }
-
         .class-cell {
             cursor: pointer;
         }
         .class-cell:hover {
             background-color: #e9ecef;
-        }
-
-        .class-item {
-            background-color: #404040; 
-            color: white;
-            border-radius: 4px;
-            padding: 0.5rem;
-            margin-bottom: 0.25rem;
-            font-size: 1em; /* 放大課堂項目字體 */
-            text-align: left;
-            /* 設定一個預設的卡片色，如果沒有對應的課程ID顏色，則顯示此顏色 */
-            border-left: 6px solid var(--secondary-color); 
-        }
-        .class-item strong {
-            display: block;
-            /* 新增：防止課堂名稱換行，並在過長時顯示省略號 */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .class-item .info {
-            display: flex;
-            justify-content: space-between;
-            opacity: 0.8;
         }
 
         /* --- 新增：顏色選擇器樣式 --- */
@@ -473,6 +387,124 @@
             color: var(--secondary-text-dark);
             background-color: var(--secondary-bg-light);
         }
+
+        /* --- 新增：畫布課表專用樣式 (從 manager-schedule.html 整合) --- */
+        .canvas-schedule-header {
+            display: flex;
+            margin-left: var(--time-axis-width); /* 與下方時間軸對齊 */
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .day-header {
+            flex: 1;
+            text-align: center;
+            padding: 0.75rem 0;
+            font-weight: 500;
+            font-size: 1.2rem;
+            border-left: 1px solid var(--border-color);
+            background-color: #e9ecef;
+            color: var(--text-color);
+        }
+
+        .schedule-canvas-grid {
+            display: flex;
+            position: relative;
+            overflow-y: auto;
+            height: calc(13 * var(--hour-height)); 
+        }
+
+        .time-axis {
+            width: var(--time-axis-width);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .time-label {
+            position: absolute;
+            right: 8px;
+            transform: translateY(-50%);
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .day-column {
+            flex: 1;
+            position: relative;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .hour-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background-color: var(--hour-line-color);
+            left: 0;
+        }
+
+        .hour-background {
+            position: absolute;
+            width: 100%;
+            left: 0;
+            background-color: #f2f2f2;
+            z-index: 1;
+            height: var(--hour-height);
+        }
+
+        .class-item {
+            position: absolute;
+            left: 4px;
+            right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            background-color: #404040;
+            color: white;
+            border-left: 5px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.9em;
+            box-sizing: border-box;
+            overflow: hidden;
+            z-index: 10;
+            transition: left 0.2s, width 0.2s;
+            cursor: pointer;
+        }
+
+        .class-item.dragging {
+            opacity: 0.7;
+            z-index: 20;
+        }
+
+        .resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 8px;
+        }
+        .resize-handle-top {
+            top: 0;
+            cursor: ns-resize;
+        }
+        .resize-handle-bottom {
+            bottom: 0;
+            cursor: ns-resize;
+        }
+
+        .class-item strong {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .class-item .info {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .class-item-content {
+            /* 內容本身不接收滑鼠事件，讓 interact.js 的 tap 事件能作用在 .class-item 上 */
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -481,8 +513,7 @@
         <h2>Wally Studio</h2>
         <ul class="sidebar-nav">
             <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
-            <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🗓️</span><span class="nav-text">課表管理</span></a></li>
-            <li><a href="#schedule-canvas" class="nav-link" data-target="schedule-canvas"><span class="nav-icon">🎨</span><span class="nav-text">畫布課表 (新)</span></a></li>
+            <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🎨</span><span class="nav-text">課表管理</span></a></li>
             <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
             <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">客戶管理</span></a></li>
             <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
@@ -513,25 +544,29 @@
             <div id="booking-table-container"></div>
         </section>
 
-        <section id="schedule" class="content-section">
+        <!-- 整合後的畫布課表 -->
+        <section id="schedule" class="content-section" style="padding: 0;">
             <div class="page-header">
-                <h1>🗓️ 課表管理</h1>
+                <h1>🎨 課表管理</h1>
                 <div class="filter-controls">
-                    <button class="btn btn-secondary" id="prev-week-btn">&lt; 上一週</button>
-                    <button class="btn btn-secondary" id="next-week-btn">下一週 &gt;</button>
+                    <button id="canvas-prev-week-btn" class="btn btn-secondary">&lt; 上一週</button>
+                    <button id="canvas-next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
                 </div>
             </div>
-            <div class="schedule-grid-container">
-                <div id="manager-schedule-grid">
-                    <p>正在載入課表...</p>
-                    <!-- 課表網格將會渲染在這裡 -->
-                </div>
-            </div>
-        </section>
+            
+            <!-- 星期標頭 -->
+            <div id="schedule-header-container" class="canvas-schedule-header"></div>
 
-        <!-- 新增：畫布課表區塊 -->
-        <section id="schedule-canvas" class="content-section iframe-container">
-            <iframe src="manager-schedule.html"></iframe>
+            <!-- 主要畫布網格 -->
+            <div id="schedule-canvas-grid" class="schedule-canvas-grid">
+                <!-- 左側時間軸 -->
+                <div id="time-axis-container" class="time-axis"></div>
+
+                <!-- 每日畫布 (7天) -->
+                <div id="day-columns-container" style="display: flex; flex-grow: 1;">
+                    <p style="padding: 2rem;">正在載入課表...</p>
+                </div>
+            </div>
         </section>
 
         <section id="courses" class="content-section">
@@ -747,7 +782,6 @@
         let coachSortState = { column: 'coach_id', direction: 'asc' };
         let currentUsers = [];
         let userSortState = { column: 'registration_date', direction: 'desc' };
-        let currentManagerDate = new Date(); // 用於課表管理的目前日期
 
         document.addEventListener('DOMContentLoaded', () => {
             // 1. 監聽 URL hash 變化來處理導覽
@@ -762,14 +796,10 @@
                 }
             });
 
-            // 3. 綁定課表管理按鈕事件
-            document.getElementById('prev-week-btn').addEventListener('click', () => changeWeek(-7));
-            document.getElementById('next-week-btn').addEventListener('click', () => changeWeek(7));
-
             // 4. 頁面載入時，根據 URL hash 決定顯示內容
             handleNavigation();
 
-            // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式)
+            // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式，並傳入對應的回呼)
             document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule));
             document.getElementById('delete-class-btn').addEventListener('click', (event) => handleDeleteClass(event, loadManagerSchedule));
             // 點擊 Modal 外部區域也可關閉
@@ -1056,7 +1086,6 @@
             if (activeSection) activeSection.classList.add('active');
 
             // 優化：只有當資料尚未載入時，才執行載入函式
-            // 這樣可以避免每次切換分頁都重新向後端請求資料
             switch (targetId) {
                 case 'bookings':
                     if (currentBookings.length === 0) loadBookings();
@@ -1064,9 +1093,6 @@
                 case 'schedule':
                     // 課表比較特殊，每次切換都重新載入以確保是最新資料
                     loadManagerSchedule();
-                    break;
-                case 'schedule-canvas':
-                    // iframe 會自行載入，此處無需額外操作
                     break;
                 case 'courses':
                     if (currentCourses.length === 0) loadCourses();
@@ -1170,113 +1196,6 @@
                 sortState.direction = 'desc'; // 預設降序，特別是對於日期
             }
             sortAndRender();
-        }
-
-        // --- Phase 2: 課表管理函式 ---
-
-        function changeWeek(days) {
-            currentManagerDate.setDate(currentManagerDate.getDate() + days);
-            loadManagerSchedule();
-        }
-
-        async function loadManagerSchedule() {
-            const container = document.getElementById('manager-schedule-grid');
-            container.innerHTML = '<p>正在載入課表...</p>';
-
-            const startOfWeek = new Date(currentManagerDate);
-            const dayOfWeek = startOfWeek.getDay(); // 0=Sun, 1=Mon, ...
-            startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek); // 將一週開始設為星期日
-
-            const formatDate = (date) => date.toISOString().split('T')[0];
-            const startDateString = formatDate(startOfWeek);
-            const endDate = new Date(startOfWeek);
-            endDate.setDate(startOfWeek.getDate() + 6);
-            const endDateString = formatDate(endDate);
-
-            try {
-                // --- 方案一：直接從 Supabase 讀取資料 ---
-                const { data, error } = await supabaseClient
-                    .from('classes_with_details') // 使用我們建立的 View
-                    .select('*')
-                    .gte('class_date', startDateString)
-                    .lte('class_date', endDateString);
-
-                if (error) throw error;
-
-                // 將從 Supabase 取得的資料，轉換為舊函式需要的格式
-                const classData = {};
-                data.forEach(cls => {
-                    const dateString = cls.class_date;
-                    const hourString = cls.start_time.substring(0, 2) + ':00';
-
-                    if (!classData[dateString]) {
-                        classData[dateString] = {};
-                    }
-                    if (!classData[dateString][hourString]) {
-                        classData[dateString][hourString] = [];
-                    }
-
-                    classData[dateString][hourString].push({
-                        classId: cls.class_id,
-                        className: cls.class_name,
-                        coachName: cls.coach_name,
-                        currentStudents: cls.current_students,
-                        maxStudents: cls.max_students,
-                        color: cls.color || '#6c757d' // 提供預設顏色
-                    });
-                });
-
-                renderManagerScheduleGrid(classData, startOfWeek);
-
-            } catch (error) {
-                console.error('載入課表資料失敗:', error);
-                container.innerHTML = `<p style="color: red;">載入課表失敗: ${error.message}</p>`;
-            }
-        }
-
-        function renderManagerScheduleGrid(classData, startOfWeek) {
-            const container = document.getElementById('manager-schedule-grid');
-            const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
-            const formatDate = (date) => date.toISOString().split('T')[0];
-
-            let headerHtml = '<tr><th class="time-col">時間</th>';
-            const days = ['日', '一', '二', '三', '四', '五', '六'];
-            for (let i = 0; i < 7; i++) {
-                const currentDate = new Date(startOfWeek);
-                currentDate.setDate(startOfWeek.getDate() + i);
-                headerHtml += `<th>週${days[i]}<br>${currentDate.getMonth()+1}/${currentDate.getDate()}</th>`;
-            }
-            headerHtml += '</tr>';
-
-            let bodyHtml = '';
-            hours.forEach(hour => {
-                bodyHtml += `<tr><td class="time-label time-col">${hour}</td>`;
-                for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-                    const currentDate = new Date(startOfWeek);
-                    currentDate.setDate(startOfWeek.getDate() + dayIndex);
-                    const dateString = formatDate(currentDate);
-                    const hourString = hour.substring(0, 2) + ':00'; // 確保是 HH:00 格式
-
-                    let cellContent = '';
-                    const classesInSlot = classData[dateString] ? classData[dateString][hourString] : null;
-
-                    if (classesInSlot && classesInSlot.length > 0) {
-                        classesInSlot.forEach(cls => {
-                            cellContent += `
-                                <div class="class-item" style="border-left-color: ${cls.color};" onclick="openClassModal(null, null, '${cls.classId}', event)">
-                                    <strong>${cls.className}</strong>
-                                    <div class="info">
-                                        <span>${cls.coachName}</span>
-                                        <span>(${cls.currentStudents}/${cls.maxStudents})</span>
-                                    </div>
-                                </div>`;
-                        });
-                    }
-                    bodyHtml += `<td class="class-cell" onclick="openClassModal('${dateString}', '${hourString}')">${cellContent}</td>`;
-                }
-                bodyHtml += '</tr>';
-            });
-            container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
         }
 
         function renderBookingTable(bookings) {
@@ -1396,7 +1315,7 @@
         }
 
         // 彈窗 Modal 的佔位函式
-        async function openClassModal(date, time, classId = null, event = null) {
+        /* async function openClassModal_OLD(date, time, classId = null, event = null) {
             if (event) {
                 event.stopPropagation(); // 防止觸發儲存格的點擊事件
             }
@@ -1457,7 +1376,12 @@
             }
 
             modal.classList.add('active');
-        }
+        } */
+
+        // 為了與畫布課表共用，我們將舊的 openClassModal 重新命名
+        // 畫布課表有自己的 openClassModal 邏輯
+        // 由於舊課表已移除，此函式不再需要
+        // const openClassModal = openClassModal_OLD;
 
         // 註：handleSaveClass 已移至 manager-utils.js
         /*
@@ -1949,6 +1873,370 @@
 
         function closeUserModal() {
             document.getElementById('user-modal').classList.remove('active');
+        }
+    </script>
+
+    <script>
+        // --- 新增：畫布課表專用 JS (從 manager-schedule.html 整合) ---
+        
+        // 全域變數
+        const canvasStartHour = 9;
+        const canvasEndHour = 21;
+        const canvasHourHeight = 80; // 必須與 CSS 中的 --hour-height 變數一致
+        const canvasPixelsPerMinute = canvasHourHeight / 60;
+        let canvasCurrentDate = new Date(); // 用於追蹤目前顯示的週次
+        let isCanvasInitialized = false;
+        // 修正：將 form 變數宣告移至頂部，確保在所有函式中都可存取
+        const form = document.getElementById('class-form');
+
+        function initializeCanvasSchedule() {
+            if (isCanvasInitialized) return;
+
+            // 綁定週次切換按鈕
+            document.getElementById('canvas-prev-week-btn').addEventListener('click', () => changeCanvasWeek(-7));
+            document.getElementById('canvas-next-week-btn').addEventListener('click', () => changeCanvasWeek(7));
+
+            // 綁定畫布點擊新增課堂事件
+            document.getElementById('day-columns-container').addEventListener('click', (event) => {
+                if (event.target.closest('.class-item')) return;
+                const dayColumn = event.target.closest('.day-column');
+                if (dayColumn) {
+                    const dayIndex = parseInt(dayColumn.dataset.day, 10);
+                    const offsetY = event.offsetY;
+                    handleCanvasClick(dayIndex, offsetY);
+                }
+            });
+
+            // 初始化拖曳與縮放功能
+            initDragAndResize();
+            isCanvasInitialized = true;
+        }
+
+        function renderCanvasShell() {
+            const headerContainer = document.getElementById('schedule-header-container');
+            const timeAxisContainer = document.getElementById('time-axis-container');
+            const dayColumnsContainer = document.getElementById('day-columns-container');
+
+            let timeAxisHtml = '';
+            for (let hour = canvasStartHour; hour <= canvasEndHour; hour++) {
+                const topPosition = (hour - canvasStartHour) * canvasHourHeight;
+                timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; ${hour === canvasStartHour ? 'transform: translateY(0);' : ''}">${String(hour).padStart(2, '0')}:00</div>`;
+            }
+            timeAxisContainer.innerHTML = timeAxisHtml;
+
+            let dayColumnsHtml = '';
+            for (let i = 0; i < 7; i++) {
+                let dayColumnContent = '';
+                for (let hour = canvasStartHour; hour < canvasEndHour; hour++) {
+                    const topPosition = (hour - canvasStartHour) * canvasHourHeight;
+                    dayColumnContent += `<div class="hour-line" style="top: ${topPosition + canvasHourHeight}px;"></div>`;
+                    if (hour % 2 === 0) {
+                        dayColumnContent += `<div class="hour-background" style="top: ${topPosition}px;"></div>`;
+                    }
+                }
+                dayColumnsHtml += `<div class="day-column" data-day="${i}">${dayColumnContent}</div>`;
+            }
+            dayColumnsContainer.innerHTML = dayColumnsHtml;
+        }
+
+        async function loadManagerSchedule() {
+            // 這是新的主要載入函式，取代舊的表格版 loadManagerSchedule
+            initializeCanvasSchedule();
+            renderCanvasShell();
+
+            const startOfWeek = new Date(canvasCurrentDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const endDate = new Date(startOfWeek);
+            endDate.setDate(startOfWeek.getDate() + 6);
+
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            const startDateString = formatDate(startOfWeek);
+            const endDateString = formatDate(endDate);
+
+            updateDayHeaders(startOfWeek);
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('classes_with_details')
+                    .select('*')
+                    .gte('class_date', startDateString)
+                    .lte('class_date', endDateString);
+                if (error) throw error;
+                renderClassesOnCanvas(data);
+            } catch (error) {
+                console.error('載入畫布課表資料失敗:', error);
+                showNotification(`載入課表失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function renderClassesOnCanvas(classes) {
+            document.querySelectorAll('.class-item').forEach(item => item.remove());
+
+            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                const dailyClasses = classes
+                    .filter(cls => new Date(cls.class_date).getDay() === dayIndex)
+                    .map(cls => {
+                        const [startH, startM] = cls.start_time.split(':').map(Number);
+                        const [endH, endM] = cls.end_time.split(':').map(Number);
+                        return { ...cls, startMinutes: startH * 60 + startM, endMinutes: endH * 60 + endM, layout: { column: 0, totalColumns: 1 } };
+                    })
+                    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+                if (dailyClasses.length === 0) continue;
+
+                let collisionGroups = [];
+                dailyClasses.forEach(cls => {
+                    let placed = false;
+                    for (const group of collisionGroups) {
+                        if (group.some(c => cls.startMinutes < c.endMinutes && cls.endMinutes > c.startMinutes)) {
+                            group.push(cls);
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) collisionGroups.push([cls]);
+                });
+
+                collisionGroups.forEach(group => {
+                    group.sort((a, b) => a.startMinutes - b.startMinutes);
+                    let columns = [];
+                    group.forEach(cls => {
+                        let placedInColumn = false;
+                        for (let i = 0; i < columns.length; i++) {
+                            if (cls.startMinutes >= columns[i]) {
+                                columns[i] = cls.endMinutes;
+                                cls.layout.column = i;
+                                placedInColumn = true;
+                                break;
+                            }
+                        }
+                        if (!placedInColumn) {
+                            columns.push(cls.endMinutes);
+                            cls.layout.column = columns.length - 1;
+                        }
+                    });
+                    const totalColumns = columns.length;
+                    group.forEach(cls => { cls.layout.totalColumns = totalColumns; });
+                });
+
+                const dayColumn = document.querySelector(`.day-column[data-day="${dayIndex}"]`);
+                dailyClasses.forEach(cls => {
+                    const top = (cls.startMinutes - canvasStartHour * 60) * canvasPixelsPerMinute;
+                    const height = (cls.endMinutes - cls.startMinutes) * canvasPixelsPerMinute;
+                    const width = 100 / cls.layout.totalColumns;
+                    const left = cls.layout.column * width;
+
+                    const classEl = document.createElement('div');
+                    classEl.className = 'class-item';
+                    classEl.dataset.classId = cls.class_id;
+                    classEl.style.cssText = `top:${top}px; height:${height}px; width:${width}%; left:${left}%; border-left-color:${cls.color || '#6c757d'};`;
+                    classEl.innerHTML = `
+                        <div class="class-item-content">
+                            <strong>${cls.class_name}</strong>
+                            <div class="info">${cls.coach_name} (${cls.current_students}/${cls.max_students})</div>
+                            <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
+                        </div>
+                        <div class="resize-handle resize-handle-top"></div>
+                        <div class="resize-handle resize-handle-bottom"></div>`;
+                    if (dayColumn) dayColumn.appendChild(classEl);
+                });
+            }
+        }
+
+        function updateDayHeaders(startOfWeek) {
+            const headerContainer = document.getElementById('schedule-header-container');
+            const days = ['週日', '一', '二', '三', '四', '五', '六'];
+            let headerHtml = '';
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(startOfWeek);
+                d.setDate(startOfWeek.getDate() + i);
+                headerHtml += `<div class="day-header">${days[i]}<br><span style="font-size: 0.8em; font-weight: 400;">${d.getMonth() + 1}/${d.getDate()}</span></div>`;
+            }
+            headerContainer.innerHTML = headerHtml;
+        }
+
+        function changeCanvasWeek(days) {
+            canvasCurrentDate.setDate(canvasCurrentDate.getDate() + days);
+            loadManagerSchedule();
+        }
+
+        function handleCanvasClick(dayIndex, offsetY) {
+            const startOfWeek = new Date(canvasCurrentDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const clickedDate = new Date(startOfWeek);
+            clickedDate.setDate(clickedDate.getDate() + dayIndex);
+            const dateString = clickedDate.toISOString().split('T')[0];
+
+            const totalMinutesFrom9AM = offsetY / canvasPixelsPerMinute;
+            const hourPart = Math.floor(totalMinutesFrom9AM / 60);
+            const minutePart = totalMinutesFrom9AM % 60;
+            const snappedMinute = Math.round(minutePart / 15) * 15;
+            let startH = canvasStartHour + hourPart;
+            let startM = snappedMinute;
+            if (startM >= 60) { startH += 1; startM = 0; }
+            const startTimeString = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+            openClassModalForNew(dateString, startTimeString);
+        }
+
+        async function openClassModal(classId) {
+            // This is the canvas version of openClassModal
+            const modal = document.getElementById('class-modal');
+            await loadManagerFormData();
+            document.getElementById('modal-title').textContent = '編輯課堂';
+            document.getElementById('delete-class-btn').style.display = 'inline-block';
+            document.getElementById('form-class-id').value = classId;
+            try {
+                const { data, error } = await supabaseClient.from('classes_with_details').select('*').eq('class_id', classId).single();
+                if (error) throw new Error(error.message || '找不到指定的課堂');
+                populateFormDropdowns();
+                form.reset(); // 修正：在填充下拉選單後重設表單
+                document.getElementById('form-class-date').value = data.class_date;
+                document.getElementById('form-start-time').value = data.start_time.substring(0, 5);
+                document.getElementById('form-end-time').value = data.end_time ? data.end_time.substring(0, 5) : '';
+                document.getElementById('form-course-id').value = data.course_id;
+                document.getElementById('form-class-name').value = data.class_name;
+                document.getElementById('form-coach-id').value = data.coach_id;
+                document.getElementById('form-max-students').value = data.max_students;
+            } catch (error) {
+                showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
+                return;
+            }
+            modal.classList.add('active');
+        }
+
+        async function openClassModalForNew(date, startTime) {
+            const modal = document.getElementById('class-modal');
+            await loadManagerFormData();
+            populateFormDropdowns();
+            document.getElementById('modal-title').textContent = '新增課堂';
+            form.reset(); // 修正：在填充下拉選單後重設表單
+            document.getElementById('delete-class-btn').style.display = 'none';
+            document.getElementById('form-class-id').value = '';
+            document.getElementById('form-class-date').value = date;
+            document.getElementById('form-start-time').value = startTime;
+            const [startH, startM] = startTime.split(':').map(Number);
+            const endDate = new Date();
+            endDate.setHours(startH + 1, startM, 0, 0);
+            const endTimeString = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+            document.getElementById('form-end-time').value = endTimeString;
+            modal.classList.add('active');
+        }
+
+        function initDragAndResize() {
+            const snapSize = canvasPixelsPerMinute * 15;
+            // 優化：將共用的修飾器抽離出來
+            const commonModifiers = [
+                interact.modifiers.restrictRect({ restriction: 'parent' }),
+                interact.modifiers.snap({ targets: [interact.snappers.grid({ x: 1, y: snapSize })], range: Infinity, relativePoints: [{ x: 0, y: 0 }] })
+            ];
+
+            interact('.class-item')
+                .draggable({
+                    listeners: {
+                        start(event) { event.target.classList.add('dragging'); },
+                        move(event) {
+                            const target = event.target;
+                            const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                            const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+                            target.style.transform = `translate(${x}px, ${y}px)`;
+                            target.setAttribute('data-x', x);
+                            target.setAttribute('data-y', y);
+                        },
+                        end(event) {
+                            const target = event.target;
+                            target.classList.remove('dragging');
+                            const dayOffset = Math.round(parseFloat(target.getAttribute('data-x')) / target.parentElement.offsetWidth);
+                            const minuteOffset = Math.round(parseFloat(target.getAttribute('data-y')) / canvasPixelsPerMinute / 15) * 15;
+                            target.style.transform = '';
+                            target.setAttribute('data-x', 0);
+                            target.setAttribute('data-y', 0);
+                            if (dayOffset === 0 && minuteOffset === 0) return;
+                            quickSaveClass(target.dataset.classId, { dayOffset, minuteOffset });
+                        }
+                    },
+                    modifiers: commonModifiers, // 使用共用變數
+                    inertia: true
+                })
+                .resizable({
+                    edges: { top: '.resize-handle-top', bottom: '.resize-handle-bottom' },
+                    listeners: {
+                        start(event) { event.target.classList.add('dragging'); },
+                        move(event) {
+                            let { x, y } = event.target.dataset;
+                            x = (parseFloat(x) || 0) + event.deltaRect.left;
+                            y = (parseFloat(y) || 0) + event.deltaRect.top;
+                            event.target.style.width = event.rect.width + 'px';
+                            event.target.style.height = event.rect.height + 'px';
+                            event.target.style.transform = `translate(${x}px, ${y}px)`;
+                            event.target.setAttribute('data-x', x);
+                            event.target.setAttribute('data-y', y);
+                        },
+                        end(event) {
+                            const target = event.target;
+                            target.classList.remove('dragging');
+                            const newTop = target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0);
+                            const newHeight = target.offsetHeight;
+                            target.style.transform = '';
+                            target.setAttribute('data-x', 0);
+                            target.setAttribute('data-y', 0);
+                            const startMinutesFrom9AM = Math.round((newTop / canvasPixelsPerMinute) / 15) * 15;
+                            const durationMinutes = Math.max(15, Math.round((newHeight / canvasPixelsPerMinute) / 15) * 15);
+                            quickSaveClass(target.dataset.classId, { startMinutesFrom9AM, durationMinutes });
+                        }
+                    },
+                    modifiers: commonModifiers, // 使用共用變數
+                    inertia: true
+                })
+                .on('tap', function (event) {
+                    const classId = event.currentTarget.dataset.classId;
+                    if (classId) openClassModal(classId);
+                    event.preventDefault();
+                });
+        }
+
+        async function quickSaveClass(classId, changes) {
+            const { data: oldClass, error: fetchError } = await supabaseClient.from('classes_with_details').select('*').eq('class_id', classId).single();
+            if (fetchError) { showNotification('找不到原始課程資料，無法更新。', 'error'); return; }
+
+            let newDate = new Date(oldClass.class_date);
+            let [startH, startM] = oldClass.start_time.split(':').map(Number);
+            let [endH, endM] = oldClass.end_time.split(':').map(Number);
+
+            if (changes.dayOffset !== undefined) { // Drag
+                newDate.setDate(newDate.getDate() + changes.dayOffset);
+                const newStartTime = new Date(0, 0, 0, startH, startM + changes.minuteOffset);
+                const newEndTime = new Date(0, 0, 0, endH, endM + changes.minuteOffset);
+                startH = newStartTime.getHours(); startM = newStartTime.getMinutes();
+                endH = newEndTime.getHours(); endM = newEndTime.getMinutes();
+            } else if (changes.startMinutesFrom9AM !== undefined) { // Resize
+                const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
+                const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + changes.durationMinutes);
+                startH = newStart.getHours(); startM = newStart.getMinutes();
+                endH = newEnd.getHours(); endM = newEnd.getMinutes();
+            }
+
+            const formatTime = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            const params = {
+                p_class_id: classId,
+                p_class_date: newDate.toISOString().split('T')[0],
+                p_start_time: formatTime(startH, startM),
+                p_end_time: formatTime(endH, endM),
+                p_course_id: oldClass.course_id, p_class_name: oldClass.class_name,
+                p_coach_id: oldClass.coach_id, p_max_students: oldClass.max_students
+            };
+
+            try {
+                const { data, error } = await supabaseClient.rpc('save_class', params);
+                if (error) throw error;
+                const result = data[0];
+                if (result.status !== 'success') {
+                    showNotification(result.message, 'error');
+                }
+                loadManagerSchedule(); // Always reload
+            } catch (error) {
+                showNotification(`更新失敗: ${error.message}`, 'error');
+                loadManagerSchedule(); // Always reload
+            }
         }
     </script>
 
