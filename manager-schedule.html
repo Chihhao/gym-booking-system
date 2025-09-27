@@ -98,6 +98,9 @@
             position: absolute;
             left: 4px;
             right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
             background-color: #404040; /* 統一為深灰色底 */
             color: white;
             border-left: 5px solid var(--border-color); /* 預設邊框，會被 JS 覆蓋 */
@@ -108,6 +111,7 @@
             overflow: hidden;
             z-index: 10;
         }
+
         .class-item strong {
             display: block;
             white-space: nowrap;
@@ -115,6 +119,14 @@
             text-overflow: ellipsis;
         }
         .class-item .info {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .student-count {
+            position: absolute;
+            bottom: 0.5rem; /* 與 padding 相同 */
+            right: 0.5rem;  /* 與 padding 相同 */
             font-size: 0.9em;
             opacity: 0.8;
         }
@@ -133,6 +145,89 @@
         .btn:hover {
             background-color: #e9ecef;
         }
+
+        /* --- Modal 彈窗樣式 --- */
+        .modal-overlay {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-color);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #6c757d;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        .modal-actions {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* 複用 manager.html 的按鈕樣式 */
+        .modal-actions .btn {
+            color: white;
+            border: none;
+        }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
 
     </style>
 </head>
@@ -169,6 +264,70 @@
         </div>
     </div>
 
+    <!-- 新增/編輯課堂的 Modal (從 manager.html 複製) -->
+    <div id="class-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeClassModal()">&times;</button>
+            <h2 id="modal-title">課堂資訊</h2>
+            <form id="class-form">
+                <input type="hidden" id="form-class-id">
+                <div class="form-group">
+                    <label for="form-class-date">上課日期</label>
+                    <input type="date" id="form-class-date" required>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="form-start-time">開始時間</label>
+                        <input type="time" id="form-start-time" step="900" required> <!-- step="900" for 15-min intervals -->
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="form-end-time">結束時間</label>
+                        <input type="time" id="form-end-time" step="900" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="form-course-id">課程型錄</label>
+                    <select id="form-course-id" required>
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="form-class-name">課堂名稱</label>
+                    <input type="text" id="form-class-name" placeholder="例如：燃脂飛輪 (週二班)" required>
+                </div>
+                <div class="form-group">
+                    <label for="form-coach-id">教練</label>
+                    <select id="form-coach-id" required>
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="form-max-students">人數上限</label>
+                    <input type="number" id="form-max-students" min="1" value="4" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="delete-class-btn" class="btn btn-danger">刪除課堂</button>
+                    <button type="submit" class="btn btn-success">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 卡片式通知 Modal (從 manager.html 複製) -->
+    <div id="notification-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <button id="notification-close-icon" class="modal-close-btn">&times;</button>
+            <h2 id="notification-title">通知</h2>
+            <div class="form-group">
+                <p id="notification-message" style="font-size: 1.1em; line-height: 1.6; margin: 0;"></p>
+            </div>
+            <div class="modal-actions" style="justify-content: center;">
+                <button id="notification-close-btn" class="btn">確認</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
@@ -181,6 +340,7 @@
         const pixelsPerMinute = hourHeight / 60;
 
         let currentDate = new Date(); // 用於追蹤目前顯示的週次
+        let managerFormData = null; // 儲存課程和教練列表
 
         document.addEventListener('DOMContentLoaded', () => {
             renderCanvasShell();
@@ -189,6 +349,37 @@
             // 綁定週次切換按鈕
             document.getElementById('prev-week-btn').addEventListener('click', () => changeWeek(-7));
             document.getElementById('next-week-btn').addEventListener('click', () => changeWeek(7));
+
+            // --- 綁定 Modal 相關事件 (從 manager.html 移植) ---
+            document.getElementById('class-modal').addEventListener('click', (event) => {
+                if (event.target === event.currentTarget) closeClassModal();
+            });
+            document.getElementById('class-form').addEventListener('submit', handleSaveClass);
+            document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
+
+            // 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
+            document.getElementById('form-course-id').addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const classNameInput = document.getElementById('form-class-name');
+                if (selectedOption && selectedOption.value) {
+                    const courseName = selectedOption.text.split(' (')[0];
+                    classNameInput.value = courseName;
+                } else {
+                    classNameInput.value = '';
+                }
+            });
+
+            // 綁定通知 Modal 關閉事件
+            function closeNotificationModal() {
+                document.getElementById('notification-modal').classList.remove('active');
+            }
+            document.getElementById('notification-modal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeNotificationModal();
+                }
+            });
+            document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
+            document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
         });
 
         /**
@@ -294,6 +485,9 @@
                 // 建立課程 DOM 元素
                 const classEl = document.createElement('div');
                 classEl.className = 'class-item';
+                classEl.dataset.classId = cls.class_id; // 儲存 class_id 以便點擊時使用
+                classEl.onclick = () => openClassModal(cls.class_id); // 綁定點擊事件
+
                 classEl.style.top = `${top}px`;
                 classEl.style.height = `${height}px`;
                 // 直接使用課程型錄的顏色作為左側邊框顏色
@@ -303,6 +497,7 @@
                     <strong>${cls.class_name}</strong>
                     <div class="info">${cls.coach_name}</div>
                     <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
+                    <div class="student-count">(${cls.current_students}/${cls.max_students})</div>
                 `;
 
                 // 找到對應的每日畫布並附加課程
@@ -338,9 +533,179 @@
             loadSchedule();
         }
 
+        // --- Modal 相關函式 (從 manager.html 移植並修改) ---
+
+        async function openClassModal(classId) {
+            const modal = document.getElementById('class-modal');
+            const form = document.getElementById('class-form');
+            form.reset();
+
+            // 載入課程和教練列表
+            await loadManagerFormData();
+
+            document.getElementById('modal-title').textContent = '編輯課堂';
+            document.getElementById('delete-class-btn').style.display = 'inline-block';
+            document.getElementById('form-class-id').value = classId;
+
+            try {
+                // 查詢 classes_with_details 包含 end_time
+                const { data, error } = await supabaseClient
+                    .from('classes_with_details')
+                    .select('*')
+                    .eq('class_id', classId)
+                    .single();
+
+                if (error) throw new Error(error.message || '找不到指定的課堂');
+
+                // 先填充下拉選單，再設定表單的值
+                populateFormDropdowns(); 
+
+                document.getElementById('form-class-date').value = data.class_date;
+                document.getElementById('form-start-time').value = data.start_time.substring(0, 5);
+                document.getElementById('form-end-time').value = data.end_time ? data.end_time.substring(0, 5) : '';
+                document.getElementById('form-course-id').value = data.course_id;
+                document.getElementById('form-class-name').value = data.class_name;
+                document.getElementById('form-coach-id').value = data.coach_id;
+                document.getElementById('form-max-students').value = data.max_students;
+
+            } catch (error) {
+                showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
+                return;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeClassModal() {
+            document.getElementById('class-modal').classList.remove('active');
+        }
+
+        async function handleSaveClass(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '儲存中...';
+
+            const params = {
+                p_class_id: document.getElementById('form-class-id').value,
+                p_class_date: document.getElementById('form-class-date').value,
+                p_start_time: document.getElementById('form-start-time').value,
+                p_end_time: document.getElementById('form-end-time').value,
+                p_course_id: document.getElementById('form-course-id').value,
+                p_class_name: document.getElementById('form-class-name').value,
+                p_coach_id: document.getElementById('form-coach-id').value,
+                p_max_students: parseInt(document.getElementById('form-max-students').value, 10)
+            };
+
+            try {
+                const { data, error } = await supabaseClient.rpc('save_class', params);
+                if (error) throw error;
+
+                const result = data[0];
+                showNotification(result.message, result.status);
+
+                if (result.status === 'success') {
+                    closeClassModal();
+                    loadSchedule(); // 重新載入課表
+                }
+
+            } catch (error) {
+                console.error('儲存課堂時發生錯誤:', error);
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            }
+        }
+
+        async function handleDeleteClass() {
+            const classId = document.getElementById('form-class-id').value;
+            if (!confirm(`您確定要刪除這個課堂嗎？\n此操作無法復原。`)) return;
+
+            const deleteBtn = document.getElementById('delete-class-btn');
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '刪除中...';
+
+            try {
+                const { data, error } = await supabaseClient.rpc('delete_class', { p_class_id: classId });
+                if (error) throw error;
+
+                const result = data[0];
+                showNotification(result.message, result.status);
+
+                if (result.status === 'success') {
+                    closeClassModal();
+                    loadSchedule(); // 重新載入課表
+                }
+            } catch (error) {
+                console.error('刪除課堂時發生錯誤:', error);
+                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = '刪除課堂';
+            }
+        }
+
+        async function loadManagerFormData() {
+            if (managerFormData) return; // 如果資料已存在，直接返回
+            try {
+                const { data: result, error } = await supabaseClient.rpc('get_manager_form_data');
+                if (error) throw error;
+                managerFormData = result;
+            } catch (error) {
+                console.error('載入管理表單資料失敗:', error);
+                showNotification(`載入表單選項失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function populateFormDropdowns() {
+            if (!managerFormData) return;
+
+            const courseSelect = document.getElementById('form-course-id');
+            const coachSelect = document.getElementById('form-coach-id');
+
+            courseSelect.innerHTML = '<option value="">-- 請選擇課程 --</option>';
+            managerFormData.courses.forEach(course => {
+                const option = new Option(`${course.courseName} (${course.courseId})`, course.courseId);
+                courseSelect.add(option);
+            });
+
+            coachSelect.innerHTML = '<option value="">-- 請選擇教練 --</option>';
+            managerFormData.coaches.forEach(coach => {
+                const option = new Option(coach.coachName, coach.coachId);
+                coachSelect.add(option);
+            });
+        }
+
+        function showNotification(message, type = 'info') {
+            const modal = document.getElementById('notification-modal');
+            const titleEl = document.getElementById('notification-title');
+            const messageEl = document.getElementById('notification-message');
+            const closeBtn = document.getElementById('notification-close-btn');
+
+            messageEl.textContent = message;
+            closeBtn.className = 'btn'; // 重設按鈕 class
+
+            switch (type) {
+                case 'success':
+                    titleEl.textContent = '操作成功';
+                    closeBtn.classList.add('btn-success');
+                    break;
+                case 'error':
+                    titleEl.textContent = '發生錯誤';
+                    closeBtn.classList.add('btn-danger');
+                    break;
+                default:
+                    titleEl.textContent = '通知';
+                    closeBtn.classList.add('btn-secondary');
+                    break;
+            }
+            modal.classList.add('active');
+        }
+
     </script>
-    <!-- 引入 chroma.js 用於顏色操作 -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script> -->
 
 </body>
 </html>
