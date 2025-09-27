@@ -15,7 +15,8 @@
     justify-content: space-between;
     align-items: center; /* 讓圓圈和箭頭垂直置中對齊 */
     width: 100%;
-    margin-bottom: 10px; /* 調整與下方卡片的間距 */
+    margin-top: -10px; /* 調整與下方卡片的間距 */
+    margin-bottom: 0px; /* 調整與下方卡片的間距 */
     padding: 0 2px; /* 左右留白避免貼邊 */
     box-sizing: border-box;
 }
@@ -28,20 +29,17 @@
     flex-shrink: 0; /* 防止被壓縮 */
 }
 .step-box {
-    width: auto;
-    height: auto;
-    padding: 0.5rem 0.8rem;
+    padding: 0.6rem 1rem; /* 微調內距 */
     border-radius: 8px;
-    background-color: transparent; /* 背景改為透明 */
+    background-color: transparent; /* 預設：透明底 */
     color: #adb5bd;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.3em; /* 調整字體大小以適應矩形 */
+    font-size: 1.1em; /* 調整字體大小 */
     line-height: 1.2; /* 調整行高 */
-    border-style: solid;
-    border-color: #495057; /* 預設：灰色邊框 */
-    border-width: 1px 1px 1px 1px; /* 上右下左 */
+    /* 優化：使用 box-shadow 模擬邊框，不影響佈局 */
+    box-shadow: inset 0 0 0 1px #495057;
     transition: all 0.3s ease;
 }
 .connector {
@@ -54,18 +52,19 @@
 
 /* 狀態樣式 */
 .step.active .step-box {
-    background-color: transparent; /* 背景透明 */
-    color: #4dabf7; /* 亮藍色文字 */
-    border-color: #4dabf7; /* 亮藍色邊框 */
-    font-weight: bold;
+    background-color: #fcc419; /* 黃底 */
+    color: #212529; /* 黑字 */
+    box-shadow: inset 0 0 0 1px #fcc419; /* 黃框 */
+    font-weight: bold; /* 選中時文字改為粗體 */
 }
 /* 更新：讓已完成的步驟與當前步驟樣式一致，不再顯示打勾 */
 .step.completed .step-box {
-    color: #4dabf7; /* 亮藍色文字 */
-    border-color: #4dabf7; /* 亮藍色邊框 */
+    background-color: transparent; /* 透明底 */
+    color: #fcc419; /* 黃字 */
+    box-shadow: inset 0 0 0 1px #fcc419; /* 黃框 */
 }
 .connector.completed {
-    color: #4dabf7; /* 完成的連接線：亮藍色 */
+    color: #fcc419; /* 完成的連接線：黃色 */
 }
 
 /* --- 通用卡片樣式 (for Courses & Coaches) --- */
@@ -132,7 +131,7 @@
 .card-highlight {
     margin: 0;
     font-weight: bold;
-    color: #4dabf7;
+    color: #fcc419;
     font-size: 1.1em;
 }
 

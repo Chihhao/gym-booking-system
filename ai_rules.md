@@ -152,6 +152,29 @@
                         justify-content: center; /* 關鍵：將內容垂直置中 */
                     }
                     ```
+*   **2.5. CSS 開發原則與版面一致性 (CSS Principles & Layout Consistency)**
+    *   **問題根源 (Root Cause of Inconsistency)**: 專案初期，各頁面獨立開發，導致樣式分散在各自的 `<style>` 標籤中，缺乏統一規範。這造成了「改東壞西」的維護困難，且難以實現全站一致的視覺體驗。
+
+    *   **解決方案與未來原則 (Solution & Future Principles)**:
+        1.  **貫徹元件化與集中化 (Embrace Componentization & Centralization)**:
+            *   **識別通用元件**: 在開發新功能前，先思考 UI 元件（如卡片、按鈕、容器）是否可重用。
+            *   **優先使用 `common.css`**: 將所有可重用的樣式（如 `.main-container`, `.card`, `.btn`）全部集中到 `common.css`。
+            *   **避免頁面級樣式**: 盡量避免在個別 HTML 檔案的 `<style>` 標籤中編寫通用或可重用的樣式。
+
+        2.  **建立並遵循規則文件 (Build & Adhere to Rule Documents)**:
+            *   **`ai_rules.md` 是開發聖經**: 本文件是專案的「開發聖經」。當遇到複雜的版面需求時，應**先查閱**是否有已定義好的模式（如 Rule 2.4 的全螢幕垂直置中佈局）。
+            *   **記錄新模式**: 當解決了一個新的、可重用的版面問題後，應將其解決方案**記錄到本文件中**，供團隊未來參考。
+
+        3.  **保持 HTML 結構的一致性 (Maintain Consistent HTML Structure)**:
+            *   所有主要頁面都應遵循一個標準的 HTML 骨架，特別是使用通用的容器 class，例如：
+                ```html
+                <body>
+                    <div class="main-container">
+                        <!-- Page content goes here -->
+                    </div>
+                </body>
+                ```
+            *   一致的結構不僅讓版面統一，也讓 CSS 和 JavaScript 的操作更可預測、更穩定。
 
 ---
 
