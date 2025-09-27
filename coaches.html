@@ -171,7 +171,7 @@
             // 新增：在卡片列表下方加入「回到上一頁」的按鈕
             html += `
                 <div class="btn-container">
-                    <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+                    <button class="btn btn-secondary" onclick="goBackToCoursesPage()">重新選擇課程</button>
                 </div>`;
             container.innerHTML = html;
         }
@@ -182,6 +182,16 @@
             
             // 導向到 schedule.html，並傳遞所有需要的參數
             window.location.href = `schedule.html?courseId=${courseId}&courseName=${courseName}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
+        }
+
+        /**
+         * 新增：返回課程選擇頁面
+         * 這個函式會建立一個明確的 URL 返回到課程選擇頁，比 window.history.back() 更可靠。
+         */
+        function goBackToCoursesPage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const debugParam = urlParams.get('debug') === 'true' ? '?debug=true' : '';
+            window.location.href = `courses.html${debugParam}`;
         }
     </script>
 </body>

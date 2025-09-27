@@ -240,7 +240,7 @@
         </div>
         <!-- 新增：回到上一頁按鈕的容器 -->
         <div id="back-button-container" class="btn-container" style="display: none;">
-            <button class="btn btn-secondary" onclick="window.history.back()">回到上一頁</button>
+            <button class="btn btn-secondary" onclick="goBackToCoachSelection()">重新選擇教練</button>
         </div>
     </div>
 
@@ -281,6 +281,7 @@
 
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
+        let currentScheduleDate = new Date(); // 新增：用於追蹤目前課表顯示的週次
 
         window.addEventListener('DOMContentLoaded', main);
 
@@ -363,49 +364,71 @@
                         </div>
                     </div>`;
 
-                await fetchSchedule(courseId, coachId);
+                await fetchSchedule(courseId, coachId, currentScheduleDate);
+
+                // 新增：綁定上下週按鈕事件
+                bindWeekChangeButtons(courseId, coachId);
 
             } catch (err) {
                 console.error('初始化或載入時段失敗', err);
                 document.getElementById('schedule-container').innerHTML = '<p class="error">頁面初始化失敗，請稍後再試。</p>';
             }
         }
-
-        async function fetchSchedule(courseId, coachId) {
+        async function fetchSchedule(courseId, coachId, referenceDate) {
             const container = document.getElementById('schedule-container');
-            container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
+            const grid = container.querySelector('.schedule-grid');
 
+            // 如果表格已存在，只清空內容並顯示載入中，避免閃爍
+            if (grid) {
+                const tbody = grid.querySelector('tbody');
+                const thead = grid.querySelector('thead');
+                if (tbody) {
+                    const colspan = thead.querySelector('tr:first-child').children.length;
+                    tbody.innerHTML = `<tr><td colspan="${colspan}" class="loader" style="height: 300px;">正在載入時段資料...</td></tr>`;
+                }
+            } else {
+                // 第一次載入
+                container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
+            }
             try {
                 // --- 方案一：直接從 Supabase 讀取資料 (最終時區修正版) ---
                 
-                // 1. 建立一個輔助函式，確保任何 Date 物件都能被轉換為本地時區的 YYYY-MM-DD 字串
-                const localToday = new Date();
+                // 1. 建立日期輔助工具
+                const refDate = new Date(referenceDate); // 使用傳入的日期作為基準
                 const getLocalDateString = (date) => {
                     const year = date.getFullYear();
                     const month = (date.getMonth() + 1).toString().padStart(2, '0');
                     const day = date.getDate().toString().padStart(2, '0');
                     return `${year}-${month}-${day}`;
                 };
-                // 取得本地時區的「今天」日期字串，作為所有操作的唯一基準
-                const todayString = getLocalDateString(localToday);
 
-                // 2. 使用本地日期字串查詢 Supabase
+                // 2. 計算本週的開始（星期日）與結束日期
+                const startOfWeek = new Date(refDate);
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // 將日期設為本週的星期日
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6); // 本週的星期六
+
+                const startDateString = getLocalDateString(startOfWeek);
+                const endDateString = getLocalDateString(endOfWeek);
+
+                // 3. 使用計算出的一週範圍查詢 Supabase
                 const { data: classes, error: classesError } = await supabaseClient
                     .from('classes')
                     .select('*')
                     .eq('course_id', courseId) // 篩選課程
                     .eq('coach_id', coachId)   // 篩選教練
                     .eq('status', '開放中') // 雖然 RLS 會擋，但明確寫出更好
-                    .gte('class_date', todayString);
+                    .gte('class_date', startDateString) // 大於等於本週日
+                    .lte('class_date', endDateString);  // 小於等於本週六
 
                 if (classesError) throw classesError;
                 
                 if (!classes || classes.length === 0) {
-                    renderScheduleGrid({}); // 傳入空物件以顯示「無時段」訊息
+                    renderScheduleGrid({}, referenceDate); // 傳入空物件以顯示「無時段」訊息
                     return;
                 }
 
-                // 3. 查詢使用者在這些課堂中的預約紀錄
+                // 4. 查詢使用者在這些課堂中的預約紀錄
                 const classIds = classes.map(c => c.class_id);
                 let userBookings = new Map();
                 if (userProfile && userProfile.userId) {
@@ -425,9 +448,8 @@
                 const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
 
                 for (let i = 0; i < 7; i++) {
-                    // 修正：從本地今天的日期物件開始計算，確保與查詢基準一致
-                    const currentDate = new Date(); // 取得本地當前時間
-                    currentDate.setHours(0, 0, 0, 0); // 設定為本地時間的零點
+                    // 從本週的星期日開始，產生連續七天的日期
+                    const currentDate = new Date(startOfWeek);
                     currentDate.setDate(currentDate.getDate() + i);
                     const dateString = getLocalDateString(currentDate);
 
@@ -461,27 +483,29 @@
                     }
                 });
 
-                renderScheduleGrid(scheduleData);
+                renderScheduleGrid(scheduleData, referenceDate);
 
             } catch (error) {
                 console.error('讀取時段資料時發生錯誤:', error);
                 container.innerHTML = '<p class="error">載入時段資料失敗，請稍後再試或聯繫管理員。</p>';
             }
         }
-
-        function renderScheduleGrid(scheduleData) {
+        function renderScheduleGrid(scheduleData, referenceDate) {
             const container = document.getElementById('schedule-container');
-            if (!scheduleData || Object.keys(scheduleData).length === 0) {
-                // 修正：即使沒有時段，也要顯示提示訊息和返回按鈕
-                container.innerHTML = '<p style="padding: 2em 0;">此課程目前沒有可預約的時段。</p>';
-                document.getElementById('back-button-container').style.display = 'block';
-                return;
-            }
-            const dates = Object.keys(scheduleData).sort();
             const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00'); // 09:00 to 21:00
-            
-            // 為了判斷「已過期」，先取得當前時間
             const now = new Date();
+
+            // 根據 referenceDate 計算當週的日期
+            const startOfWeek = new Date(referenceDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const dates = Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(startOfWeek);
+                d.setDate(d.getDate() + i);
+                const year = d.getFullYear();
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const day = d.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            });
 
             // 產生兩列表頭
             let dateRow = `<tr><th>日期</th>`;
@@ -536,6 +560,12 @@
                                 titleAttribute = 'title="已預約"'; // 設定 tooltip
                                 break;
                             // 'no_class' 狀態則維持 slotContent 為空字串
+                            default:
+                                // 如果沒有資料，檢查 scheduleData 是否為空物件
+                                if (Object.keys(scheduleData).length === 0 && hour === '15:00' && dates.indexOf(date) === 3) {
+                                    slotContent = '此週無時段';
+                                }
+                                break;
                         }
                     }
                     bodyHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>${slotContent}</td>`;
@@ -543,7 +573,16 @@
                 bodyHtml += '</tr>';
             });
 
-            container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+            // 檢查表格是否已存在
+            let grid = container.querySelector('.schedule-grid');
+            if (!grid) {
+                // 如果不存在，建立完整的表格
+                container.innerHTML = `<table class="schedule-grid"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+            } else {
+                // 如果已存在，只更新 thead 和 tbody
+                grid.querySelector('thead').innerHTML = headerHtml;
+                grid.querySelector('tbody').innerHTML = bodyHtml;
+            }
             
             // 新增：顯示返回按鈕
             document.getElementById('back-button-container').style.display = 'block';
@@ -551,6 +590,41 @@
 
         function showBookingDetails(bookingId) {
             window.location.href = `booking-details.html?id=${bookingId}`;
+        }
+
+        // --- 新增：切換週次功能 ---
+        function bindWeekChangeButtons(courseId, coachId) {
+            // 為上下兩個資訊列的按鈕都綁定事件
+            document.querySelectorAll('.week-nav-btn').forEach(btn => {
+                if (btn.id.includes('prev-week-btn')) {
+                    btn.addEventListener('click', () => changeWeek(-7, courseId, coachId));
+                } else if (btn.id.includes('next-week-btn')) {
+                    btn.addEventListener('click', () => changeWeek(7, courseId, coachId));
+                }
+            });
+        }
+
+        function changeWeek(days, courseId, coachId) {
+            currentScheduleDate.setDate(currentScheduleDate.getDate() + days);
+            fetchSchedule(courseId, coachId, currentScheduleDate);
+        }
+
+        /**
+         * 新增：返回教練選擇頁面
+         * 這個函式會從當前 URL 讀取課程資訊，並建立一個明確的 URL 返回到教練選擇頁，
+         * 比 window.history.back() 更為可靠。
+         */
+        function goBackToCoachSelection() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const courseId = urlParams.get('courseId');
+            const courseName = urlParams.get('courseName');
+            const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
+
+            if (courseId && courseName) {
+                window.location.href = `coaches.html?courseId=${courseId}&courseName=${courseName}${debugParam}`;
+            } else {
+                window.history.back(); // 如果缺少參數，則退回使用 history.back()
+            }
         }
 
         async function selectTimeslot(scheduleId, element) {
