@@ -30,6 +30,39 @@
         .header h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
         .header p { margin: 5px 0 0; color: #b0b0b0; }
 
+        /* --- 新增：課表上方的資訊列 --- */
+        .schedule-info-bar {
+            display: flex; /* 改為 flex 佈局 */
+            justify-content: space-between; /* 讓內容兩端對齊 */
+            align-items: center; /* 垂直置中 */
+            background-color: #495057; /* 改為與日期列相同的灰色背景 */
+            color: #ffffff; /* 改為白色文字 */
+            font-weight: normal; /* 移除粗體，與日期列一致 */
+            height: 20px;
+            font-size: 0.9em;
+            width: 100%; /* 寬度與父容器相同 */
+            padding: 0 10px; /* 增加左右內距，避免按鈕貼邊 */
+            box-sizing: border-box;
+            margin-bottom: 3px; /* 新增：與下方表格的間距 */
+        }
+        /* 新增：下方資訊列的樣式調整 */
+        .schedule-info-bar.bottom {
+            margin-bottom: 0; /* 移除下方外距 */
+            margin-top: 3px; /* 改為上方外距 */
+        }
+        .schedule-info-bar .info-text {
+            flex-grow: 1; /* 讓文字區域填滿中間空間 */
+            text-align: center;
+        }
+        .schedule-info-bar .week-nav-btn {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 0.9em; /* 與資訊列文字大小一致 */
+            cursor: pointer;
+            padding: 0; /* 移除內距，讓文字自然對齊 */
+        }
+
         /* --- 2. 恢復為大表格佈局 --- */
         .schedule-wrapper {
             padding: 0px;
@@ -195,11 +228,15 @@
     <!-- 新增：使用通用容器包裹所有內容 -->
     <div class="main-container">
         <div id="header-container"></div>
-    
+
         <div class="schedule-wrapper">
+            <!-- 將資訊列移至 wrapper 內部，使其與表格貼齊 -->
+            <div id="schedule-info-bar-container-top"></div>
             <div id="schedule-container">
                 <p class="loader">正在載入時段資料...</p>
             </div>
+            <!-- 新增：在表格下方也加上資訊列 -->
+            <div id="schedule-info-bar-container-bottom"></div>
         </div>
         <!-- 新增：回到上一頁按鈕的容器 -->
         <div id="back-button-container" class="btn-container" style="display: none;">
@@ -290,6 +327,21 @@
                     document.getElementById('schedule-container').innerHTML = '<p class="error">錯誤：缺少必要的課程或教練資訊。</p>';
                     return;
                 }
+
+                // 產生資訊列的 HTML
+                const infoBarHtml = `
+                    <div class="schedule-info-bar">
+                        <button id="prev-week-btn" class="week-nav-btn">上一週</button>
+                        <span class="info-text">${decodeURIComponent(courseName)} - ${decodeURIComponent(coachName)}</span>
+                        <button id="next-week-btn" class="week-nav-btn">下一週</button>
+                    </div>`;
+                
+                // 將資訊列填入上方和下方的容器
+                document.getElementById('schedule-info-bar-container-top').innerHTML = infoBarHtml;
+                document.getElementById('schedule-info-bar-container-bottom').innerHTML = infoBarHtml.replace(
+                    'class="schedule-info-bar"',
+                    'class="schedule-info-bar bottom"'
+                );
 
                 // 3. 顯示流程圖並載入時段資料
                 document.getElementById('header-container').innerHTML = `
