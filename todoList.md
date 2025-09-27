@@ -2,16 +2,13 @@
 
 
 
-### 優化「回到上一頁」的按鈕顯示 (`schedules.html`, `coaches.html`)
 
-* 將按鈕樣式調整成與 `booking-details.html` 頁面風格一致
 
 
 
 ---
 
-* 將 Google Apps Script 中的 SERVICE_KEY 移至更安全的「指令碼屬性」中。
-* 請幫我為這些資料表撰寫 Supabase 的 RLS (Row Level Security) 規則，以確保資料安全。
+### 到 Supabase 查看系統建議
 
 ---
 

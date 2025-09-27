@@ -17,30 +17,42 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 10px;
+            margin: 0; /* 移除預設邊距 */
             background-color: #212529;
             color: #e0e0e0;
+            display: flex; /* 讓 body 成為 flex 容器 */
+            height: 100dvh; /* 使用動態可視高度，填滿整個螢幕 */
         }
 
         #page-container {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: center; /* 水平置中所有子元素 */
+            /* 移除 justify-content，讓內容從頂部開始排列 */
+            flex-grow: 1; /* 填滿 body 的所有空間 */
+            padding: 1rem; /* 增加內邊距，避免內容貼邊 */
+            box-sizing: border-box;
         }
 
         .container {
+            /* 新增：讓 main-container 填滿剩餘空間並置中其內容 */
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            /* --- */
             text-align: center;
             width: 100%;
             max-width: 400px;
         }
 
         .success-icon {
-            font-size: 4rem;
+            font-size: 6rem;
             margin-bottom: 1rem;
         }
 
         h1 {
-            color: #ffffff;
+            color: #28a745; /* 綠色，與主要按鈕顏色一致 */
             font-size: 2rem;
             margin-top: 1rem;
             margin-bottom: 0.5rem;
@@ -54,27 +66,28 @@
 
         /* 新增：預約摘要樣式 */
         .booking-summary {
-            background-color: #343a40;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0 2rem 0;
+            /* 移除背景、邊框、內距，與背景融為一體 */
+            margin: 1.5rem 2rem 2.5rem 2rem;
             text-align: left;
-            border: 1px solid #495057;
         }
 
         .summary-item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 0.6rem 0;
-            font-size: 1.1em;
+            padding: 0.5rem 0; /* 調整上下間距 */
+            font-size: 1.2em; /* 放大字體 */
+            gap: 0.75rem; /* 新增：圖示與文字的間距 */
         }
 
-        .summary-item + .summary-item {
-            border-top: 1px solid #495057;
+        /* 新增：摘要圖示樣式 */
+        .summary-icon {
+            color: #868e96; /* 柔和的灰色 */
+            font-size: 1.5em;
+            flex-shrink: 0;
         }
 
         .summary-item .label {
+            /* 恢復為單行顯示 */
             color: #b0b0b0;
         }
 
@@ -156,10 +169,10 @@
                 <h1>預約成功</h1>
                 <div id="summary-container"></div>
                 <div class="button-group">
-                    <button id="view-booking-btn" class="btn btn-primary">顯示預約憑證</button>
+                    <button id="view-booking-btn" class="btn btn-primary">查看預約憑證</button>
                     <button id="book-another-btn" class="btn btn-secondary">預約其他課程</button>
-                    <button id="back-btn" class="btn btn-secondary">回到上一頁</button>
-                    <button id="close-btn" class="btn btn-secondary">關閉</button>
+                    <!-- 建議：移除「回到上一頁」按鈕，簡化操作 -->
+                    <button id="close-btn" class="btn btn-secondary" style="display: none;">關閉視窗</button>
                 </div>
             `;
 
@@ -186,38 +199,51 @@
 
                 document.getElementById('summary-container').innerHTML = `
                     <div class="booking-summary">
-                        <div class="summary-item"><span class="label">課程名稱</span><span class="value">${data.classes.courses.course_name}</span></div>
-                        <div class="summary-item"><span class="label">上課時間</span><span class="value">${classTime}</span></div>
-                        <div class="summary-item"><span class="label">教練名稱</span><span class="value">${data.classes.coaches.coach_name}</span></div>
+                        <div class="summary-item">
+                            <span class="material-symbols-outlined summary-icon">school</span>
+                            <span class="label">課程名稱：</span><span class="value">${data.classes.courses.course_name}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="material-symbols-outlined summary-icon">schedule</span>
+                            <span class="label">上課時間：</span><span class="value">${classTime}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="material-symbols-outlined summary-icon">person</span>
+                            <span class="label">教練名稱：</span><span class="value">${data.classes.coaches.coach_name}</span>
+                        </div>
                     </div>
                 `;
             } catch (err) {
                 console.error('無法載入預約摘要:', err);
-                // 即使摘要載入失敗，按鈕功能依然可用
+                // 優化：即使摘要載入失敗，也要提供清晰的回饋
+                document.getElementById('summary-container').innerHTML = `
+                    <p style="text-align: center; color: #ffc107; margin: 1rem 0;">無法載入預約摘要，但請放心，您的預約已成功！</p>
+                `;
             }
 
-            // 準備 debug 參數字串，用於後續的 URL 拼接
-            const debugParamForCourses = debugMode ? '?debug=true' : '';
-            const debugParamForDetails = debugMode ? '&debug=true' : '';
+            // 優化：統一處理 debug 參數
+            const debugParam = debugMode ? 'debug=true' : '';
 
             // 綁定按鈕事件
             document.getElementById('view-booking-btn').addEventListener('click', () => {
-                window.location.href = `booking-details.html?id=${bookingId}${debugParamForDetails}`;
+                window.location.href = `booking-details.html?id=${bookingId}${debugParam ? '&' + debugParam : ''}`;
             });
 
             document.getElementById('book-another-btn').addEventListener('click', () => {
-                window.location.href = `courses.html${debugParamForCourses}`;
+                window.location.href = `courses.html${debugParam ? '?' + debugParam : ''}`;
             });
 
-            document.getElementById('back-btn').addEventListener('click', () => {
-                window.history.back();
-            });
-
-            document.getElementById('close-btn').addEventListener('click', () => {
+            // 優化：只在 LINE App 環境中顯示並綁定「關閉」按鈕
+            const closeBtn = document.getElementById('close-btn');
+            if (liff && liff.isInClient()) {
+                closeBtn.style.display = 'block';
+            }
+            closeBtn.addEventListener('click', () => {
                 if (liff && liff.isInClient()) {
                     liff.closeWindow();
                 } else {
-                    alert('此功能僅在 LINE App 中有效。');
+                    // 在非 LIFF 環境中，此按鈕預設是隱藏的，所以這個 alert 基本上不會觸發
+                    console.log('Not in LIFF client, cannot close window.');
                 }
             });
         });
