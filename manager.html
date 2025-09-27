@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wally Studio 管理後台</title>
     <!-- 方案一：載入 Supabase JS SDK -->
-    <!-- 載入共用設定檔 -->
     <script src="config.js"></script>
+    <!-- 修正：必須先載入 Supabase 主函式庫，再載入使用它的工具函式 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="manager-utils.js"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -738,12 +739,6 @@
     </div>
 
     <script>
-        // --- 從 config.js 讀取設定 ---
-        const { createClient } = supabase;
-        const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-
-        // --- 舊版 GAS 設定 (保留備用，寫入操作仍會用到) ---
-        // 全域變數，用於儲存當前顯示的資料和排序狀態
         let currentBookings = [];
         let sortState = { column: 'bookingTime', direction: 'desc' };
         let currentCourses = [];
@@ -753,7 +748,6 @@
         let currentUsers = [];
         let userSortState = { column: 'registration_date', direction: 'desc' };
         let currentManagerDate = new Date(); // 用於課表管理的目前日期
-        let managerFormData = null; // 儲存課程和教練列表
 
         document.addEventListener('DOMContentLoaded', () => {
             // 1. 監聽 URL hash 變化來處理導覽
@@ -775,8 +769,11 @@
             // 4. 頁面載入時，根據 URL hash 決定顯示內容
             handleNavigation();
 
-            // 5. 綁定 Modal 內的刪除按鈕事件
-            document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
+            // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式)
+            document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule));
+            document.getElementById('delete-class-btn').addEventListener('click', (event) => handleDeleteClass(event, loadManagerSchedule));
+            // 點擊 Modal 外部區域也可關閉
+            document.getElementById('class-modal').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeClassModal(); });
 
             // 6. 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
             document.getElementById('form-course-id').addEventListener('change', function() {
@@ -1462,25 +1459,8 @@
             modal.classList.add('active');
         }
 
-        function closeClassModal() {
-            document.getElementById('class-modal').classList.remove('active');
-        }
-
-        // 點擊 Modal 外部區域也可關閉
-        document.getElementById('class-modal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeClassModal();
-            }
-        });
-
-        document.getElementById('class-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const form = event.target;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = '儲存中...';
-
+        // 註：handleSaveClass 已移至 manager-utils.js
+        /*
             const params = {
                 p_class_id: document.getElementById('form-class-id').value,
                 p_class_date: document.getElementById('form-class-date').value,
@@ -1492,7 +1472,6 @@
                 p_max_students: parseInt(document.getElementById('form-max-students').value, 10)
             };
 
-            try {
                 // --- 方案二：前端直接呼叫 Supabase RPC ---
                 const { data, error } = await supabaseClient.rpc('save_class', params);
 
@@ -1506,93 +1485,11 @@
                     loadManagerSchedule(); // 重新載入課表
                 }
 
-            } catch (error) {
-                console.error('儲存課堂時發生錯誤:', error);
-                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalBtnText;
-            }
-        });
+        */
 
-        async function handleDeleteClass() {
-            const classId = document.getElementById('form-class-id').value;
-            if (!classId) {
-                showNotification('錯誤：找不到課堂 ID。', 'error');
-                return;
-            }
-
-            if (!confirm(`您確定要刪除這個課堂嗎？\n此操作無法復原。`)) {
-                return;
-            }
-
-            const deleteBtn = document.getElementById('delete-class-btn');
-            deleteBtn.disabled = true;
-            deleteBtn.textContent = '刪除中...';
-
-            try {
-                // --- 方案二：前端直接呼叫 Supabase RPC ---
-                const { data, error } = await supabaseClient.rpc('delete_class', {
-                    p_class_id: classId
-                });
-
-                if (error) throw error;
-
-                const result = data[0];
-                showNotification(result.message, result.status);
-
-                if (result.status === 'success') {
-                    closeClassModal();
-                    loadManagerSchedule(); // 重新載入課表
-                }
-            } catch (error) {
-                console.error('刪除課堂時發生錯誤:', error);
-                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
-            } finally {
-                deleteBtn.disabled = false;
-                deleteBtn.textContent = '刪除課堂';
-            }
-        }
-
-        async function loadManagerFormData() {
-            if (managerFormData) {
-                return; // 如果資料已存在，直接返回，避免重複呼叫 API
-            }
-            try {
-                // --- 方案二：前端直接呼叫 Supabase RPC ---
-                const { data: result, error } = await supabaseClient.rpc('get_manager_form_data');
-
-                if (error) throw error;
-                if (result.status !== 'success') throw new Error(result.message);
-
-                managerFormData = result; // 將結果儲存在全域變數中
-            } catch (error) {
-                console.error('載入管理表單資料失敗:', error);
-                showNotification(`載入表單選項失敗: ${error.message}`, 'error');
-                // 在下拉選單中顯示錯誤
-                document.getElementById('form-course-id').innerHTML = `<option value="">載入失敗</option>`;
-                document.getElementById('form-coach-id').innerHTML = `<option value="">載入失敗</option>`;
-            }
-        }
-
-        function populateFormDropdowns() {
-            if (!managerFormData) return;
-
-            const courseSelect = document.getElementById('form-course-id');
-            const coachSelect = document.getElementById('form-coach-id');
-
-            courseSelect.innerHTML = '<option value="">-- 請選擇課程 --</option>';
-            managerFormData.courses.forEach(course => {
-                const option = new Option(`${course.courseName} (${course.courseId})`, course.courseId);
-                courseSelect.add(option);
-            });
-
-            coachSelect.innerHTML = '<option value="">-- 請選擇教練 --</option>';
-            managerFormData.coaches.forEach(coach => {
-                const option = new Option(coach.coachName, coach.coachId);
-                coachSelect.add(option);
-            });
-        }
+        // 註：handleDeleteClass 已移至 manager-utils.js
+        // 註：loadManagerFormData 已移至 manager-utils.js
+        // 註：populateFormDropdowns 已移至 manager-utils.js
 
         // --- Phase 3: 課程型錄管理函式 ---
 
@@ -2056,35 +1953,7 @@
     </script>
 
     <script>
-        // --- 全域卡片式通知函式 ---
-        function showNotification(message, type = 'info') {
-            const modal = document.getElementById('notification-modal');
-            const titleEl = document.getElementById('notification-title');
-            const messageEl = document.getElementById('notification-message');
-            const closeBtn = document.getElementById('notification-close-btn');
-
-            messageEl.textContent = message;
-
-            // 重設按鈕 class
-            closeBtn.className = 'btn';
-
-            switch (type) {
-                case 'success':
-                    titleEl.textContent = '操作成功';
-                    closeBtn.classList.add('btn-success');
-                    break;
-                case 'error':
-                    titleEl.textContent = '發生錯誤';
-                    closeBtn.classList.add('btn-danger');
-                    break;
-                default: // 'info' 或其他
-                    titleEl.textContent = '通知';
-                    closeBtn.classList.add('btn-secondary');
-                    break;
-            }
-
-            modal.classList.add('active');
-        }
+        // 註：showNotification 已移至 manager-utils.js
     </script>
 
 </body>

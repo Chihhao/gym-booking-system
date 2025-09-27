@@ -8,6 +8,8 @@
     <script src="config.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 新增：載入共用的後台工具函式 -->
+    <script src="manager-utils.js"></script>
     <!-- 新增：載入 interact.js 用於拖曳與縮放 -->
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
@@ -26,6 +28,7 @@
             margin: 0;
             background-color: var(--bg-color);
             color: var(--text-color);
+            padding: 2rem; /* 與 main-content 保持一致 */
         }
 
         .schedule-container {
@@ -41,7 +44,7 @@
 
         .schedule-controls h1 {
             margin: 0;
-            font-size: 1.8rem;
+            font-size: 1.8rem; /* 與 manager.html 的 .page-header h1 一致 */
         }
 
         .schedule-header {
@@ -166,14 +169,14 @@
         /* 按鈕樣式 */
         .btn {
             border: none;
-            border-radius: 4px;
-            padding: 8px 16px; /* 修正：加大按鈕內距，與舊版一致 */
+            border-radius: 4px; 
+            padding: 6px 12px; /* 與 manager.html .btn 一致 */
             cursor: pointer;
             color: white;
-            font-size: 0.9em;
+            font-size: 0.9em; /* 與 manager.html .btn 一致 */
             transition: background-color 0.2s;
         }
-        .btn-secondary { 
+        .btn-secondary {
             background-color: #6c757d; /* 舊版的灰色 */
         }
         .btn-secondary:hover { 
@@ -269,10 +272,10 @@
 
     <div class="schedule-container">
         <div class="schedule-controls">
-            <h1>🗓️ 課表管理 (畫布版)</h1>
+            <h1>🎨 課表管理 (畫布版)</h1>
             <div>
-                <button id="prev-week-btn" class="btn btn-secondary" style="margin-right: 1rem;">&lt; 上一週</button>
-                <button id="next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
+                <button id="prev-week-btn" class="btn btn-secondary">&lt; 上一週</button>
+                <button id="next-week-btn" class="btn btn-secondary" style="margin-left: 0.5rem;">下一週 &gt;</button>
             </div>
         </div>
         
@@ -362,10 +365,6 @@
 
 
     <script>
-        // --- 從 config.js 讀取設定 ---
-        const { createClient } = supabase;
-        const supabaseClient = createClient(AppConfig.SUPABASE_URL, AppConfig.SUPABASE_ANON_KEY);
-
         // --- 全域變數 ---
         const startHour = 9;
         const endHour = 21;
@@ -373,7 +372,6 @@
         const pixelsPerMinute = hourHeight / 60;
 
         let currentDate = new Date(); // 用於追蹤目前顯示的週次
-        let managerFormData = null; // 儲存課程和教練列表
 
         document.addEventListener('DOMContentLoaded', () => {
             renderCanvasShell();
@@ -387,8 +385,14 @@
             document.getElementById('class-modal').addEventListener('click', (event) => {
                 if (event.target === event.currentTarget) closeClassModal();
             });
-            document.getElementById('class-form').addEventListener('submit', handleSaveClass);
-            document.getElementById('delete-class-btn').addEventListener('click', handleDeleteClass);
+            // 修改：呼叫共用函式，並傳入一個回呼 (callback) 來重新載入課表
+            document.getElementById('class-form').addEventListener('submit', (event) => {
+                handleSaveClass(event, loadSchedule);
+            });
+            document.getElementById('delete-class-btn').addEventListener('click', (event) => {
+                handleDeleteClass(event, loadSchedule);
+            });
+
 
             // 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
             document.getElementById('form-course-id').addEventListener('change', function() {
@@ -760,135 +764,6 @@
             const endTimeString = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
             document.getElementById('form-end-time').value = endTimeString;
 
-            modal.classList.add('active');
-        }
-
-        function closeClassModal() {
-            document.getElementById('class-modal').classList.remove('active');
-        }
-
-        async function handleSaveClass(event) {
-            event.preventDefault();
-            const form = event.target;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = '儲存中...';
-
-            const params = {
-                p_class_id: document.getElementById('form-class-id').value,
-                p_class_date: document.getElementById('form-class-date').value,
-                p_start_time: document.getElementById('form-start-time').value,
-                p_end_time: document.getElementById('form-end-time').value,
-                p_course_id: document.getElementById('form-course-id').value,
-                p_class_name: document.getElementById('form-class-name').value,
-                p_coach_id: document.getElementById('form-coach-id').value,
-                p_max_students: parseInt(document.getElementById('form-max-students').value, 10)
-            };
-
-            try {
-                const { data, error } = await supabaseClient.rpc('save_class', params);
-                if (error) throw error;
-
-                const result = data[0];
-                showNotification(result.message, result.status);
-
-                if (result.status === 'success') {
-                    closeClassModal();
-                    loadSchedule(); // 重新載入課表
-                }
-
-            } catch (error) {
-                console.error('儲存課堂時發生錯誤:', error);
-                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalBtnText;
-            }
-        }
-
-        async function handleDeleteClass() {
-            const classId = document.getElementById('form-class-id').value;
-            if (!confirm(`您確定要刪除這個課堂嗎？\n此操作無法復原。`)) return;
-
-            const deleteBtn = document.getElementById('delete-class-btn');
-            deleteBtn.disabled = true;
-            deleteBtn.textContent = '刪除中...';
-
-            try {
-                const { data, error } = await supabaseClient.rpc('delete_class', { p_class_id: classId });
-                if (error) throw error;
-
-                const result = data[0];
-                showNotification(result.message, result.status);
-
-                if (result.status === 'success') {
-                    closeClassModal();
-                    loadSchedule(); // 重新載入課表
-                }
-            } catch (error) {
-                console.error('刪除課堂時發生錯誤:', error);
-                showNotification('操作失敗，請檢查網路或聯繫開發者。', 'error');
-            } finally {
-                deleteBtn.disabled = false;
-                deleteBtn.textContent = '刪除課堂';
-            }
-        }
-
-        async function loadManagerFormData() {
-            if (managerFormData) return; // 如果資料已存在，直接返回
-            try {
-                const { data: result, error } = await supabaseClient.rpc('get_manager_form_data');
-                if (error) throw error;
-                managerFormData = result;
-            } catch (error) {
-                console.error('載入管理表單資料失敗:', error);
-                showNotification(`載入表單選項失敗: ${error.message}`, 'error');
-            }
-        }
-
-        function populateFormDropdowns() {
-            if (!managerFormData) return;
-
-            const courseSelect = document.getElementById('form-course-id');
-            const coachSelect = document.getElementById('form-coach-id');
-
-            courseSelect.innerHTML = '<option value="">-- 請選擇課程 --</option>';
-            managerFormData.courses.forEach(course => {
-                const option = new Option(`${course.courseName} (${course.courseId})`, course.courseId);
-                courseSelect.add(option);
-            });
-
-            coachSelect.innerHTML = '<option value="">-- 請選擇教練 --</option>';
-            managerFormData.coaches.forEach(coach => {
-                const option = new Option(coach.coachName, coach.coachId);
-                coachSelect.add(option);
-            });
-        }
-
-        function showNotification(message, type = 'info') {
-            const modal = document.getElementById('notification-modal');
-            const titleEl = document.getElementById('notification-title');
-            const messageEl = document.getElementById('notification-message');
-            const closeBtn = document.getElementById('notification-close-btn');
-
-            messageEl.textContent = message;
-            closeBtn.className = 'btn'; // 重設按鈕 class
-
-            switch (type) {
-                case 'success':
-                    titleEl.textContent = '操作成功';
-                    closeBtn.classList.add('btn-success');
-                    break;
-                case 'error':
-                    titleEl.textContent = '發生錯誤';
-                    closeBtn.classList.add('btn-danger');
-                    break;
-                default:
-                    titleEl.textContent = '通知';
-                    closeBtn.classList.add('btn-secondary');
-                    break;
-            }
             modal.classList.add('active');
         }
 
