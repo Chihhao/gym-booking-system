@@ -3,14 +3,22 @@
  * 這個函式會動態地將 HTML 和 CSS 插入到頁面中。
  */
 function renderHeaderAndFooter() {
-    const studioName = 'WALLY STUDIO | Wally 自由教練工作室';
+    const studioName = 'WALLY STUDIO | 瓦力自由教練工作室';
 
-    // 1. 定義共用元件的 HTML 結構
-    const barHtml = `
-        <div class="common-bar">
+    // 1. 分別定義 Header (左對齊) 和 Footer (右對齊) 的 HTML 結構
+    const headerBarHtml = `
+        <div class="common-bar header-bar">
             <div class="bar-block-start"></div>
             <div class="bar-text">${studioName}</div>
             <div class="bar-block-end"></div>
+        </div>
+    `;
+
+    const footerBarHtml = `
+        <div class="common-bar footer-bar">
+            <div class="bar-block-end"></div>
+            <div class="bar-text">${studioName}</div>
+            <div class="bar-block-start"></div>
         </div>
     `;
 
@@ -28,10 +36,10 @@ function renderHeaderAndFooter() {
             box-sizing: border-box;
             pointer-events: none;     /* 讓滑鼠可以穿透，避免擋到內容 */
         }
-        .common-bar:first-of-type {
+        .header-bar {
             top: 0; /* Header 固定在頂部 */
         }
-        .common-bar:last-of-type {
+        .footer-bar {
             bottom: 0; /* Footer 固定在底部 */
         }
         .bar-block-start, .bar-block-end {
@@ -57,6 +65,6 @@ function renderHeaderAndFooter() {
 
     // 3. 將樣式和 HTML 插入到 DOM 中
     document.head.insertAdjacentHTML('beforeend', `<style>${styles}</style>`);
-    document.body.insertAdjacentHTML('afterbegin', barHtml);
-    document.body.insertAdjacentHTML('beforeend', barHtml);
+    document.body.insertAdjacentHTML('afterbegin', headerBarHtml);
+    document.body.insertAdjacentHTML('beforeend', footerBarHtml);
 }
