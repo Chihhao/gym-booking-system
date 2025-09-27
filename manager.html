@@ -802,8 +802,7 @@
             // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式，並傳入對應的回呼)
             document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule));
             document.getElementById('delete-class-btn').addEventListener('click', (event) => handleDeleteClass(event, loadManagerSchedule));
-            // 點擊 Modal 外部區域也可關閉
-            document.getElementById('class-modal').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeClassModal(); });
+            // 移除：點擊 Modal 外部區域關閉的功能
 
             // 6. 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
             document.getElementById('form-course-id').addEventListener('change', function() {
@@ -819,9 +818,7 @@
             });
 
             // 7. 綁定課程型錄 Modal 的關閉與提交事件
-            document.getElementById('course-modal').addEventListener('click', function(event) {
-                if (event.target === this) closeCourseModal();
-            });
+            // 移除：點擊 Modal 外部區域關閉的功能
             document.getElementById('course-form').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 const form = event.target;
@@ -869,9 +866,7 @@
             });
 
             // 8. 綁定教練 Modal 的關閉與提交事件
-            document.getElementById('coach-modal').addEventListener('click', function(event) {
-                if (event.target === this) closeCoachModal();
-            });
+            // 移除：點擊 Modal 外部區域關閉的功能
             document.getElementById('coach-form').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 const form = event.target;
@@ -963,9 +958,7 @@
             });
 
             // 10. 綁定使用者 Modal 的關閉與提交事件
-            document.getElementById('user-modal').addEventListener('click', function(event) {
-                if (event.target === this) closeUserModal();
-            });
+            // 移除：點擊 Modal 外部區域關閉的功能
             document.getElementById('user-form').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 const form = event.target;
@@ -1032,6 +1025,27 @@
                     document.getElementById('form-course-color').value = color;
                 });
                 colorPickerContainer.appendChild(swatch);
+        });
+
+        // --- 新增：全域鍵盤事件監聽 (ESC 關閉 Modal) ---
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                // 檢查是否有任何 active 的 modal，並關閉它
+                if (document.getElementById('class-modal').classList.contains('active')) {
+                    closeClassModal();
+                }
+                if (document.getElementById('course-modal').classList.contains('active')) {
+                    closeCourseModal();
+                }
+                if (document.getElementById('coach-modal').classList.contains('active')) {
+                    closeCoachModal();
+                }
+                if (document.getElementById('user-modal').classList.contains('active')) {
+                    closeUserModal();
+                }
+                // 通知 modal 比較特別，它有自己的關閉函式
+                closeNotificationModal();
+            }
             });
         });
 
@@ -1054,11 +1068,7 @@
         function closeNotificationModal() {
             document.getElementById('notification-modal').classList.remove('active');
         }
-        document.getElementById('notification-modal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeNotificationModal();
-            }
-        });
+        // 移除：點擊 Modal 外部區域關閉的功能
         document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
         document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
 
@@ -1902,8 +1912,11 @@
                 const dayColumn = event.target.closest('.day-column');
                 if (dayColumn) {
                     const dayIndex = parseInt(dayColumn.dataset.day, 10);
-                    const offsetY = event.offsetY;
-                    handleCanvasClick(dayIndex, offsetY);
+                    // 修正：不使用 event.offsetY，因為它會因點擊到子元素而產生偏差。
+                    // 改為手動計算相對於 .day-column 的精確 Y 座標。
+                    const rect = dayColumn.getBoundingClientRect();
+                    const preciseOffsetY = event.clientY - rect.top;
+                    handleCanvasClick(dayIndex, preciseOffsetY);
                 }
             });
 
