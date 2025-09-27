@@ -18,14 +18,14 @@
     -   [x] 修改表單提交邏輯，呼叫新版 `save_class` RPC 函式。
     -   [x] 修正 `classes_with_details` 視圖，確保編輯時能正確帶入課程與教練 ID。
 -   [ ] **重新設計課表介面 (視覺化時間軸)**：
-    -   [ ] **Part 2.1: HTML/CSS 結構重塑 (畫布系統)**
-        -   [ ] 移除 `manager.html` 中舊的 `schedule-grid` `<table>` 樣式。
-        -   [ ] 建立新的 `div` 畫布結構樣式：
-            -   `.schedule-canvas-grid`: Flex 容器，包含時間軸和所有日期欄。
-            -   `.time-axis`: 左側時間軸欄。
-            -   `.day-column`: 每日的「畫布」容器，設定 `position: relative`。
-            -   `.class-item`: 課堂區塊，設定 `position: absolute`。
-            -   (可選) 在 `.day-column` 內加入代表小時的水平線 `div` 作為視覺輔助。
+    -   [x] **Part 2.1: HTML/CSS 結構重塑 (畫布系統)**
+        -   [x] 移除 `manager.html` 中舊的 `schedule-grid` `<table>` 樣式。
+        -   [x] 建立新的 `div` 畫布結構樣式：
+            -   [x] `.schedule-canvas-grid`: Flex 容器，包含時間軸和所有日期欄。
+            -   [x] `.time-axis`: 左側時間軸欄。
+            -   [x] `.day-column`: 每日的「畫布」容器，設定 `position: relative`。
+            -   [x] `.class-item`: 課堂區塊，設定 `position: absolute`。
+            -   [x] (可選) 在 `.day-column` 內加入代表小時的水平線 `div` 作為視覺輔助。
     -   [ ] **Part 2.2: JavaScript 渲染邏輯重構**
         -   [ ] 修改 `loadManagerSchedule`，直接獲取一週內所有課堂的完整列表，不再按小時分組。
         -   [ ] 重構 `renderManagerScheduleGrid` 函式：

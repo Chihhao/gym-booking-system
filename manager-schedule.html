@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課表管理 (新版)</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+            --hour-line-color: #e9ecef;
+            --time-axis-width: 80px;
+            --header-height: 60px;
+            --hour-height: 80px; /* 每小時的高度，可以調整 */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .schedule-container {
+            padding: 2rem;
+        }
+
+        .schedule-header {
+            display: flex;
+            margin-left: var(--time-axis-width); /* 與下方時間軸對齊 */
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .day-header {
+            flex: 1; /* 讓每個日期頭部等寬 */
+            text-align: center;
+            padding: 0.75rem 0;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .schedule-canvas-grid {
+            display: flex;
+            position: relative;
+            overflow-y: auto; /* 如果內容過多，允許垂直捲動 */
+            /* 總高度 = 小時數 * 每小時高度 */
+            height: calc(13 * var(--hour-height)); 
+        }
+
+        .time-axis {
+            width: var(--time-axis-width);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .time-label {
+            position: absolute;
+            right: 8px;
+            transform: translateY(-50%); /* 讓文字垂直置中於線上 */
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .day-column {
+            flex: 1; /* 讓每個日期欄位等寬 */
+            position: relative; /* 關鍵：設定為子層 class-item 的定位參考點 */
+            border-left: 1px solid var(--border-color);
+        }
+
+        .hour-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background-color: var(--hour-line-color);
+            left: 0;
+        }
+
+        /* 這是未來要放置課程的樣式，先定義好 */
+        .class-item {
+            position: absolute;
+            left: 4px;
+            right: 4px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.9em;
+            box-sizing: border-box;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="schedule-container">
+        <h1>🗓️ 課表管理 (畫布版)</h1>
+        
+        <!-- 星期標頭 -->
+        <div id="schedule-header-container" class="schedule-header">
+            <!-- JS 會動態生成這裡的內容 -->
+        </div>
+
+        <!-- 主要畫布網格 -->
+        <div id="schedule-canvas-grid" class="schedule-canvas-grid">
+            
+            <!-- 左側時間軸 -->
+            <div id="time-axis-container" class="time-axis">
+                <!-- JS 會動態生成這裡的內容 -->
+            </div>
+
+            <!-- 每日畫布 (7天) -->
+            <div id="day-columns-container" style="display: flex; flex-grow: 1;">
+                <!-- JS 會動態生成這裡的內容 -->
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startHour = 9;
+            const endHour = 21;
+            const hourHeight = 80; // 必須與 CSS 中的 --hour-height 變數一致
+
+            const headerContainer = document.getElementById('schedule-header-container');
+            const timeAxisContainer = document.getElementById('time-axis-container');
+            const dayColumnsContainer = document.getElementById('day-columns-container');
+
+            // --- 1. 渲染星期標頭 ---
+            const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+            let headerHtml = '';
+            for (let i = 0; i < 7; i++) {
+                // 這裡暫時只顯示星期，未來可以加上日期
+                headerHtml += `<div class="day-header">${days[i]}</div>`;
+            }
+            headerContainer.innerHTML = headerHtml;
+
+            // --- 2. 渲染左側時間軸 ---
+            let timeAxisHtml = '';
+            for (let hour = startHour; hour <= endHour; hour++) {
+                const topPosition = (hour - startHour) * hourHeight;
+                
+                // 修正：特別處理第一個標籤 (09:00)，使其不使用 transform: translateY(-50%)，避免被裁切
+                if (hour === startHour) {
+                    timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; transform: translateY(0);">${String(hour).padStart(2, '0')}:00</div>`;
+                } else {
+                    // 其他標籤維持原樣，垂直置中於線上
+                    timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px;">${String(hour).padStart(2, '0')}:00</div>`;
+                }
+            }
+            timeAxisContainer.innerHTML = timeAxisHtml;
+
+            // --- 3. 渲染每日畫布和小時水平線 ---
+            let dayColumnsHtml = '';
+            for (let i = 0; i < 7; i++) {
+                let dayColumnContent = '';
+                // 在每一欄內部畫上水平線
+                for (let hour = startHour + 1; hour <= endHour; hour++) { // 從 10:00 開始畫線
+                    const topPosition = (hour - startHour) * hourHeight;
+                    dayColumnContent += `<div class="hour-line" style="top: ${topPosition}px;"></div>`;
+                }
+                dayColumnsHtml += `<div class="day-column">${dayColumnContent}</div>`;
+            }
+            dayColumnsContainer.innerHTML = dayColumnsHtml;
+
+            // --- 4. (範例) 放置一個測試用的課程區塊 ---
+            // 這是為了展示畫布系統如何運作，之後會由真實資料取代
+            const firstDayColumn = dayColumnsContainer.querySelector('.day-column');
+            if (firstDayColumn) {
+                const testClass = document.createElement('div');
+                testClass.className = 'class-item';
+                testClass.innerHTML = '<strong>測試課程</strong><p>10:30 - 11:45</p>';
+
+                // 計算 top 和 height
+                // 10:30 開始 -> (10.5 - 9) * 80px = 1.5 * 80 = 120px
+                const startMinutes = (10.5 - startHour) * 60; 
+                // 75 分鐘長 -> (75 / 60) * 80px = 1.25 * 80 = 100px
+                const durationMinutes = 75; 
+
+                const top = (startMinutes / 60) * hourHeight;
+                const height = (durationMinutes / 60) * hourHeight;
+
+                testClass.style.top = `${top}px`;
+                testClass.style.height = `${height}px`;
+
+                firstDayColumn.appendChild(testClass);
+            }
+        });
+    </script>
+
+</body>
+</html>
