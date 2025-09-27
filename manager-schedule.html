@@ -110,6 +110,7 @@
             box-sizing: border-box;
             overflow: hidden;
             z-index: 10;
+            transition: left 0.2s, width 0.2s; /* 新增：讓排版變化有動畫效果 */
         }
 
         .class-item strong {
@@ -380,6 +381,25 @@
             });
             document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
             document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
+
+            // --- 綁定畫布點擊新增課堂事件 ---
+            document.getElementById('day-columns-container').addEventListener('click', (event) => {
+                // 如果點擊的是已存在的課程，則不執行任何操作
+                if (event.target.closest('.class-item')) {
+                    return;
+                }
+
+                // 確定點擊的是每日畫布欄位
+                const dayColumn = event.target.closest('.day-column');
+                if (dayColumn) {
+                    const dayIndex = parseInt(dayColumn.dataset.day, 10);
+                    const offsetY = event.offsetY;
+
+                    handleCanvasClick(dayIndex, offsetY);
+                }
+            });
+            document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
+            document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
         });
 
         /**
@@ -459,30 +479,115 @@
          * @param {Array} classes - 從 Supabase 取得的課程資料陣列
          */
         function renderClasses(classes) {
-            // 1. 清除所有舊的課程項目
+            // 1. 清除畫布上所有舊的課程項目
             document.querySelectorAll('.class-item').forEach(item => item.remove());
 
-            // 2. 遍歷新課程並渲染
-            classes.forEach(cls => {
-                if (!cls.start_time || !cls.end_time) {
-                    console.warn('課程資料缺少 start_time 或 end_time:', cls);
-                    return; // 跳過不完整的資料
-                }
+            // 2. 逐日處理課程，以計算重疊排版
+            for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                // 2.1. 篩選出當天的所有課程，並轉換為包含時間戳的物件
+                const dailyClasses = classes
+                    .filter(cls => new Date(cls.class_date).getDay() === dayIndex)
+                    .map(cls => {
+                        const [startH, startM] = cls.start_time.split(':').map(Number);
+                        const [endH, endM] = cls.end_time.split(':').map(Number);
+                        return {
+                            ...cls,
+                            startMinutes: startH * 60 + startM,
+                            endMinutes: endH * 60 + endM,
+                            // 預設排版屬性
+                            layout: {
+                                column: 0,
+                                totalColumns: 1
+                            }
+                        };
+                    })
+                    .sort((a, b) => a.startMinutes - b.startMinutes); // 按開始時間排序
 
-                const classDate = new Date(cls.class_date);
-                const dayIndex = classDate.getDay(); // 0=Sun, 6=Sat
+                if (dailyClasses.length === 0) continue;
 
-                // 計算 top
-                const [startH, startM] = cls.start_time.split(':').map(Number);
-                const totalStartMinutesFrom9AM = (startH - startHour) * 60 + startM;
-                const top = totalStartMinutesFrom9AM * pixelsPerMinute;
+                // 2.2. 找出所有重疊的群組
+                let collisionGroups = [];
+                dailyClasses.forEach(cls => {
+                    let placed = false;
+                    for (const group of collisionGroups) {
+                        // 檢查是否與群組中任何一個課程重疊
+                        if (group.some(c => cls.startMinutes < c.endMinutes && cls.endMinutes > c.startMinutes)) {
+                            group.push(cls);
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) {
+                        collisionGroups.push([cls]);
+                    }
+                });
 
-                // 計算 height
-                const [endH, endM] = cls.end_time.split(':').map(Number);
-                const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-                const height = durationMinutes * pixelsPerMinute;
+                // 2.3. 為每個群組計算欄位並分配位置
+                collisionGroups.forEach(group => {
+                    group.sort((a, b) => a.startMinutes - b.startMinutes);
 
-                // 建立課程 DOM 元素
+                    let columns = []; // 用於追蹤每一欄的結束時間
+                    group.forEach(cls => {
+                        let placedInColumn = false;
+                        // 尋找第一個可用的欄位
+                        for (let i = 0; i < columns.length; i++) {
+                            if (cls.startMinutes >= columns[i]) {
+                                columns[i] = cls.endMinutes;
+                                cls.layout.column = i;
+                                placedInColumn = true;
+                                break;
+                            }
+                        }
+                        // 如果沒有可用欄位，則新增一欄
+                        if (!placedInColumn) {
+                            columns.push(cls.endMinutes);
+                            cls.layout.column = columns.length - 1;
+                        }
+                    });
+
+                    // 將群組的總欄數設定給群組內的每個課程
+                    const totalColumns = columns.length;
+                    group.forEach(cls => {
+                        cls.layout.totalColumns = totalColumns;
+                    });
+                });
+
+                // 2.4. 渲染當天的所有課程
+                const dayColumn = document.querySelector(`.day-column[data-day="${dayIndex}"]`);
+                dailyClasses.forEach(cls => {
+                    const top = (cls.startMinutes - startHour * 60) * pixelsPerMinute;
+                    const height = (cls.endMinutes - cls.startMinutes) * pixelsPerMinute;
+                    const width = 100 / cls.layout.totalColumns;
+                    const left = cls.layout.column * width;
+
+                    const classEl = document.createElement('div');
+                    classEl.className = 'class-item';
+                    classEl.dataset.classId = cls.class_id;
+                    classEl.onclick = () => openClassModal(cls.class_id);
+
+                    classEl.style.top = `${top}px`;
+                    classEl.style.height = `${height}px`;
+                    classEl.style.width = `${width}%`;
+                    classEl.style.left = `${left}%`;
+                    classEl.style.borderLeftColor = cls.color || '#6c757d';
+
+                    classEl.innerHTML = `
+                        <strong>${cls.class_name}</strong>
+                        <div class="info">${cls.coach_name}</div>
+                        <div class="info">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</div>
+                        <div class="student-count">(${cls.current_students}/${cls.max_students})</div>
+                    `;
+
+                    if (dayColumn) {
+                        dayColumn.appendChild(classEl);
+                    }
+                });
+            }
+        }
+
+        /**
+         * 更新星期標頭以顯示日期
+         * @param {Date} startOfWeek - 當週的星期日
                 const classEl = document.createElement('div');
                 classEl.className = 'class-item';
                 classEl.dataset.classId = cls.class_id; // 儲存 class_id 以便點擊時使用
@@ -535,6 +640,46 @@
 
         // --- Modal 相關函式 (從 manager.html 移植並修改) ---
 
+        /**
+         * 處理在畫布空白處點擊的事件
+         * @param {number} dayIndex - 星期幾 (0=Sun, 6=Sat)
+         * @param {number} offsetY - 點擊位置的垂直像素
+         */
+        function handleCanvasClick(dayIndex, offsetY) {
+            // 1. 計算日期
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const clickedDate = new Date(startOfWeek);
+            clickedDate.setDate(clickedDate.getDate() + dayIndex);
+            const dateString = clickedDate.toISOString().split('T')[0];
+
+            // 2. 計算時間並對齊到 15 分鐘
+            const totalMinutesFrom9AM = offsetY / pixelsPerMinute;
+            const hourPart = Math.floor(totalMinutesFrom9AM / 60);
+            const minutePart = totalMinutesFrom9AM % 60;
+            
+            // 將分鐘數對齊到最近的 15 分鐘間隔
+            const snappedMinute = Math.round(minutePart / 15) * 15;
+
+            let startH = startHour + hourPart;
+            let startM = snappedMinute;
+
+            // 處理進位，例如 10:55 點擊後對齊到 11:00
+            if (startM >= 60) {
+                startH += 1;
+                startM = 0;
+            }
+
+            // 格式化為 HH:MM
+            const startTimeString = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+
+            // 3. 開啟新增 Modal
+            openClassModalForNew(dateString, startTimeString);
+        }
+
+        /**
+         * 開啟 Modal 以編輯現有課堂
+         */
         async function openClassModal(classId) {
             const modal = document.getElementById('class-modal');
             const form = document.getElementById('class-form');
@@ -572,6 +717,36 @@
                 showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
                 return;
             }
+
+            modal.classList.add('active');
+        }
+
+        /**
+         * 開啟 Modal 以新增課堂
+         */
+        async function openClassModalForNew(date, startTime) {
+            const modal = document.getElementById('class-modal');
+            const form = document.getElementById('class-form');
+            form.reset();
+
+            // 載入課程和教練列表
+            await loadManagerFormData();
+            populateFormDropdowns();
+
+            document.getElementById('modal-title').textContent = '新增課堂';
+            document.getElementById('delete-class-btn').style.display = 'none';
+            document.getElementById('form-class-id').value = ''; // 確保 classId 為空
+
+            // 填入從點擊位置計算出的日期和時間
+            document.getElementById('form-class-date').value = date;
+            document.getElementById('form-start-time').value = startTime;
+
+            // 預設結束時間為開始時間後 60 分鐘
+            const [startH, startM] = startTime.split(':').map(Number);
+            const endDate = new Date();
+            endDate.setHours(startH + 1, startM, 0, 0);
+            const endTimeString = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+            document.getElementById('form-end-time').value = endTimeString;
 
             modal.classList.add('active');
         }
