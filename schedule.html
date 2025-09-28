@@ -170,8 +170,9 @@
             transition: background-color 0.2s; /* 將樣式應用到 td 而不是 tr */
         }
         .sub-row .time-label {
-            font-size: 0.8em;
-            color: #adb5bd;
+            /* 修正：讓子時段的時間標籤與原始時間標籤樣式一致 */
+            background-color: #343a40; /* 與原始時間標籤同色 */
+            color: #b0b0b0; /* 與原始時間標籤同色 */
         }
         /* 讓子橫列中的可點擊格子也有 hover 效果 */
         .sub-row td.available:hover,
@@ -739,7 +740,7 @@
             // --- 收合邏輯 ---
             if (parentRow.classList.contains('is-expanded')) {
                 parentRow.classList.remove('is-expanded');
-                if (arrow) arrow.classList.replace('mdi-chevron-up', 'mdi-chevron-down');
+                // 移除：不再切換箭頭方向
 
                 // 移除接下來的四個子橫列
                 let nextRow = parentRow.nextElementSibling;
@@ -755,22 +756,7 @@
 
             // --- 展開邏輯 ---
             parentRow.classList.add('is-expanded');
-            if (arrow) arrow.classList.replace('mdi-chevron-down', 'mdi-chevron-up');
-
-            // 1. 準備資料
-            const slotDataContainer = scheduleData[date]?.[hour] || { classes: [] };
-            const subSlots = { '00': null, '15': null, '30': null, '45': null };
-
-            // 將課堂放入對應的 15 分鐘槽位
-            slotDataContainer.classes.forEach(cls => {
-                const minute = cls.start_time.substring(3, 5);
-                if (subSlots[minute] === undefined) return; // 安全檢查
-                
-                // 如果同一個 15 分鐘有多堂課，只取第一堂
-                if (!subSlots[minute]) {
-                    subSlots[minute] = cls;
-                }
-            });
+            // 移除：不再切換箭頭方向
 
             // 2. 產生 HTML
             let subRowsHtml = '';
@@ -780,15 +766,32 @@
                 const year = new Date(date).getFullYear(); // 從 data-date 取得年份
                 return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
             });
-            const dayIndex = weekDates.indexOf(date);
+
+            // 1. 準備資料 (新邏輯：收集一整週在該小時的所有課堂)
+            const weeklySubSlots = {}; // e.g., { '2024-09-24': { '15': classInfo, '30': classInfo }, '2024-09-26': { '00': classInfo } }
+            weekDates.forEach(d => {
+                const slotDataContainer = scheduleData[d]?.[hour] || { classes: [] };
+                if (slotDataContainer.classes.length > 0) {
+                    weeklySubSlots[d] = {};
+                    slotDataContainer.classes.forEach(cls => {
+                        const minute = cls.start_time.substring(3, 5);
+                        // 如果同一個 15 分鐘有多堂課，只取第一堂
+                        if (!weeklySubSlots[d][minute]) {
+                            weeklySubSlots[d][minute] = cls;
+                        }
+                    });
+                }
+            });
 
             ['00', '15', '30', '45'].forEach(minute => {
                 subRowsHtml += `<tr class="sub-row" data-parent-hour="${hour}">`;
                 subRowsHtml += `<td class="time-label">${hourNumber}:${minute}</td>`;
 
                 for (let i = 0; i < 7; i++) {
-                    if (i === dayIndex) {
-                        const classInfo = subSlots[minute];
+                    // 新邏輯：根據當前迴圈的日期和分鐘，從 weeklySubSlots 查找課堂
+                    const currentDate = weekDates[i];
+                    const classInfo = weeklySubSlots[currentDate]?.[minute];
+
                         if (classInfo) {
                             let slotClass = 'slot';
                             let mainIcon = '';
@@ -821,10 +824,6 @@
                             // 沒有課的格子
                             subRowsHtml += `<td><div class="slot"></div></td>`;
                         }
-                    } else {
-                        // 其他日期的格子
-                        subRowsHtml += `<td><div class="slot"></div></td>`;
-                    }
                 }
                 subRowsHtml += `</tr>`;
             });
