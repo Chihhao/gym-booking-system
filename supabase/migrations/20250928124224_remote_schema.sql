@@ -126,15 +126,15 @@ set check_function_bodies = off;
 create or replace view "public"."classes_with_details" as  SELECT cls.class_id,
     cls.class_date,
     cls.start_time,
+    cls.end_time,
     cls.class_name,
     cls.current_students,
     cls.max_students,
+    cls.course_id,
+    cls.coach_id,
     co.course_name,
     co.color,
-    c.coach_name,
-    cls.end_time,
-    cls.course_id,
-    cls.coach_id
+    c.coach_name
    FROM ((classes cls
      LEFT JOIN courses co ON ((cls.course_id = co.course_id)))
      LEFT JOIN coaches c ON ((cls.coach_id = c.coach_id)));
@@ -436,15 +436,14 @@ DECLARE
     v_max_num INT;
     v_overlap_count INT;
 BEGIN
-    -- 1. 檢查並解析參數
+    -- 1. 檢查參數完整性
     IF p_class_date IS NULL OR p_start_time IS NULL OR p_end_time IS NULL OR p_course_id IS NULL OR p_class_name IS NULL OR p_coach_id IS NULL OR p_max_students IS NULL THEN
         RETURN QUERY SELECT 'error'::TEXT, '缺少必要的課堂資訊。'::TEXT;
         RETURN;
     END IF;
 
-    -- 2. 核心：檢查時間重疊 (已修正)
+    -- 2. 核心：檢查時間重疊
     -- 使用 OVERLAPS 運算子檢查指定教練在指定時間區間內是否已有課程
-    -- 修正：將 date 和 time 組合為 timestamp 進行比較
     SELECT COUNT(*)
     INTO v_overlap_count
     FROM public.classes
@@ -474,18 +473,16 @@ BEGIN
             max_students = p_max_students,
             update_time = NOW(),
             update_user = 'Admin'
-        WHERE class_id = p_class_id;
+        WHERE classes.class_id = p_class_id;
         RETURN QUERY SELECT 'success'::TEXT, '課堂更新成功！'::TEXT;
     ELSE
-        -- 新增模式：產生新的 class_id (格式 CLYYMMXXX)
+        -- 新增模式
         v_id_prefix := 'CL' || to_char(p_class_date, 'YYMM');
         SELECT COALESCE(MAX(SUBSTRING(c.class_id FROM 7 FOR 3)::INT), 0)
         INTO v_max_num
         FROM public.classes c
         WHERE c.class_id LIKE v_id_prefix || '%';
-
         v_new_class_id := v_id_prefix || LPAD((v_max_num + 1)::TEXT, 3, '0');
-
         INSERT INTO public.classes (class_id, course_id, coach_id, class_name, class_date, start_time, end_time, max_students, current_students, status, create_time, create_user)
         VALUES (v_new_class_id, p_course_id, p_coach_id, p_class_name, p_class_date, p_start_time, p_end_time, p_max_students, 0, '開放中', NOW(), 'Admin');
         RETURN QUERY SELECT 'success'::TEXT, '課堂新增成功！'::TEXT;
