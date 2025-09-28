@@ -392,6 +392,7 @@
         .canvas-schedule-header {
             display: flex;
             margin-left: var(--time-axis-width); /* 與下方時間軸對齊 */
+            border-top: 1px solid var(--border-color); /* 新增：補上頂部邊框 */
             border-bottom: 2px solid var(--border-color);
         }
 
@@ -1906,8 +1907,8 @@
             document.getElementById('canvas-prev-week-btn').addEventListener('click', () => changeCanvasWeek(-7));
             document.getElementById('canvas-next-week-btn').addEventListener('click', () => changeCanvasWeek(7));
 
-            // 綁定畫布點擊新增課堂事件
-            document.getElementById('day-columns-container').addEventListener('click', (event) => {
+            // 修改：將「點擊」新增課堂，改為「雙擊」
+            document.getElementById('day-columns-container').addEventListener('dblclick', (event) => {
                 if (event.target.closest('.class-item')) return;
                 const dayColumn = event.target.closest('.day-column');
                 if (dayColumn) {
@@ -1933,7 +1934,11 @@
             let timeAxisHtml = '';
             for (let hour = canvasStartHour; hour <= canvasEndHour; hour++) {
                 const topPosition = (hour - canvasStartHour) * canvasHourHeight;
-                timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; ${hour === canvasStartHour ? 'transform: translateY(0);' : ''}">${String(hour).padStart(2, '0')}:00</div>`;
+                // 修正：對於 09:00，讓其 transform 為 translateY(0)，使其頂部與線對齊
+                const transformStyle = (hour === canvasStartHour) 
+                    ? 'transform: translateY(0);' 
+                    : 'transform: translateY(-50%);';
+                timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; ${transformStyle}">${String(hour).padStart(2, '0')}:00</div>`;
             }
             timeAxisContainer.innerHTML = timeAxisHtml;
 
@@ -2158,13 +2163,19 @@
                         end(event) {
                             const target = event.target;
                             target.classList.remove('dragging');
+                            
+                            // 【方案一：絕對位置計算】
                             const dayOffset = Math.round(parseFloat(target.getAttribute('data-x')) / target.parentElement.offsetWidth);
-                            const minuteOffset = Math.round(parseFloat(target.getAttribute('data-y')) / canvasPixelsPerMinute / 15) * 15;
+                            const newTop = target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0);
+                            
+                            // 將新的 top 位置轉換為從早上9點開始的總分鐘數，並對齊到15分鐘
+                            const startMinutesFrom9AM = Math.round((newTop / canvasPixelsPerMinute) / 15) * 15;
+
                             target.style.transform = '';
-                            target.setAttribute('data-x', 0);
-                            target.setAttribute('data-y', 0);
-                            if (dayOffset === 0 && minuteOffset === 0) return;
-                            quickSaveClass(target.dataset.classId, { dayOffset, minuteOffset });
+                            target.removeAttribute('data-x');
+                            target.removeAttribute('data-y');
+
+                            quickSaveClass(target.dataset.classId, { dayOffset, startMinutesFrom9AM });
                         }
                     },
                     modifiers: commonModifiers, // 使用共用變數
@@ -2190,8 +2201,8 @@
                             const newTop = target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0);
                             const newHeight = target.offsetHeight;
                             target.style.transform = '';
-                            target.setAttribute('data-x', 0);
-                            target.setAttribute('data-y', 0);
+                            target.removeAttribute('data-x');
+                            target.removeAttribute('data-y');
                             const startMinutesFrom9AM = Math.round((newTop / canvasPixelsPerMinute) / 15) * 15;
                             const durationMinutes = Math.max(15, Math.round((newHeight / canvasPixelsPerMinute) / 15) * 15);
                             quickSaveClass(target.dataset.classId, { startMinutesFrom9AM, durationMinutes });
@@ -2200,7 +2211,8 @@
                     modifiers: commonModifiers, // 使用共用變數
                     inertia: true
                 })
-                .on('tap', function (event) {
+                // 修改：將「點擊」開啟編輯 Modal，改為「雙擊」
+                .on('doubletap', function (event) {
                     const classId = event.currentTarget.dataset.classId;
                     if (classId) openClassModal(classId);
                     event.preventDefault();
@@ -2215,12 +2227,15 @@
             let [startH, startM] = oldClass.start_time.split(':').map(Number);
             let [endH, endM] = oldClass.end_time.split(':').map(Number);
 
-            if (changes.dayOffset !== undefined) { // Drag
+            if (changes.dayOffset !== undefined && changes.startMinutesFrom9AM !== undefined) { // Drag
                 newDate.setDate(newDate.getDate() + changes.dayOffset);
-                const newStartTime = new Date(0, 0, 0, startH, startM + changes.minuteOffset);
-                const newEndTime = new Date(0, 0, 0, endH, endM + changes.minuteOffset);
-                startH = newStartTime.getHours(); startM = newStartTime.getMinutes();
-                endH = newEndTime.getHours(); endM = newEndTime.getMinutes();
+                // 計算課程持續時間
+                const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+                // 用新的絕對開始時間 + 原始持續時間，來計算新的時間
+                const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
+                const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + durationMinutes);
+                startH = newStart.getHours(); startM = newStart.getMinutes();
+                endH = newEnd.getHours(); endM = newEnd.getMinutes();
             } else if (changes.startMinutesFrom9AM !== undefined) { // Resize
                 const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
                 const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + changes.durationMinutes);
