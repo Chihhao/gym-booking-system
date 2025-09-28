@@ -2218,16 +2218,6 @@
 
         function initDragAndResize() {
             const snapSize = canvasPixelsPerMinute * 15;
-            // 優化：將共用的修飾器抽離出來
-            const commonModifiers = [
-                interact.modifiers.restrictRect({ restriction: '#day-columns-container' }),
-                // 修正：將 grid 的 x 設為 Infinity，避免 x: 1 的設定干擾到 y 軸的吸附
-                interact.modifiers.snap({ 
-                    targets: [interact.snappers.grid({ x: Infinity, y: snapSize })], 
-                    range: Infinity, 
-                    relativePoints: [{ x: 0, y: 0 }] 
-                })
-            ];
 
             interact('.class-item')
                 .draggable({ // 1. 設定拖曳功能
@@ -2260,7 +2250,15 @@
                             quickSaveClass(target.dataset.classId, { dayOffset, startMinutesFrom9AM });
                         }
                     },
-                    modifiers: commonModifiers, // 修正：確保這裡是複數 modifiers
+                    // 拖曳功能使用較嚴格的邊界限制
+                    modifiers: [
+                        interact.modifiers.restrictRect({ restriction: 'parent' }),
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ x: Infinity, y: snapSize })],
+                            range: Infinity,
+                            relativePoints: [{ x: 0, y: 0 }]
+                        })
+                    ],
                     inertia: true
                 }) // 2. 鏈接 resizable 功能，而不是重新呼叫 interact()
                 .resizable({
@@ -2290,7 +2288,18 @@
                             quickSaveClass(target.dataset.classId, { startMinutesFrom9AM, durationMinutes });
                         }
                     },
-                    modifiers: commonModifiers, // 修正：確保這裡是複數 modifiers
+                    // 縮放功能使用較寬鬆的邊界限制，以允許向上縮放
+                    modifiers: [
+                        interact.modifiers.restrictEdges({
+                            outer: { bottom: 'parent' }, // 只限制底部邊緣
+                            endOnly: true
+                        }),
+                        interact.modifiers.restrictSize({ min: { height: snapSize } }), // 限制最小高度為15分鐘
+                        interact.modifiers.snap({
+                            targets: [interact.snappers.grid({ y: snapSize })],
+                            range: Infinity,
+                        })
+                    ],
                     inertia: true
                 }) // 3. 鏈接雙擊事件
                 // 修改：將「點擊」開啟編輯 Modal，改為「雙擊」
