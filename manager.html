@@ -2144,12 +2144,17 @@
             const snapSize = canvasPixelsPerMinute * 15;
             // 優化：將共用的修飾器抽離出來
             const commonModifiers = [
-                interact.modifiers.restrictRect({ restriction: '#day-columns-container' }), // 修正：將拖曳範圍限制從 'parent' 改為整個畫布容器
-                interact.modifiers.snap({ targets: [interact.snappers.grid({ x: 1, y: snapSize })], range: Infinity, relativePoints: [{ x: 0, y: 0 }] })
+                interact.modifiers.restrictRect({ restriction: '#day-columns-container' }),
+                // 修正：將 grid 的 x 設為 Infinity，避免 x: 1 的設定干擾到 y 軸的吸附
+                interact.modifiers.snap({ 
+                    targets: [interact.snappers.grid({ x: Infinity, y: snapSize })], 
+                    range: Infinity, 
+                    relativePoints: [{ x: 0, y: 0 }] 
+                })
             ];
 
             interact('.class-item')
-                .draggable({
+                .draggable({ // 1. 設定拖曳功能
                     listeners: {
                         start(event) { event.target.classList.add('dragging'); },
                         move(event) {
@@ -2165,22 +2170,34 @@
                             target.classList.remove('dragging');
                             
                             // 【方案一：絕對位置計算】
-                            const dayOffset = Math.round(parseFloat(target.getAttribute('data-x')) / target.parentElement.offsetWidth);
-                            const newTop = target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0);
+                            const dataX = parseFloat(target.getAttribute('data-x')) || 0;
+                            const dataY = parseFloat(target.getAttribute('data-y')) || 0;
+                            const dayOffset = Math.round(dataX / target.parentElement.offsetWidth);
+                            const newTop = target.offsetTop + dataY;
                             
                             // 將新的 top 位置轉換為從早上9點開始的總分鐘數，並對齊到15分鐘
                             const startMinutesFrom9AM = Math.round((newTop / canvasPixelsPerMinute) / 15) * 15;
 
+                            // --- DEBUG LOGGING ---
+                            console.groupCollapsed(`[Drag End] Class ID: ${target.dataset.classId}`);
+                            console.log(`原始 offsetTop: ${target.offsetTop}px`);
+                            console.log(`總位移 (data-y): ${dataY.toFixed(2)}px`);
+                            console.log(`新的絕對 top (newTop): ${newTop.toFixed(2)}px`);
+                            console.log(`每分鐘像素 (canvasPixelsPerMinute): ${canvasPixelsPerMinute.toFixed(4)}px`);
+                            console.log(`換算為分鐘數 (未對齊): ${(newTop / canvasPixelsPerMinute).toFixed(2)} 分`);
+                            console.log(`最終對齊後的開始分鐘數 (startMinutesFrom9AM): ${startMinutesFrom9AM} 分`);
+                            console.log(`日期偏移 (dayOffset): ${dayOffset} 天`);
+                            console.groupEnd();
+
                             target.style.transform = '';
                             target.removeAttribute('data-x');
                             target.removeAttribute('data-y');
-
                             quickSaveClass(target.dataset.classId, { dayOffset, startMinutesFrom9AM });
                         }
                     },
-                    modifiers: commonModifiers, // 使用共用變數
+                    modifiers: commonModifiers, // 修正：確保這裡是複數 modifiers
                     inertia: true
-                })
+                }) // 2. 鏈接 resizable 功能，而不是重新呼叫 interact()
                 .resizable({
                     edges: { top: '.resize-handle-top', bottom: '.resize-handle-bottom' },
                     listeners: {
@@ -2208,9 +2225,9 @@
                             quickSaveClass(target.dataset.classId, { startMinutesFrom9AM, durationMinutes });
                         }
                     },
-                    modifiers: commonModifiers, // 使用共用變數
+                    modifiers: commonModifiers, // 修正：確保這裡是複數 modifiers
                     inertia: true
-                })
+                }) // 3. 鏈接雙擊事件
                 // 修改：將「點擊」開啟編輯 Modal，改為「雙擊」
                 .on('doubletap', function (event) {
                     const classId = event.currentTarget.dataset.classId;
@@ -2230,13 +2247,19 @@
             if (changes.dayOffset !== undefined && changes.startMinutesFrom9AM !== undefined) { // Drag
                 newDate.setDate(newDate.getDate() + changes.dayOffset);
                 // 計算課程持續時間
-                const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+                const durationMinutes = Math.max(15, (endH * 60 + endM) - (startH * 60 + startM));
                 // 用新的絕對開始時間 + 原始持續時間，來計算新的時間
                 const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
                 const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + durationMinutes);
                 startH = newStart.getHours(); startM = newStart.getMinutes();
                 endH = newEnd.getHours(); endM = newEnd.getMinutes();
-            } else if (changes.startMinutesFrom9AM !== undefined) { // Resize
+
+                // --- DEBUG LOGGING ---
+                console.groupCollapsed(`[quickSaveClass] Processing Drag`);
+                console.log(`原始時間: ${oldClass.start_time} - ${oldClass.end_time}`);
+                console.log(`計算出的新時間: ${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')} - ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
+                console.groupEnd();
+            } else if (changes.startMinutesFrom9AM !== undefined && changes.durationMinutes !== undefined) { // Resize
                 const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
                 const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + changes.durationMinutes);
                 startH = newStart.getHours(); startM = newStart.getMinutes();
