@@ -115,10 +115,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 0;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem; /* 增加標題與底線的間距 */
-            margin-bottom: 1.5rem;
+            margin-top: 0; /* 移除：分隔線與相關間距 */
+            margin-bottom: 1rem; /* 新增：補上與下方內容的間距 */
         }
 
         .page-header h1 {
@@ -394,17 +392,22 @@
             margin-left: var(--time-axis-width); /* 與下方時間軸對齊 */
             border-top: 1px solid var(--border-color); /* 新增：補上頂部邊框 */
             border-bottom: 2px solid var(--border-color);
+            border-right: 1px solid var(--border-color); /* 新增：補上右側邊框，與下方表格對齊 */
         }
 
         .day-header {
             flex: 1;
             text-align: center;
-            padding: 0.75rem 0;
+            padding: 0.5rem 0; /* 調整：稍微減少上下內距，讓置中效果更好 */
             font-weight: 500;
-            font-size: 1.2rem;
+            font-size: 1.3rem; /* 調整：放大字體 */
             border-left: 1px solid var(--border-color);
             background-color: #e9ecef;
             color: var(--text-color);
+            /* 新增：使用 Flexbox 讓內容垂直置中 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .schedule-canvas-grid {
@@ -412,6 +415,7 @@
             position: relative;
             overflow-y: auto;
             height: calc(13 * var(--hour-height)); 
+            border-right: 1px solid var(--border-color); /* 新增：為整個畫布加上右邊框 */
         }
 
         .time-axis {
@@ -2061,7 +2065,7 @@
 
         function updateDayHeaders(startOfWeek) {
             const headerContainer = document.getElementById('schedule-header-container');
-            const days = ['週日', '一', '二', '三', '四', '五', '六'];
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
             let headerHtml = '';
             for (let i = 0; i < 7; i++) {
                 const d = new Date(startOfWeek);
