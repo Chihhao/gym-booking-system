@@ -2252,7 +2252,10 @@
                     },
                     // 拖曳功能使用較嚴格的邊界限制
                     modifiers: [
-                        interact.modifiers.restrictRect({ restriction: 'parent' }),
+                        // 修正：將拖曳範圍從 'parent' (.day-column) 擴大到整個畫布容器，
+                        // 這樣才能實現跨天拖曳。
+                        // endOnly: true 可以在拖曳過程中提供更流暢的體驗。
+                        interact.modifiers.restrictRect({ restriction: '#day-columns-container', endOnly: true }),
                         interact.modifiers.snap({
                             targets: [interact.snappers.grid({ x: Infinity, y: snapSize })],
                             range: Infinity,
