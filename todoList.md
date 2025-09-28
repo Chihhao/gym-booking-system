@@ -38,10 +38,10 @@
 -   [x] **實作新的互動方式 (UX)**：
     -   [x] **新增課堂**：允許管理員透過在時間軸上「點擊」來快速設定新課堂的起訖時間。
     -   [x] **修改課堂**：允許管理員拖曳課堂區塊的頂部/底部來調整時間，或拖曳整個區塊來移動時間點。
-    -   [ ] **優化拖曳體驗**：重新實作拖曳過程中的即時吸附功能 (snap-while-dragging)，提供更精準的視覺回饋。
--   [ ] **Part 2.5: 整合與樣式統一 (Integration & Styling)**
-    -   [ ] **樣式統一**: 調整 `manager-schedule.html` 的樣式（如按鈕、標題、顏色），使其與 `manager.html` 的整體風格保持一致。
-    -   [ ] **整合畫布課表**: 將 `manager-schedule.html` 的功能完全整合進 `manager.html`，並移除舊的表格課表，讓新版課表成為預設。
+    -   [x] **優化拖曳體驗**：重新實作拖曳過程中的即時吸附功能 (snap-while-dragging)，提供更精準的視覺回饋。
+-   [x] **Part 2.5: 整合與樣式統一 (Integration & Styling)**
+    -   [x] **樣式統一**: 調整 `manager-schedule.html` 的樣式（如按鈕、標題、顏色），使其與 `manager.html` 的整體風格保持一致。
+    -   [x] **整合畫布課表**: 將 `manager-schedule.html` 的功能完全整合進 `manager.html`，並移除舊的表格課表，讓新版課表成為預設。
 
 #### Part 3: 學員介面調整 (User UI - `schedule.html`)
 
