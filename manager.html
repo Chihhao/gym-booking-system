@@ -569,6 +569,11 @@
             <div class="page-header">
                 <h1>🎨 課表管理</h1>
                 <div class="filter-controls">
+                    <!-- 新增：課程篩選下拉選單 -->
+                    <select id="schedule-course-filter" style="min-width: 200px;">
+                        <option value="">所有課程</option>
+                        <!-- JS 會動態填入選項 -->
+                    </select>
                     <button id="canvas-prev-week-btn" class="btn btn-secondary">&lt; 上一週</button>
                     <button id="canvas-next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
                 </div>
@@ -1943,6 +1948,11 @@
             // 初始化拖曳與縮放功能
             initDragAndResize();
             isCanvasInitialized = true;
+
+            // 新增：綁定課程篩選器的變動事件
+            document.getElementById('schedule-course-filter').addEventListener('change', () => {
+                loadManagerSchedule();
+            });
         }
 
         function renderCanvasShell() {
@@ -1987,20 +1997,58 @@
             const startDateString = formatDate(startOfWeek);
             const endDateString = formatDate(endDate);
 
+            // 修正：在載入課表前，先填充篩選器選項
+            await populateScheduleFilterDropdowns();
+
+            // 新增：讀取課程篩選器的值
+            const selectedCourseId = document.getElementById('schedule-course-filter').value;
+
             updateDayHeaders(startOfWeek);
 
             try {
-                const { data, error } = await supabaseClient
+                // 新增：動態建立查詢
+                let query = supabaseClient
                     .from('classes_with_details')
-                    .select('*')
-                    .gte('class_date', startDateString)
-                    .lte('class_date', endDateString);
+                    .select('*');
+
+                query = query.gte('class_date', startDateString).lte('class_date', endDateString);
+                if (selectedCourseId) {
+                    query = query.eq('course_id', selectedCourseId);
+                }
+
+                const { data, error } = await query;
                 if (error) throw error;
                 renderClassesOnCanvas(data);
             } catch (error) {
                 console.error('載入畫布課表資料失敗:', error);
                 showNotification(`載入課表失敗: ${error.message}`, 'error');
             }
+        }
+
+        /**
+         * 新增：填充課表篩選器的下拉選單
+         */
+        async function populateScheduleFilterDropdowns() {
+            // 確保課程/教練資料已載入
+            await loadManagerFormData();
+            if (!managerFormData) return;
+
+            const courseFilterSelect = document.getElementById('schedule-course-filter');
+            if (!courseFilterSelect) return;
+
+            // 修正：在清空前，先記住目前被選中的值
+            const previouslySelected = courseFilterSelect.value;
+
+            // 清空除了第一個「所有課程」以外的選項
+            courseFilterSelect.length = 1; 
+
+            managerFormData.courses.forEach(course => {
+                const option = new Option(`${course.courseName} (${course.courseId})`, course.courseId);
+                courseFilterSelect.add(option);
+            });
+
+            // 修正：重新設定之前被選中的值
+            courseFilterSelect.value = previouslySelected;
         }
 
         function renderClassesOnCanvas(classes) {
@@ -2127,6 +2175,7 @@
         async function openClassModal(classId) {
             // This is the canvas version of openClassModal
             const modal = document.getElementById('class-modal');
+            form.reset(); // 修正：在填充下拉選單前先重設表單
             await loadManagerFormData();
             document.getElementById('modal-title').textContent = '編輯課堂';
             document.getElementById('delete-class-btn').style.display = 'inline-block';
@@ -2134,8 +2183,7 @@
             try {
                 const { data, error } = await supabaseClient.from('classes_with_details').select('*').eq('class_id', classId).single();
                 if (error) throw new Error(error.message || '找不到指定的課堂');
-                populateFormDropdowns();
-                form.reset(); // 修正：在填充下拉選單後重設表單
+                populateFormDropdowns(); // 填充 Modal 內的下拉選單
                 document.getElementById('form-class-date').value = data.class_date;
                 document.getElementById('form-start-time').value = data.start_time.substring(0, 5);
                 document.getElementById('form-end-time').value = data.end_time ? data.end_time.substring(0, 5) : '';
@@ -2152,10 +2200,10 @@
 
         async function openClassModalForNew(date, startTime) {
             const modal = document.getElementById('class-modal');
+            form.reset(); // 修正：在填充下拉選單前先重設表單
             await loadManagerFormData();
             populateFormDropdowns();
             document.getElementById('modal-title').textContent = '新增課堂';
-            form.reset(); // 修正：在填充下拉選單後重設表單
             document.getElementById('delete-class-btn').style.display = 'none';
             document.getElementById('form-class-id').value = '';
             document.getElementById('form-class-date').value = date;
