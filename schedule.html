@@ -164,6 +164,20 @@
             color: #ffc107; /* 滑鼠懸停時變為黃色 */
         }
 
+        /* --- 新增：展開後的子橫列樣式 --- */
+        .sub-row td {
+            background-color: #3c4248; /* 暗黃色/灰色背景 */
+            transition: background-color 0.2s; /* 將樣式應用到 td 而不是 tr */
+        }
+        .sub-row .time-label {
+            font-size: 0.8em;
+            color: #adb5bd;
+        }
+        /* 讓子橫列中的可點擊格子也有 hover 效果 */
+        .sub-row td.available:hover,
+        .sub-row td.booked-by-me:hover {
+            background-color: #495057;
+        }
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
             cursor: wait;
@@ -323,6 +337,7 @@
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
         let currentScheduleDate = new Date(); // 新增：用於追蹤目前課表顯示的週次
+        let scheduleData = {}; // 新增：將 scheduleData 提升為全域變數
 
         window.addEventListener('DOMContentLoaded', main);
 
@@ -490,7 +505,7 @@
                 }
 
                 // 5. 建立一個新的、更豐富的七天空白課表資料結構
-                const scheduleData = {};
+                scheduleData = {}; // 修正：賦值給全域變數，而不是宣告區域變數
                 const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
 
                 for (let i = 0; i < 7; i++) {
@@ -714,10 +729,108 @@
         }
 
         // --- Part 3.3: 互動邏輯 (佔位函式) ---
-        function expandHour(cellElement) {
-            // 這是下一步要實作的函式
-            console.log('Expand clicked!', cellElement.dataset.date, cellElement.dataset.hour);
-            alert(`你點擊了可展開的時段：\n日期: ${cellElement.dataset.date}\n時間: ${cellElement.dataset.hour}\n\n下一步我們將在這裡實作展開功能。`);
+        function expandHour(cell) {
+            const parentRow = cell.parentElement;
+            const date = cell.dataset.date;
+            const hour = cell.dataset.hour;
+            const hourNumber = parseInt(hour.substring(0, 2), 10);
+            const arrow = cell.querySelector('.expand-arrow');
+
+            // --- 收合邏輯 ---
+            if (parentRow.classList.contains('is-expanded')) {
+                parentRow.classList.remove('is-expanded');
+                if (arrow) arrow.classList.replace('mdi-chevron-up', 'mdi-chevron-down');
+
+                // 移除接下來的四個子橫列
+                let nextRow = parentRow.nextElementSibling;
+                for (let i = 0; i < 4; i++) {
+                    if (nextRow && nextRow.classList.contains('sub-row')) {
+                        const rowToRemove = nextRow;
+                        nextRow = nextRow.nextElementSibling;
+                        rowToRemove.remove();
+                    }
+                }
+                return;
+            }
+
+            // --- 展開邏輯 ---
+            parentRow.classList.add('is-expanded');
+            if (arrow) arrow.classList.replace('mdi-chevron-down', 'mdi-chevron-up');
+
+            // 1. 準備資料
+            const slotDataContainer = scheduleData[date]?.[hour] || { classes: [] };
+            const subSlots = { '00': null, '15': null, '30': null, '45': null };
+
+            // 將課堂放入對應的 15 分鐘槽位
+            slotDataContainer.classes.forEach(cls => {
+                const minute = cls.start_time.substring(3, 5);
+                if (subSlots[minute] === undefined) return; // 安全檢查
+                
+                // 如果同一個 15 分鐘有多堂課，只取第一堂
+                if (!subSlots[minute]) {
+                    subSlots[minute] = cls;
+                }
+            });
+
+            // 2. 產生 HTML
+            let subRowsHtml = '';
+            // 修正：只選取 thead 中第一行的 th，避免選到星期
+            const weekDates = Array.from(document.querySelectorAll('#schedule-container thead tr:first-child th')).slice(1).map(th => {
+                const [month, day] = th.textContent.split('/');
+                const year = new Date(date).getFullYear(); // 從 data-date 取得年份
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            });
+            const dayIndex = weekDates.indexOf(date);
+
+            ['00', '15', '30', '45'].forEach(minute => {
+                subRowsHtml += `<tr class="sub-row" data-parent-hour="${hour}">`;
+                subRowsHtml += `<td class="time-label">${hourNumber}:${minute}</td>`;
+
+                for (let i = 0; i < 7; i++) {
+                    if (i === dayIndex) {
+                        const classInfo = subSlots[minute];
+                        if (classInfo) {
+                            let slotClass = 'slot';
+                            let mainIcon = '';
+                            let onClickAction = '';
+                            let titleAttribute = '';
+
+                            switch (classInfo.status) {
+                                case 'available':
+                                    slotClass += ' available';
+                                    mainIcon = '<span class="mdi mdi-circle-outline"></span>';
+                                    onClickAction = `onclick="selectTimeslot('${classInfo.schedule_id}', this.parentElement)"`;
+                                    titleAttribute = `title="剩下 ${classInfo.remaining} 位"`;
+                                    break;
+                                case 'full':
+                                    slotClass += ' full';
+                                    mainIcon = '<span class="mdi mdi-close"></span>';
+                                    titleAttribute = 'title="額滿"';
+                                    break;
+                                case 'booked_by_me':
+                                    slotClass += ' booked-by-me';
+                                    mainIcon = '<span class="mdi mdi-check"></span>';
+                                    onClickAction = `onclick="showBookingDetails('${classInfo.booking_id}')"`;
+                                    titleAttribute = 'title="查看憑證"';
+                                    break;
+                            }
+                            subRowsHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>
+                                                <div class="${slotClass}">${mainIcon}</div>
+                                            </td>`;
+                        } else {
+                            // 沒有課的格子
+                            subRowsHtml += `<td><div class="slot"></div></td>`;
+                        }
+                    } else {
+                        // 其他日期的格子
+                        subRowsHtml += `<td><div class="slot"></div></td>`;
+                    }
+                }
+                subRowsHtml += `</tr>`;
+            });
+
+            // 3. 插入 HTML
+            parentRow.insertAdjacentHTML('afterend', subRowsHtml);
         }
 
         async function selectTimeslot(scheduleId, element) {
