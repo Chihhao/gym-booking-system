@@ -762,6 +762,8 @@
             // 2. 產生 HTML
             let subRowsHtml = '';
             // 修正：只選取 thead 中第一行的 th，避免選到星期
+            const now = new Date(); // 新增：取得當前時間，用於判斷過期
+
             const weekDates = Array.from(document.querySelectorAll('#schedule-container thead tr:first-child th')).slice(1).map(th => {
                 const [month, day] = th.textContent.split('/');
                 const year = new Date(date).getFullYear(); // 從 data-date 取得年份
@@ -791,40 +793,45 @@
                 for (let i = 0; i < 7; i++) {
                     // 新邏輯：根據當前迴圈的日期和分鐘，從 weeklySubSlots 查找課堂
                     const currentDate = weekDates[i];
+                    const subSlotDateTime = new Date(`${currentDate} ${hourNumber}:${minute}`);
                     const classInfo = weeklySubSlots[currentDate]?.[minute];
 
-                        if (classInfo) {
-                            let slotClass = 'slot';
-                            let mainIcon = '';
-                            let onClickAction = '';
-                            let titleAttribute = '';
+                    // 新增：優先判斷是否已過期
+                    if (subSlotDateTime < now) {
+                        subRowsHtml += `<td><div class="slot expired"><span class="mdi mdi-minus-circle-outline"></span></div></td>`;
+                    } else if (classInfo) {
+                        // 如果未過期且有課，才渲染課堂狀態
+                        let slotClass = 'slot';
+                        let mainIcon = '';
+                        let onClickAction = '';
+                        let titleAttribute = '';
 
-                            switch (classInfo.status) {
-                                case 'available':
-                                    slotClass += ' available';
-                                    mainIcon = '<span class="mdi mdi-circle-outline"></span>';
-                                    onClickAction = `onclick="selectTimeslot('${classInfo.schedule_id}', this.parentElement)"`;
-                                    titleAttribute = `title="剩下 ${classInfo.remaining} 位"`;
-                                    break;
-                                case 'full':
-                                    slotClass += ' full';
-                                    mainIcon = '<span class="mdi mdi-close"></span>';
-                                    titleAttribute = 'title="額滿"';
-                                    break;
-                                case 'booked_by_me':
-                                    slotClass += ' booked-by-me';
-                                    mainIcon = '<span class="mdi mdi-check"></span>';
-                                    onClickAction = `onclick="showBookingDetails('${classInfo.booking_id}')"`;
-                                    titleAttribute = 'title="查看憑證"';
-                                    break;
-                            }
-                            subRowsHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>
-                                                <div class="${slotClass}">${mainIcon}</div>
-                                            </td>`;
-                        } else {
-                            // 沒有課的格子
-                            subRowsHtml += `<td><div class="slot"></div></td>`;
+                        switch (classInfo.status) {
+                            case 'available':
+                                slotClass += ' available';
+                                mainIcon = '<span class="mdi mdi-circle-outline"></span>';
+                                onClickAction = `onclick="selectTimeslot('${classInfo.schedule_id}', this.parentElement)"`;
+                                titleAttribute = `title="剩下 ${classInfo.remaining} 位"`;
+                                break;
+                            case 'full':
+                                slotClass += ' full';
+                                mainIcon = '<span class="mdi mdi-close"></span>';
+                                titleAttribute = 'title="額滿"';
+                                break;
+                            case 'booked_by_me':
+                                slotClass += ' booked-by-me';
+                                mainIcon = '<span class="mdi mdi-check"></span>';
+                                onClickAction = `onclick="showBookingDetails('${classInfo.booking_id}')"`;
+                                titleAttribute = 'title="查看憑證"';
+                                break;
                         }
+                        subRowsHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>
+                                            <div class="${slotClass}">${mainIcon}</div>
+                                        </td>`;
+                    } else {
+                        // 未過期且沒有課的空格子
+                        subRowsHtml += `<td><div class="slot"></div></td>`;
+                    }
                 }
                 subRowsHtml += `</tr>`;
             });
