@@ -1120,25 +1120,20 @@
             if (activeLink) activeLink.classList.add('active');
             if (activeSection) activeSection.classList.add('active');
 
-            // 優化：只有當資料尚未載入時，才執行載入函式
-            switch (targetId) {
-                case 'bookings':
-                    if (currentBookings.length === 0) loadBookings();
-                    break;
-                case 'schedule':
-                    // 課表比較特殊，每次切換都重新載入以確保是最新資料
-                    loadManagerSchedule();
-                    break;
-                case 'courses':
-                    if (currentCourses.length === 0) loadCourses();
-                    break;
-                case 'coaches':
-                    if (currentCoaches.length === 0) loadCoaches();
-                    break;
-                case 'users':
-                    // 修改：第一次點擊此分頁時，自動載入所有使用者列表
-                    if (currentUsers.length === 0) loadUsers();
-                    break;
+            // 優化：使用映射表簡化載入邏輯
+            const dataLoaders = {
+                bookings: { load: loadBookings, isLoaded: () => currentBookings.length > 0 },
+                // 課表比較特殊，每次切換都重新載入以確保是最新資料，所以沒有 isLoaded 條件
+                schedule: { load: loadManagerSchedule, isLoaded: () => false },
+                courses:  { load: loadCourses,  isLoaded: () => currentCourses.length > 0 },
+                coaches:  { load: loadCoaches,  isLoaded: () => currentCoaches.length > 0 },
+                // 第一次點擊 users 分頁時，自動載入所有使用者列表
+                users:    { load: loadUsers,    isLoaded: () => currentUsers.length > 0 }
+            };
+
+            const loaderInfo = dataLoaders[targetId];
+            if (loaderInfo && !loaderInfo.isLoaded()) {
+                loaderInfo.load();
             }
         } // handleNavigation 函式定義結束
 
