@@ -172,7 +172,7 @@
         .sub-row .time-label {
             /* 修正：使用更明確的選擇器來覆蓋預設樣式，確保背景色一致 */
             background-color: #3c4248 !important; /* 使用 !important 強制覆蓋 */
-            color: #adb5bd;
+            color: #fcc419; /* 改為主題黃色 */
             font-size: 0.9em; /* 確保字體大小與主時間列一致 */
         }
         /* 讓子橫列中的可點擊格子也有 hover 效果 */
@@ -730,114 +730,135 @@
             }
         }
 
-        // --- Part 3.3: 互動邏輯 (佔位函式) ---
+        // --- Part 3.3: 互動邏輯 ---
         function expandHour(cell) {
             const parentRow = cell.parentElement;
-            const date = cell.dataset.date;
-            const hour = cell.dataset.hour;
-            const hourNumber = parseInt(hour.substring(0, 2), 10);
-            const arrow = cell.querySelector('.expand-arrow');
 
             // --- 收合邏輯 ---
             if (parentRow.classList.contains('is-expanded')) {
                 parentRow.classList.remove('is-expanded');
-                // 移除：不再切換箭頭方向
-
-                // 移除接下來的四個子橫列
                 let nextRow = parentRow.nextElementSibling;
                 for (let i = 0; i < 4; i++) {
-                    if (nextRow && nextRow.classList.contains('sub-row')) {
-                        const rowToRemove = nextRow;
-                        nextRow = nextRow.nextElementSibling;
-                        rowToRemove.remove();
-                    }
+                    if (!nextRow || !nextRow.classList.contains('sub-row')) break;
+                    const rowToRemove = nextRow;
+                    nextRow = nextRow.nextElementSibling;
+                    rowToRemove.remove();
                 }
                 return;
             }
 
+            // --- 暫時停用：自動收合其他已展開的列 (未來可能重新啟用) ---
+            /*
+            const currentlyExpandedRow = document.querySelector('.schedule-grid tbody tr.is-expanded');
+            if (currentlyExpandedRow) {
+                currentlyExpandedRow.classList.remove('is-expanded');
+                let nextRow = currentlyExpandedRow.nextElementSibling;
+                for (let i = 0; i < 4; i++) {
+                    if (!nextRow || !nextRow.classList.contains('sub-row')) break;
+                    const rowToRemove = nextRow;
+                    nextRow = nextRow.nextElementSibling;
+                    rowToRemove.remove();
+                }
+            }
+            */
+
             // --- 展開邏輯 ---
             parentRow.classList.add('is-expanded');
-            // 移除：不再切換箭頭方向
+            const { date, hour } = cell.dataset;
+            const subRowsHtml = generateSubRowsHtml(date, hour);
+            parentRow.insertAdjacentHTML('afterend', subRowsHtml);
+        }
 
-            // 2. 產生 HTML
-            let subRowsHtml = '';
-            // 修正：只選取 thead 中第一行的 th，避免選到星期
-            const now = new Date(); // 新增：取得當前時間，用於判斷過期
-
+        /**
+         * 輔助函式：產生四個子橫列的 HTML 字串
+         */
+        function generateSubRowsHtml(date, hour) {
+            const hourNumber = parseInt(hour.substring(0, 2), 10);
+            const now = new Date();
+            
             const weekDates = Array.from(document.querySelectorAll('#schedule-container thead tr:first-child th')).slice(1).map(th => {
                 const [month, day] = th.textContent.split('/');
-                const year = new Date(date).getFullYear(); // 從 data-date 取得年份
+                const year = new Date(date).getFullYear();
                 return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
             });
 
-            // 1. 準備資料 (新邏輯：收集一整週在該小時的所有課堂)
-            const weeklySubSlots = {}; // e.g., { '2024-09-24': { '15': classInfo, '30': classInfo }, '2024-09-26': { '00': classInfo } }
+            const weeklySubSlots = getWeeklySubSlots(weekDates, hour);
+            let subRowsHtml = '';
+
+            ['00', '15', '30', '45'].forEach(minute => {
+                subRowsHtml += `<tr class="sub-row" data-parent-hour="${hour}">`;
+                subRowsHtml += `<td class="time-label">${hourNumber}:${minute}</td>`;
+                for (let i = 0; i < 7; i++) {
+                    const currentDate = weekDates[i];
+                    const subSlotDateTime = new Date(`${currentDate} ${hourNumber}:${minute}`);
+                    const classInfo = weeklySubSlots[currentDate]?.[minute];
+                    subRowsHtml += generateSubCellHtml(subSlotDateTime, now, classInfo);
+                }
+                subRowsHtml += `</tr>`;
+            });
+            return subRowsHtml;
+        }
+
+        /**
+         * 輔助函式：從全域 scheduleData 整理出一週內特定小時的子時段資料
+         */
+        function getWeeklySubSlots(weekDates, hour) {
+            const weeklySubSlots = {};
             weekDates.forEach(d => {
                 const slotDataContainer = scheduleData[d]?.[hour] || { classes: [] };
                 if (slotDataContainer.classes.length > 0) {
                     weeklySubSlots[d] = {};
                     slotDataContainer.classes.forEach(cls => {
                         const minute = cls.start_time.substring(3, 5);
-                        // 如果同一個 15 分鐘有多堂課，只取第一堂
                         if (!weeklySubSlots[d][minute]) {
                             weeklySubSlots[d][minute] = cls;
                         }
                     });
                 }
             });
+            return weeklySubSlots;
+        }
 
-            ['00', '15', '30', '45'].forEach(minute => {
-                subRowsHtml += `<tr class="sub-row" data-parent-hour="${hour}">`;
-                subRowsHtml += `<td class="time-label">${hourNumber}:${minute}</td>`;
+        /**
+         * 輔助函式：產生單一子儲存格 (<td>) 的 HTML
+         */
+        function generateSubCellHtml(subSlotDateTime, now, classInfo) {
+            if (subSlotDateTime < now) {
+                return `<td><div class="slot expired"><span class="mdi mdi-minus-circle-outline"></span></div></td>`;
+            }
 
-                for (let i = 0; i < 7; i++) {
-                    // 新邏輯：根據當前迴圈的日期和分鐘，從 weeklySubSlots 查找課堂
-                    const currentDate = weekDates[i];
-                    const subSlotDateTime = new Date(`${currentDate} ${hourNumber}:${minute}`);
-                    const classInfo = weeklySubSlots[currentDate]?.[minute];
+            if (!classInfo) {
+                return `<td><div class="slot"></div></td>`;
+            }
 
-                    // 新增：優先判斷是否已過期
-                    if (subSlotDateTime < now) {
-                        subRowsHtml += `<td><div class="slot expired"><span class="mdi mdi-minus-circle-outline"></span></div></td>`;
-                    } else if (classInfo) {
-                        // 如果未過期且有課，才渲染課堂狀態
-                        let slotClass = 'slot';
-                        let mainIcon = '';
-                        let onClickAction = '';
-                        let titleAttribute = '';
+            let tdClass = '';
+            let mainIcon = '';
+            let onClickAction = '';
+            let titleAttribute = '';
 
-                        switch (classInfo.status) {
-                            case 'available':
-                                slotClass += ' available';
-                                mainIcon = '<span class="mdi mdi-circle-outline"></span>';
-                                onClickAction = `onclick="selectTimeslot('${classInfo.schedule_id}', this.parentElement)"`;
-                                titleAttribute = `title="剩下 ${classInfo.remaining} 位"`;
-                                break;
-                            case 'full':
-                                slotClass += ' full';
-                                mainIcon = '<span class="mdi mdi-close"></span>';
-                                titleAttribute = 'title="額滿"';
-                                break;
-                            case 'booked_by_me':
-                                slotClass += ' booked-by-me';
-                                mainIcon = '<span class="mdi mdi-check"></span>';
-                                onClickAction = `onclick="showBookingDetails('${classInfo.booking_id}')"`;
-                                titleAttribute = 'title="查看憑證"';
-                                break;
-                        }
-                        subRowsHtml += `<td class="${slotClass}" ${onClickAction} ${titleAttribute}>
-                                            <div class="${slotClass}">${mainIcon}</div>
-                                        </td>`;
-                    } else {
-                        // 未過期且沒有課的空格子
-                        subRowsHtml += `<td><div class="slot"></div></td>`;
-                    }
-                }
-                subRowsHtml += `</tr>`;
-            });
-
-            // 3. 插入 HTML
-            parentRow.insertAdjacentHTML('afterend', subRowsHtml);
+            switch (classInfo.status) {
+                case 'available':
+                    tdClass = 'available';
+                    mainIcon = '<span class="mdi mdi-circle-outline"></span>';
+                    onClickAction = `onclick="selectTimeslot('${classInfo.schedule_id}', this)"`;
+                    titleAttribute = `title="剩下 ${classInfo.remaining} 位"`;
+                    break;
+                case 'full':
+                    tdClass = 'full';
+                    mainIcon = '<span class="mdi mdi-close"></span>';
+                    titleAttribute = 'title="額滿"';
+                    break;
+                case 'booked_by_me':
+                    tdClass = 'booked-by-me';
+                    mainIcon = '<span class="mdi mdi-check"></span>';
+                    onClickAction = `onclick="showBookingDetails('${classInfo.booking_id}')"`;
+                    titleAttribute = 'title="查看憑證"';
+                    break;
+            }
+            // 修正：將 slotClass (available, full...) 直接應用在 <td> 上
+            return `<td class="${tdClass}" ${onClickAction} ${titleAttribute}>
+                        <div class="slot ${tdClass}">${mainIcon}</div>
+                    </td>`;
         }
 
         async function selectTimeslot(scheduleId, element) {
