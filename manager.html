@@ -39,7 +39,7 @@
         /* 新增：畫布課表專用 CSS 變數 */
         :root {
             --hour-line-color: #e9ecef;
-            --time-axis-width: 80px;
+            --time-axis-width: 60px; /* 調整：時間軸寬度 */
             --hour-height: 80px; /* 每小時的高度 */
         }
 
@@ -422,10 +422,11 @@
 
         .time-label {
             position: absolute;
-            right: 8px;
-            transform: translateY(-50%);
-            font-size: 0.9rem;
+            right: 8px; /* 微調：讓文字離右邊緣更遠一點 */
+            transform: translateY(-50%); /* 預設：垂直置中 */
+            font-size: 1.3rem; /* 調整：再次放大字體 */
             color: #6c757d;
+            text-align: right; /* 新增：確保文字靠右對齊 */
         }
 
         .day-column {
@@ -1932,13 +1933,10 @@
             const dayColumnsContainer = document.getElementById('day-columns-container');
 
             let timeAxisHtml = '';
-            for (let hour = canvasStartHour; hour <= canvasEndHour; hour++) {
+            // 移除 09:00，迴圈直接從 10 點開始
+            for (let hour = canvasStartHour + 1; hour <= canvasEndHour; hour++) {
                 const topPosition = (hour - canvasStartHour) * canvasHourHeight;
-                // 修正：對於 09:00，讓其 transform 為 translateY(0)，使其頂部與線對齊
-                const transformStyle = (hour === canvasStartHour) 
-                    ? 'transform: translateY(0);' 
-                    : 'transform: translateY(-50%);';
-                timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; ${transformStyle}">${String(hour).padStart(2, '0')}:00</div>`;
+                timeAxisHtml += `<div class="time-label" style="top: ${topPosition}px; transform: translateY(-50%);">${String(hour).padStart(2, '0')}:00</div>`;
             }
             timeAxisContainer.innerHTML = timeAxisHtml;
 
@@ -2178,17 +2176,6 @@
                             // 將新的 top 位置轉換為從早上9點開始的總分鐘數，並對齊到15分鐘
                             const startMinutesFrom9AM = Math.round((newTop / canvasPixelsPerMinute) / 15) * 15;
 
-                            // --- DEBUG LOGGING ---
-                            console.groupCollapsed(`[Drag End] Class ID: ${target.dataset.classId}`);
-                            console.log(`原始 offsetTop: ${target.offsetTop}px`);
-                            console.log(`總位移 (data-y): ${dataY.toFixed(2)}px`);
-                            console.log(`新的絕對 top (newTop): ${newTop.toFixed(2)}px`);
-                            console.log(`每分鐘像素 (canvasPixelsPerMinute): ${canvasPixelsPerMinute.toFixed(4)}px`);
-                            console.log(`換算為分鐘數 (未對齊): ${(newTop / canvasPixelsPerMinute).toFixed(2)} 分`);
-                            console.log(`最終對齊後的開始分鐘數 (startMinutesFrom9AM): ${startMinutesFrom9AM} 分`);
-                            console.log(`日期偏移 (dayOffset): ${dayOffset} 天`);
-                            console.groupEnd();
-
                             target.style.transform = '';
                             target.removeAttribute('data-x');
                             target.removeAttribute('data-y');
@@ -2253,12 +2240,6 @@
                 const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + durationMinutes);
                 startH = newStart.getHours(); startM = newStart.getMinutes();
                 endH = newEnd.getHours(); endM = newEnd.getMinutes();
-
-                // --- DEBUG LOGGING ---
-                console.groupCollapsed(`[quickSaveClass] Processing Drag`);
-                console.log(`原始時間: ${oldClass.start_time} - ${oldClass.end_time}`);
-                console.log(`計算出的新時間: ${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')} - ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
-                console.groupEnd();
             } else if (changes.startMinutesFrom9AM !== undefined && changes.durationMinutes !== undefined) { // Resize
                 const newStart = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM);
                 const newEnd = new Date(0, 0, 0, canvasStartHour, changes.startMinutesFrom9AM + changes.durationMinutes);
