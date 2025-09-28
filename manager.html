@@ -97,7 +97,7 @@
 
         .main-content {
             flex-grow: 1;
-            padding: 2rem;
+            padding: 1.5rem; /* 調整：減少內距，讓內容更靠左 */
             transition: margin-left 0.3s ease;
             overflow-y: auto;
         }
@@ -398,15 +398,14 @@
         .day-header {
             flex: 1;
             text-align: center;
-            padding: 0.5rem 0; /* 調整：稍微減少上下內距，讓置中效果更好 */
-            font-weight: 500;
-            font-size: 1.3rem; /* 調整：放大字體 */
+            padding: 0.75rem; /* 修正：與其他表格的 padding 統一，確保列高一致 */
+            font-weight: 700; /* 調整：改為粗體 */
+            font-size: 1.3rem; /* 調整：因改為單行，稍微縮小字體 */
             border-left: 1px solid var(--border-color);
             background-color: #e9ecef;
             color: var(--text-color);
-            /* 新增：使用 Flexbox 讓內容垂直置中 */
             display: flex;
-            flex-direction: column;
+            align-items: center; /* 修正：改為 align-items 垂直置中 */
             justify-content: center;
         }
 
@@ -510,6 +509,11 @@
         .class-item-content {
             /* 內容本身不接收滑鼠事件，讓 interact.js 的 tap 事件能作用在 .class-item 上 */
             pointer-events: none;
+        }
+
+        /* 修正：將底部邊框從外層容器移到這裡，避免延伸到時間軸下方 */
+        #day-columns-container {
+            border-bottom: 1px solid var(--border-color);
         }
     </style>
 </head>
@@ -2070,7 +2074,8 @@
             for (let i = 0; i < 7; i++) {
                 const d = new Date(startOfWeek);
                 d.setDate(startOfWeek.getDate() + i);
-                headerHtml += `<div class="day-header">${days[i]}<br><span style="font-size: 0.8em; font-weight: 400;">${d.getMonth() + 1}/${d.getDate()}</span></div>`;
+                // 修正：將格式改為 "月/日 (星期)"
+                headerHtml += `<div class="day-header">${d.getMonth() + 1}/${d.getDate()} (${days[i]})</div>`;
             }
             headerContainer.innerHTML = headerHtml;
         }
