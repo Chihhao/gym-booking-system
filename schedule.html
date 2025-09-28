@@ -150,6 +150,20 @@
             color: #dc3545; /* 紅色，表示禁止 */
         }
 
+        /* --- 新增：可展開儲存格的樣式 --- */
+        .expandable {
+            cursor: pointer; /* 讓整個儲存格都顯示可點擊的鼠標 */
+        }
+        /* 移除：不再需要 flex 佈局，因為只顯示一個圖示 */
+        .expand-arrow {
+            font-size: 0.8em; /* 讓箭頭比主圖示小一點 */
+            color: #868e96; /* 柔和的灰色 */
+            transition: transform 0.2s;
+        }
+        .expandable:hover .expand-arrow {
+            color: #ffc107; /* 滑鼠懸停時變為黃色 */
+        }
+
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
             cursor: wait;
@@ -418,6 +432,10 @@
                 container.innerHTML = '<p class="loader">正在載入時段資料...</p>';
             }
             try {
+                // --- Part 3.1: 互動式展開方案的後端資料準備 ---
+                // 這是改造的第一步，我們將重構資料處理邏輯，
+                // 以便為前端提供更豐富的資訊，判斷哪些時段需要「展開」。
+
                 // --- 方案一：直接從 Supabase 讀取資料 (最終時區修正版) ---
                 
                 // 1. 建立日期輔助工具
@@ -442,7 +460,7 @@
                 const { data: classes, error: classesError } = await supabaseClient
                     .from('classes')
                     .select('*')
-                    .eq('course_id', courseId) // 篩選課程
+                    .eq('course_id', courseId)
                     .eq('coach_id', coachId)   // 篩選教練
                     .eq('status', '開放中')
                     .gte('class_date', startDateString) // 大於等於起始日
@@ -471,49 +489,65 @@
                     bookings.forEach(b => userBookings.set(b.class_id, b.booking_id));
                 }
 
-                // 5. 建立一個空的七天空白課表資料結構
+                // 5. 建立一個新的、更豐富的七天空白課表資料結構
                 const scheduleData = {};
                 const hours = Array.from({length: 13}, (_, i) => (i + 9).toString().padStart(2, '0') + ':00');
 
-                // 修正：建立空白課表時，也應從 referenceDate 開始，而不是固定的星期日
                 for (let i = 0; i < 7; i++) {
-                    // 從 referenceDate 開始，產生連續七天的日期
                     const currentDate = new Date(refDate);
                     currentDate.setDate(currentDate.getDate() + i);
                     const dateString = getLocalDateString(currentDate);
 
-                    scheduleData[dateString] = {}; // 確保每天的物件都存在
+                    scheduleData[dateString] = {};
                     hours.forEach(hour => {
-                        scheduleData[dateString][hour] = { status: 'no_class' };
+                        // 初始化每個小時的格子，包含一個空的 classes 陣列和 has_multiple 旗標
+                        scheduleData[dateString][hour] = { 
+                            has_multiple: false,
+                            classes: [] 
+                        };
                     });
                 }
 
                 // 6. 將從資料庫取得的課堂資料填入課表結構中
                 classes.forEach(cls => {
-                    // Supabase 回傳的 class_date 已經是 'YYYY-MM-DD' 格式，直接使用
-                    const dateString = cls.class_date; 
+                    const dateString = cls.class_date;
+                    if (!cls.start_time || !scheduleData[dateString]) return;
 
-                    // 修正：穩健地處理可能為 null 的 UTC 時間
-                    let hourKey = null;
-                    let startTimeString = '';
+                    const hourKey = cls.start_time.substring(0, 2) + ':00'; // e.g., "09:00"
+                    const startTimeString = cls.start_time.substring(0, 5); // e.g., "09:15"
 
-                    if (cls.start_time) {
-                        // 最終修正：既然 DB 資料已乾淨，直接截取字串即可，無需任何轉換
-                        startTimeString = cls.start_time.substring(0, 5); // e.g., "07:00"
-                        hourKey = cls.start_time.substring(0, 2) + ':00'; // e.g., "07:00"
-                    }
-                    
-                    // 7. 根據課堂狀態和使用者預約情況，決定格子要顯示的內容
-                    if (hourKey && scheduleData[dateString] && scheduleData[dateString][hourKey]) { // 只有當 hourKey 有效時才嘗試放入網格
+                    if (scheduleData[dateString][hourKey]) {
+                        let classInfo;
                         if (userBookings.has(cls.class_id)) {
-                            scheduleData[dateString][hourKey] = { status: 'booked_by_me', schedule_id: cls.class_id, booking_id: userBookings.get(cls.class_id) };
+                            classInfo = { 
+                                status: 'booked_by_me', 
+                                schedule_id: cls.class_id, 
+                                booking_id: userBookings.get(cls.class_id),
+                                start_time: startTimeString // 儲存精確時間
+                            };
                         } else {
                             const remaining = cls.max_students - cls.current_students;
-                            const status = remaining > 0 ? 'available' : 'full';
-                            scheduleData[dateString][hourKey] = { status: status, schedule_id: cls.class_id, remaining: remaining };
+                            classInfo = { 
+                                status: remaining > 0 ? 'available' : 'full', 
+                                schedule_id: cls.class_id, 
+                                remaining: remaining,
+                                start_time: startTimeString // 儲存精確時間
+                            };
                         }
+                        scheduleData[dateString][hourKey].classes.push(classInfo);
                     }
                 });
+
+                // 7. 判斷哪些時段需要標記為可展開 (has_multiple)
+                for (const date in scheduleData) {
+                    for (const hour in scheduleData[date]) {
+                        const slot = scheduleData[date][hour];
+                        // 新邏輯：只要該小時內有任何課堂（無論是一堂還是多堂，無論是否為整點），就標記為可展開。
+                        if (slot.classes.length > 0) {
+                            slot.has_multiple = true;
+                        }
+                    }
+                }
 
                 // 8. 渲染最終的課表網格
                 renderScheduleGrid(scheduleData, referenceDate);
@@ -572,6 +606,11 @@
                         let slotContent = '';
                         let onClickAction = '';
                         let titleAttribute = ''; // 用於存放 tooltip 文字
+                        let tdClass = ''; // 新增：用於存放 <td> 的 class
+                        let tdDataAttributes = ''; // 新增：用於存放 data-* 屬性
+
+                        // 修正：將 mainIcon 的宣告移到 if/else 之外，確保在所有路徑下都已定義
+                        let mainIcon = '';
 
                         // 修正：組合出該時段的完整時間。將 'T' 換成空格，確保 JS 將其解析為本地時間而非 UTC。
                         const slotDateTime = new Date(`${date} ${hour}`);
@@ -579,37 +618,42 @@
                         // 優先判斷：是否已過期
                         if (slotDateTime < now) {
                             slotClass += ' expired';
-                            slotContent = '<span class="mdi mdi-minus-circle-outline"></span>';
+                            mainIcon = '<span class="mdi mdi-minus-circle-outline"></span>';
                         } else {
                             // 若未過期，才根據後端資料來判斷狀態
-                            const slotData = (scheduleData[date] && scheduleData[date][hour]) 
-                                             ? scheduleData[date][hour] 
+                            const slotDataContainer = (scheduleData[date] && scheduleData[date][hour]) 
+                                             ? scheduleData[date][hour]
+                                             : { classes: [] };
+
+                            // 改造：即使有多堂課，我們也只取第一堂課的狀態來顯示初始圖示
+                            const slotData = slotDataContainer.classes.length > 0 
+                                             ? slotDataContainer.classes[0] 
                                              : { status: 'no_class' };
-                            
-                            switch (slotData.status) {
-                                case 'available':
-                                    slotClass += ' available';
-                                    slotContent = '<span class="mdi mdi-circle-outline"></span>';
-                                    onClickAction = `onclick="selectTimeslot('${slotData.schedule_id}', this)"`;
-                                    titleAttribute = `title="剩下 ${slotData.remaining} 位"`; // 新增：可預約提示
-                                    break;
-                                case 'full':
-                                    slotClass += ' full';
-                                    slotContent = '<span class="mdi mdi-close"></span>';
-                                    titleAttribute = 'title="額滿"'; // 新增：額滿提示
-                                    break;
-                                case 'booked_by_me':
-                                    slotClass += ' booked-by-me';
-                                    slotContent = '<span class="mdi mdi-check"></span>';
-                                    onClickAction = `onclick="showBookingDetails('${slotData.booking_id}')"`;
-                                    titleAttribute = 'title="查看憑證"'; // 修改：已預約提示
-                                    break;
-                                default:
-                                    // 'no_class' 狀態則維持 slotContent 為空字串
-                                    break;
+
+                            // --- Part 3.2: 根據 has_multiple 旗標加上可展開的箭頭 ---
+                            if (slotDataContainer.has_multiple) {
+                                tdClass = 'expandable';
+                                // 將點擊事件統一交給 expandHour 處理
+                                onClickAction = `onclick="expandHour(this)"`;
+                                // 將必要資訊存在 data-* 屬性中，方便 expandHour 函式讀取
+                                tdDataAttributes = `data-date="${date}" data-hour="${hour}"`;
+                                // 箭頭圖示
+                                mainIcon = '<span class="expand-arrow mdi mdi-chevron-down"></span>';
+                                // 即使只顯示箭頭，我們仍然需要根據第一堂課的狀態來設定顏色和提示
+                                if (slotData.status === 'available') slotClass += ' available';
+                                if (slotData.status === 'full') slotClass += ' full';
+                                if (slotData.status === 'booked_by_me') slotClass += ' booked-by-me';
+                                titleAttribute = 'title="點擊查看詳細時段"';
+                            } else {
+                                // 根據新邏輯，這個 else 區塊實際上不會被執行到，
+                                // 因為所有有課的時段 (available, full, booked_by_me) 都會被標記為 has_multiple。
+                                // 'no_class' 狀態則維持 mainIcon 為空字串，自然地顯示為空格子。
                             }
                         }
-                        bodyHtml += `<td ${onClickAction} ${titleAttribute}><div class="${slotClass}">${slotContent}</div></td>`;
+                        // 組合最終的 <td>，將主圖示和箭頭圖示組合在一起
+                        bodyHtml += `<td class="${tdClass}" ${tdDataAttributes} ${onClickAction} ${titleAttribute}>
+                                        <div class="${slotClass}">${mainIcon}${slotContent}</div>
+                                     </td>`;
                     });
                     bodyHtml += '</tr>';
                 });
@@ -667,6 +711,13 @@
             } else {
                 window.history.back(); // 如果缺少參數，則退回使用 history.back()
             }
+        }
+
+        // --- Part 3.3: 互動邏輯 (佔位函式) ---
+        function expandHour(cellElement) {
+            // 這是下一步要實作的函式
+            console.log('Expand clicked!', cellElement.dataset.date, cellElement.dataset.hour);
+            alert(`你點擊了可展開的時段：\n日期: ${cellElement.dataset.date}\n時間: ${cellElement.dataset.hour}\n\n下一步我們將在這裡實作展開功能。`);
         }
 
         async function selectTimeslot(scheduleId, element) {
