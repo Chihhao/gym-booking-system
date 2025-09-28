@@ -170,9 +170,10 @@
             transition: background-color 0.2s; /* 將樣式應用到 td 而不是 tr */
         }
         .sub-row .time-label {
-            /* 修正：讓子時段的時間標籤與原始時間標籤樣式一致 */
-            background-color: #343a40; /* 與原始時間標籤同色 */
-            color: #b0b0b0; /* 與原始時間標籤同色 */
+            /* 修正：使用更明確的選擇器來覆蓋預設樣式，確保背景色一致 */
+            background-color: #3c4248 !important; /* 使用 !important 強制覆蓋 */
+            color: #adb5bd;
+            font-size: 0.9em; /* 確保字體大小與主時間列一致 */
         }
         /* 讓子橫列中的可點擊格子也有 hover 效果 */
         .sub-row td.available:hover,
