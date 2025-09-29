@@ -425,37 +425,42 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.save_class(p_class_id text, p_class_date date, p_start_time time without time zone, p_end_time time without time zone, p_course_id text, p_class_name text, p_coach_id text, p_max_students integer)
+CREATE OR REPLACE FUNCTION public.save_class(p_class_id text, p_class_date text, p_start_time text, p_end_time text, p_course_id text, p_class_name text, p_coach_id text, p_max_students integer)
  RETURNS TABLE(status text, message text)
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
 DECLARE
+    v_class_date_parsed DATE;
+    v_start_time_parsed TIME;
+    v_end_time_parsed TIME;
     v_new_class_id TEXT;
     v_id_prefix TEXT;
     v_max_num INT;
     v_overlap_count INT;
 BEGIN
-    -- 1. 檢查參數完整性
+    -- 1. 檢查並解析參數
     IF p_class_date IS NULL OR p_start_time IS NULL OR p_end_time IS NULL OR p_course_id IS NULL OR p_class_name IS NULL OR p_coach_id IS NULL OR p_max_students IS NULL THEN
         RETURN QUERY SELECT 'error'::TEXT, '缺少必要的課堂資訊。'::TEXT;
         RETURN;
     END IF;
 
-    -- 2. 核心：檢查時間重疊
-    -- 使用 OVERLAPS 運算子檢查指定教練在指定時間區間內是否已有課程
+    v_class_date_parsed := p_class_date::DATE;
+    v_start_time_parsed := p_start_time::TIME;
+    v_end_time_parsed := p_end_time::TIME;
+
+    -- 2. 時間重疊檢查 (核心邏輯)
     SELECT COUNT(*)
     INTO v_overlap_count
-    FROM public.classes
+    FROM public.classes c
     WHERE
-        coach_id = p_coach_id AND
-        -- 排除正在編輯的這堂課本身
-        (p_class_id IS NULL OR class_id <> p_class_id) AND
-        -- 檢查時間區間是否重疊 (將 date 和 time 組合為 timestamp)
-        (class_date + start_time, class_date + end_time) OVERLAPS (p_class_date + p_start_time, p_class_date + p_end_time);
+        c.coach_id = p_coach_id AND
+        c.class_id <> COALESCE(p_class_id, '') AND -- 排除自己
+        c.class_date = v_class_date_parsed AND
+        (v_start_time_parsed, v_end_time_parsed) OVERLAPS (c.start_time, c.end_time);
 
     IF v_overlap_count > 0 THEN
-        RETURN QUERY SELECT 'error'::TEXT, '儲存失敗：該教練在此時段已有其他課程安排。'::TEXT;
+        RETURN QUERY SELECT 'error'::TEXT, '儲存失敗：該時段與此教練的其他課堂重疊。'::TEXT;
         RETURN;
     END IF;
 
@@ -464,62 +469,9 @@ BEGIN
         -- 更新模式
         UPDATE public.classes
         SET
-            class_date = p_class_date,
-            start_time = p_start_time,
-            end_time = p_end_time,
-            course_id = p_course_id,
-            coach_id = p_coach_id,
-            class_name = p_class_name,
-            max_students = p_max_students,
-            update_time = NOW(),
-            update_user = 'Admin'
-        WHERE classes.class_id = p_class_id;
-        RETURN QUERY SELECT 'success'::TEXT, '課堂更新成功！'::TEXT;
-    ELSE
-        -- 新增模式
-        v_id_prefix := 'CL' || to_char(p_class_date, 'YYMM');
-        SELECT COALESCE(MAX(SUBSTRING(c.class_id FROM 7 FOR 3)::INT), 0)
-        INTO v_max_num
-        FROM public.classes c
-        WHERE c.class_id LIKE v_id_prefix || '%';
-        v_new_class_id := v_id_prefix || LPAD((v_max_num + 1)::TEXT, 3, '0');
-        INSERT INTO public.classes (class_id, course_id, coach_id, class_name, class_date, start_time, end_time, max_students, current_students, status, create_time, create_user)
-        VALUES (v_new_class_id, p_course_id, p_coach_id, p_class_name, p_class_date, p_start_time, p_end_time, p_max_students, 0, '開放中', NOW(), 'Admin');
-        RETURN QUERY SELECT 'success'::TEXT, '課堂新增成功！'::TEXT;
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN QUERY SELECT 'error'::TEXT, '儲存課堂時發生未預期錯誤: ' || SQLERRM;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.save_class(p_class_id text, p_date_time text, p_course_id text, p_class_name text, p_coach_id text, p_max_students integer)
- RETURNS TABLE(status text, message text)
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-    v_class_date DATE;
-    v_start_time TIME;
-    v_new_class_id TEXT;
-    v_id_prefix TEXT;
-    v_max_num INT;
-BEGIN
-    -- 1. 檢查並解析參數
-    IF p_date_time IS NULL OR p_course_id IS NULL OR p_class_name IS NULL OR p_coach_id IS NULL OR p_max_students IS NULL THEN
-        RETURN QUERY SELECT 'error'::TEXT, '缺少必要的課堂資訊。'::TEXT;
-        RETURN;
-    END IF;
-
-    v_class_date := split_part(p_date_time, ' ', 1)::DATE;
-    v_start_time := split_part(p_date_time, ' ', 2)::TIME;
-
-    -- 2. 判斷是新增還是更新
-    IF p_class_id IS NOT NULL AND p_class_id <> '' THEN
-        -- 更新模式
-        UPDATE public.classes
-        SET
+            class_date = v_class_date_parsed,
+            start_time = v_start_time_parsed,
+            end_time = v_end_time_parsed,
             course_id = p_course_id,
             coach_id = p_coach_id,
             class_name = p_class_name,
@@ -530,7 +482,7 @@ BEGIN
         RETURN QUERY SELECT 'success'::TEXT, '課堂更新成功！'::TEXT;
     ELSE
         -- 新增模式：產生新的 class_id (格式 CLYYMMXXX)
-        v_id_prefix := 'CL' || to_char(v_class_date, 'YYMM');
+        v_id_prefix := 'CL' || to_char(v_class_date_parsed, 'YYMM');
         SELECT COALESCE(MAX(SUBSTRING(c.class_id FROM 7 FOR 3)::INT), 0)
         INTO v_max_num
         FROM public.classes c
@@ -538,62 +490,13 @@ BEGIN
 
         v_new_class_id := v_id_prefix || LPAD((v_max_num + 1)::TEXT, 3, '0');
 
-        INSERT INTO public.classes (class_id, course_id, coach_id, class_name, class_date, start_time, max_students, current_students, status, create_time, create_user)
-        VALUES (v_new_class_id, p_course_id, p_coach_id, p_class_name, v_class_date, v_start_time, p_max_students, 0, '開放中', NOW(), 'Admin');
+        INSERT INTO public.classes (class_id, course_id, coach_id, class_name, class_date, start_time, end_time, max_students, current_students, status, create_time, create_user)
+        VALUES (v_new_class_id, p_course_id, p_coach_id, p_class_name, v_class_date_parsed, v_start_time_parsed, v_end_time_parsed, p_max_students, 0, '開放中', NOW(), 'Admin');
         RETURN QUERY SELECT 'success'::TEXT, '課堂新增成功！'::TEXT;
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
         RETURN QUERY SELECT 'error'::TEXT, '儲存課堂時發生未預期錯誤: ' || SQLERRM;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.save_coach(p_coach_id text, p_coach_name text, p_specialty text, p_line_id text, p_phone_number text)
- RETURNS TABLE(status text, message text)
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-    v_new_coach_id TEXT;
-    v_max_num INT;
-BEGIN
-    -- 檢查必要參數
-    IF p_coach_name IS NULL OR p_coach_name = '' THEN
-        RETURN QUERY SELECT 'error'::TEXT, '缺少必要的教練資訊 (姓名)。'::TEXT;
-        RETURN;
-    END IF;
-
-    -- 判斷是新增還是更新
-    IF p_coach_id IS NOT NULL AND p_coach_id <> '' THEN
-        -- 更新模式
-        UPDATE public.coaches
-        SET
-            coach_name = p_coach_name,
-            specialty = p_specialty,
-            line_id = p_line_id,
-            phone_number = p_phone_number
-        WHERE coach_id = p_coach_id;
-
-        RETURN QUERY SELECT 'success'::TEXT, '教練資料更新成功！'::TEXT;
-    ELSE
-        -- 新增模式：產生新的 coach_id (格式 C001)
-        SELECT COALESCE(MAX(SUBSTRING(c.coach_id FROM 2 FOR 3)::INT), 0)
-        INTO v_max_num
-        FROM public.coaches c
-        WHERE c.coach_id LIKE 'C%';
-
-        v_new_coach_id := 'C' || LPAD((v_max_num + 1)::TEXT, 3, '0');
-
-        INSERT INTO public.coaches (coach_id, coach_name, specialty, line_id, phone_number)
-        VALUES (v_new_coach_id, p_coach_name, p_specialty, p_line_id, p_phone_number);
-
-        RETURN QUERY SELECT 'success'::TEXT, '教練新增成功！'::TEXT;
-    END IF;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN QUERY SELECT 'error'::TEXT, '儲存教練資料時發生未預期錯誤: ' || SQLERRM;
 END;
 $function$
 ;
@@ -768,7 +671,16 @@ END;
 $function$
 ;
 
-create policy "Allow manager to read all bookings"
+create policy "Allow admin full access"
+on "public"."bookings"
+as permissive
+for all
+to public
+using ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])))
+with check ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])));
+
+
+create policy "Allow public read for all bookings"
 on "public"."bookings"
 as permissive
 for select
@@ -784,12 +696,29 @@ to public
 using (false);
 
 
-create policy "Allow public read access to available classes"
+create policy "Allow admin full access"
+on "public"."classes"
+as permissive
+for all
+to public
+using ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])))
+with check ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])));
+
+
+create policy "Allow public read for all classes"
 on "public"."classes"
 as permissive
 for select
 to public
-using (((status = '開放中'::text) AND (class_date >= (timezone('utc'::text, now()))::date)));
+using (true);
+
+
+create policy "Allow public read for available classes"
+on "public"."classes"
+as permissive
+for select
+to public
+using (((status = '開放中'::text) AND (class_date >= (now())::date)));
 
 
 create policy "Disallow all write operations for public"
@@ -800,7 +729,16 @@ to public
 using (false);
 
 
-create policy "Allow public read-only access to coaches"
+create policy "Allow admin full access"
+on "public"."coaches"
+as permissive
+for all
+to public
+using ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])))
+with check ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])));
+
+
+create policy "Allow public read for all coaches"
 on "public"."coaches"
 as permissive
 for select
@@ -816,7 +754,16 @@ to public
 using (false);
 
 
-create policy "Allow public read access to active courses"
+create policy "Allow admin full access"
+on "public"."courses"
+as permissive
+for all
+to public
+using ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])))
+with check ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])));
+
+
+create policy "Allow public read for active courses"
 on "public"."courses"
 as permissive
 for select
@@ -832,7 +779,16 @@ to public
 using (false);
 
 
-create policy "Allow public read-only access to users"
+create policy "Allow admin full access"
+on "public"."users"
+as permissive
+for all
+to public
+using ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])))
+with check ((auth.email() = ANY (ARRAY['junesnow39@gmail.com'::text, 'kaypeng1234@gmail.com'::text])));
+
+
+create policy "Allow public read for all users"
 on "public"."users"
 as permissive
 for select
