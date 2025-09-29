@@ -129,6 +129,18 @@
             try {
                 // 初始化 LIFF
                 await liff.init({ liffId: AppConfig.LIFF_ID_SCHEDULE }); // 可共用 schedule 的 LIFF ID
+
+                // 修正：調整判斷順序，優先處理 debug 模式
+                if (debugMode && !liff.isInClient()) {
+                    // 開發模式，不需要做任何事
+                    console.log('進入開發模式 (非 LINE 環境 + debug=true)');
+                } else if (!liff.isLoggedIn()) {
+                    // 非開發模式且未登入，導向登入頁
+                    console.log('未登入，準備導向 LINE 登入頁...');
+                    liff.login();
+                    return; // liff.login() 會跳轉頁面，此處 return 避免後續程式碼執行
+                }
+
             } catch (error) {
                 console.error('LIFF initialization failed', error);
                 // 即使 LIFF 初始化失敗，頁面還是可以顯示，只是「關閉」按鈕會失效

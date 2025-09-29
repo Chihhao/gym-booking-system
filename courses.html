@@ -69,18 +69,21 @@
                 await liff.init({ liffId: AppConfig.LIFF_ID_COURSES });
                 console.log('LIFF initialized');
 
-                let welcomeName = '';
+                // 修正：將 userProfile 的宣告移至此處
+                userProfile = null;
 
                 // 步驟 2: 判斷是否登入
-                if (liff.isLoggedIn()) {
+                if (debugMode && !liff.isInClient()) {
+                    // 優先處理開發模式：無論 LIFF 是否登入，都使用開發者假資料
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001',
+                        displayName: '開發者AA',
+                    };
+                    console.log('進入開發模式 (非 LINE 環境 + debug=true)，偽造的使用者資訊:', userProfile);
+                } else if (liff.isLoggedIn()) {
                     // 已登入，取得使用者資料
                     userProfile = await liff.getProfile();
-                    welcomeName = userProfile.displayName;
-                    console.log('LIFF 登入成功，welcomeName 設為:', welcomeName);
-                } else if (debugMode && !liff.isInClient()) {
-                    // 未登入，但處於開發模式
-                    welcomeName = '小明';
-                    console.log('未登入，進入開發模式 (非 LINE 環境 + debug=true)，welcomeName 設為:', welcomeName);
+                    console.log('LIFF 登入成功，使用者:', userProfile.displayName);
                 } else {
                     // 未登入，且非開發模式，導向登入頁
                     console.log('未登入，準備導向 LINE 登入頁...');
