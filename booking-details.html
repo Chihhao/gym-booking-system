@@ -331,25 +331,18 @@
                 // 如果不符，就顯示錯誤訊息，不執行後續的資料查詢。
 
                 // --- 從 Supabase 讀取資料 ---
-                const { data, error } = await supabaseClient
-                    .from('bookings')
-                    .select(`
-                        booking_id,
-                        status,
-                        classes (
-                            class_id,
-                            class_date,
-                            start_time,
-                            courses ( course_id, course_name ),
-                            coaches ( coach_name )
-                        ),
-                        users ( line_display_name )
-                    `)
-                    .eq('booking_id', bookingId) // 條件一：預約編號必須相符
-                    .eq('line_user_id', userProfile.userId) // 條件二：LINE 使用者 ID 必須相符
+                // 修正：不再直接查詢 bookings 表，改為呼叫安全的 RPC 函式
+                const { data: rpcData, error } = await supabaseClient
+                    .rpc('get_booking_details_for_user', {
+                        p_booking_id: bookingId,
+                        p_user_id: userProfile.userId
+                    })
                     .single(); // .single() 會直接回傳單一物件
 
                 if (error) throw error;
+
+                // 為了與舊的 renderDetails 函式相容，我們手動重組一下資料結構
+                const data = mapRpcDataToLegacyStructure(rpcData);
 
                 renderDetails(data);
 
@@ -357,6 +350,29 @@
                 console.error('載入預約詳情時發生錯誤:', error);
                 container.innerHTML = `<p class="error">無法載入預約資料。<br>可能是預約不存在，或您沒有權限查看此憑證。</p>`;
             }
+        }
+
+        /**
+         * 新增：輔助函式，將新的 RPC 回傳結果轉換為舊的巢狀結構，以利 renderDetails 函式重複使用。
+         */
+        function mapRpcDataToLegacyStructure(rpcData) {
+            return {
+                booking_id: rpcData.booking_id,
+                status: rpcData.status,
+                classes: {
+                    class_date: rpcData.class_date,
+                    start_time: rpcData.start_time,
+                    courses: {
+                        course_name: rpcData.course_name
+                    },
+                    coaches: {
+                        coach_name: rpcData.coach_name
+                    }
+                },
+                users: {
+                    line_display_name: rpcData.line_display_name
+                }
+            };
         }
 
         function renderDetails(data) {

@@ -193,47 +193,47 @@
     *   預設應拒絕所有操作，並根據需求為特定角色 (`anon`, `authenticated`) 建立最小權限的 `POLICY`。
 
 *   **3.4. 資料庫變更流程 (Migration Workflow)**:
-    *   **原則 (Principle)**: 嚴格禁止直接修改舊的 migration 檔案 (例如 `..._remote_schema.sql`)。所有資料庫的變更都必須透過建立一個**新的** migration 檔案來記錄。這就像 Git 的 commit 一樣，保留了完整的變更歷史。
+    *   **原則 (Principle)**: 為了確保版本控制的清晰與安全，我們採用**「本地優先 (Local-First)」**作為標準開發流程。所有資料庫的變更都應從本地開始，並透過建立一個**新的** migration 檔案來記錄，最後再推送到雲端。
 
     *   **操作步驟 (Steps)**:
-        1.  **建立新的 Migration 檔案**: 當您需要修改資料庫結構（例如修改 `FUNCTION`, `VIEW`, 或 `TABLE`）時，請在終端機執行以下指令來建立一個新的、帶有時間戳的 SQL 檔案。
+        1.  **建立新的 Migration 檔案**: 當您需要修改資料庫結構（例如修改 `FUNCTION`, `VIEW`, 或 `TABLE`）時，請在終端機執行以下指令，為您的變更取一個有意義的名稱。
             ```bash
-            # 為您的變更取一個有意義的名稱
             supabase migration new <your_change_description>
             ```
             例如：`supabase migration new add_sorting_to_manager_functions`
 
-        2.  **撰寫變更內容**: 在新建立的 SQL 檔案中，只寫入您**實際變更**的 SQL 指令。
+        2.  **在本地撰寫變更**: 使用 VS Code 等編輯器打開上一步建立的 SQL 檔案，在裡面只寫入您**實際變更**的 SQL 指令。
             *   **修改函式/視圖**: 貼上完整的 `CREATE OR REPLACE FUNCTION ...` 或 `CREATE OR REPLACE VIEW ...` 區塊。
             *   **修改資料表**: 寫入 `ALTER TABLE ...` 指令。
 
-        3.  **推送至雲端**: 儲存檔案後，執行以下指令將變更同步到 Supabase 雲端資料庫。
+        3.  **推送至雲端**: 儲存檔案後，執行以下指令將本地的變更「部署」到 Supabase 雲端資料庫。
             ```bash
             supabase db push
             ```
 
-    *   **Push 後會發生什麼 (What Happens After Push)**:
+    *   **`db push` 的作用**:
         *   Supabase CLI 會比對本地 `migrations` 資料夾與雲端資料庫的執行紀錄，只執行尚未被執行的**新** migration 檔案。
         *   您的雲端資料庫結構會被更新。
-        *   您本地的 `supabase/migrations` 資料夾現在會包含多個 SQL 檔案（一個初始檔 + 數個變更檔）。**這是完全正常且正確的行為**，它代表了您資料庫的演進歷史。本地的 SQL 結構現在是由這些檔案**共同定義**的。
+        *   您本地的 `supabase/migrations` 資料夾現在會包含多個 SQL 檔案（一個初始檔 + 數個變更檔），這代表了您資料庫的完整演進歷史，是完全正常且正確的行為。
+
+    *   **還原方法 (Rollback)**: 如果 `push` 之後發現功能錯誤，**切勿**修改舊的 migration 檔案。您應該建立一個**新的** migration 檔案來「反向操作」或修正錯誤，然後再次 `db push`。這確保了所有變更歷史都是可追溯的。
 
 ---
-*   **3.5. 推薦工作流程：雲端優先原型開發 (Recommended Workflow: Cloud-First Prototyping)**
-    *   **情境 (Scenario)**: 此工作流程適用於快速開發和原型製作階段。開發者可以直接在 Supabase Studio（網站介面）上修改資料庫，然後將變更同步回本地專案。
-    *   **核心原則 (Core Principle)**: 雲端是唯一的真相來源 (Single Source of Truth)。本地的 migration 檔案是雲端狀態的備份。
+*   **3.5. 替代工作流程：雲端優先原型開發 (Alternative Workflow: Cloud-First Prototyping)**
+    *   **情境 (Scenario)**: 此工作流程適用於需要快速迭代、測試想法的原型製作階段。它允許開發者直接在 Supabase Studio（網站介面）上修改，然後將變更同步回本地。**此流程不建議用於正式或多人協作的環境**，因為它缺乏清晰的還原路徑。
+    *   **核心原則 (Core Principle)**: 雲端是唯一的真相來源 (Single Source of Truth)。本地的 migration 檔案僅作為雲端狀態的備份。
 
     *   **操作步驟 (Steps)**:
-        1.  **【關鍵】喚醒專案 (Wake Up Project)**: 在執行任何 `supabase` CLI 指令前，**務必先登入 Supabase 網站的專案儀表板**。這個動作可以確保免費專案從「暫停 (Paused)」狀態恢復為「活躍 (Active)」，避免 `connection refused` 錯誤。
-        2.  **在雲端修改 (Modify in the Cloud)**: 使用 Supabase Studio 的 SQL Editor 或圖形化介面，安全地進行資料庫變更 (例如 `CREATE FUNCTION`, `ALTER TABLE` 等)。
-        3.  **同步回本地 (Sync to Local)**: 在雲端完成修改並測試後，**立即**在本地終端機執行以下指令：
+        1.  **在雲端修改 (Modify in the Cloud)**: 使用 Supabase Studio 的 SQL Editor 或圖形化介面進行資料庫變更。
+        2.  **同步回本地 (Sync to Local)**: 在雲端完成修改並測試後，**立即**在本地終端機執行以下指令，將雲端的變更拉回本地：
             ```bash
             supabase db pull
             ```
-        4.  **結果 (Result)**: `db pull` 會自動比較雲端與本地的差異，並在 `supabase/migrations` 資料夾中建立一個新的 SQL 檔案，記錄您剛剛的所有變更。您的本地專案現在就完整地備份了雲端的最新結構。
+        3.  **結果 (Result)**: `db pull` 會自動比較雲端與本地的差異，並在 `supabase/migrations` 資料夾中建立一個新的 SQL 檔案，記錄您剛剛的所有變更。
 
     *   **疑難排解 (Troubleshooting)**:
         *   **`connection refused`**: 當 CLI 工具無法連線到資料庫時發生。可能原因有：
-            1.  **專案已暫停 (Project Paused)**: 免費專案若一週無活動會被暫停。**解決方案**: 登入 Supabase 儀表板以「喚醒」專案。
+            1.  **專案已暫停 (Project Paused)**: 免費專案若一週無活動會被暫停。**解決方案**: 在執行 CLI 指令前，先登入 Supabase 儀表板以「喚醒」專案。
             2.  **網路不穩定 (Network Instability)**: 您與 Supabase 伺服器之間的連線暫時不通。**解決方案**: 等待幾秒後重試指令。CLI 的內建重試機制通常能解決此問題。
             3.  **防火牆 (Firewall)**: 公司或家用網路的防火牆阻擋了 `5432` 或 `6543` 連接埠。**解決方案**: 暫時更換到手機熱點網路進行測試。
         *   **`migration history does not match`**: 如果在 `pull` 時遇到此錯誤，通常是因為雲端的歷史紀錄表 (`supabase.schema_migrations`) 記住了一些舊的、不存在於本地的變更。

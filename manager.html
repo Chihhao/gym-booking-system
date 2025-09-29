@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wally Studio 管理後台</title>
-    <!-- 方案一：載入 Supabase JS SDK -->
+    <!-- 載入共用設定檔 -->
     <script src="config.js"></script>
     <!-- 修正：必須先載入 Supabase 主函式庫，再載入使用它的工具函式 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -521,6 +521,38 @@
             pointer-events: none;
         }
 
+        /* --- 新增：登入畫面樣式 --- */
+        #login-view {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            color: white;
+        }
+        #login-view h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        #login-view p {
+            font-size: 1.2rem;
+            color: var(--sidebar-text);
+            margin-bottom: 2rem;
+        }
+        .google-login-btn {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background-color: #fff;
+            color: #333;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
         /* 修正：將底部邊框從外層容器移到這裡，避免延伸到時間軸下方 */
         #day-columns-container {
             border-bottom: 1px solid var(--border-color);
@@ -529,102 +561,117 @@
 </head>
 <body>
 
-    <nav class="sidebar">
-        <h2>Wally Studio</h2>
-        <ul class="sidebar-nav">
-            <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
-            <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🎨</span><span class="nav-text">課表管理</span></a></li>
-            <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
-            <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">客戶管理</span></a></li>
-            <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
-        </ul>
-        <!-- 側邊欄收合按鈕 -->
-        <div class="sidebar-toggle-wrapper">
-            <button id="sidebar-toggle" class="sidebar-toggle-btn" title="收合側邊欄">&laquo;</button>
-        </div>
-    </nav>
+    <!-- 新增：登入畫面 -->
+    <div id="login-view" style="display: none;">
+        <h1>Wally Studio</h1>
+        <p>管理後台</p>
+        <button id="google-login-btn" class="google-login-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google icon" width="24" height="24">
+            <span>使用 Google 登入</span>
+        </button>
+    </div>
 
-    <main class="main-content">
-        <section id="bookings" class="content-section active">
-            <div class="page-header">
-                <h1>📋 預約管理</h1>
-                <div class="filter-controls">
-                    <select id="status-filter">
-                        <option value="">所有狀態</option>
-                        <option value="已預約">已預約</option>
-                        <option value="已扣款">已扣款</option>
-                        <option value="已取消">已取消</option>
-                    </select>
-                    <input type="date" id="date-filter" title="篩選上課日期">
-                    <input type="text" id="search-input" class="search-input" placeholder="搜尋學員或預約編號...">
-                    <button class="btn btn-success" id="filter-btn">篩選</button>
-                    <button class="btn btn-secondary" id="clear-filter-btn">清除</button>
-                </div>
+    <!-- 新增：將主要內容包裹起來 -->
+    <div id="main-view" style="display: none; width: 100%; height: 100%; display: flex;">
+        <nav class="sidebar">
+            <h2>Wally Studio</h2>
+            <ul class="sidebar-nav">
+                <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
+                <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🎨</span><span class="nav-text">課表管理</span></a></li>
+                <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
+                <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">客戶管理</span></a></li>
+                <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
+                <!-- 新增：登出按鈕 -->
+                <li><a href="#" id="logout-btn"><span class="nav-icon">🚪</span><span class="nav-text">登出</span></a></li>
+            </ul>
+            <!-- 側邊欄收合按鈕 -->
+            <div class="sidebar-toggle-wrapper">
+                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="收合側邊欄">&laquo;</button>
             </div>
-            <div id="booking-table-container"></div>
-        </section>
+        </nav>
 
-        <!-- 整合後的畫布課表 -->
-        <section id="schedule" class="content-section" style="padding: 0;">
-            <div class="page-header">
-                <h1>🎨 課表管理</h1>
-                <div class="filter-controls">
-                    <!-- 新增：課程篩選下拉選單 -->
-                    <select id="schedule-course-filter" style="min-width: 200px;">
-                        <option value="">所有課程</option>
-                        <!-- JS 會動態填入選項 -->
-                    </select>
-                    <button id="canvas-prev-week-btn" class="btn btn-secondary">&lt; 上一週</button>
-                    <button id="canvas-next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
+        <main class="main-content">
+            <section id="bookings" class="content-section active">
+                <div class="page-header">
+                    <h1>📋 預約管理</h1>
+                    <div class="filter-controls">
+                        <select id="status-filter">
+                            <option value="">所有狀態</option>
+                            <option value="已預約">已預約</option>
+                            <option value="已扣款">已扣款</option>
+                            <option value="已取消">已取消</option>
+                        </select>
+                        <input type="date" id="date-filter" title="篩選上課日期">
+                        <input type="text" id="search-input" class="search-input" placeholder="搜尋學員或預約編號...">
+                        <button class="btn btn-success" id="filter-btn">篩選</button>
+                        <button class="btn btn-secondary" id="clear-filter-btn">清除</button>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- 星期標頭 -->
-            <div id="schedule-header-container" class="canvas-schedule-header"></div>
+                <div id="booking-table-container"></div>
+            </section>
 
-            <!-- 主要畫布網格 -->
-            <div id="schedule-canvas-grid" class="schedule-canvas-grid">
-                <!-- 左側時間軸 -->
-                <div id="time-axis-container" class="time-axis"></div>
-
-                <!-- 每日畫布 (7天) -->
-                <div id="day-columns-container" style="display: flex; flex-grow: 1;">
-                    <p style="padding: 2rem;">正在載入課表...</p>
+            <!-- 整合後的畫布課表 -->
+            <section id="schedule" class="content-section" style="padding: 0;">
+                <div class="page-header">
+                    <h1>🎨 課表管理</h1>
+                    <div class="filter-controls">
+                        <!-- 新增：課程篩選下拉選單 -->
+                        <select id="schedule-course-filter" style="min-width: 200px;">
+                            <option value="">所有課程</option>
+                            <!-- JS 會動態填入選項 -->
+                        </select>
+                        <button id="canvas-prev-week-btn" class="btn btn-secondary">&lt; 上一週</button>
+                        <button id="canvas-next-week-btn" class="btn btn-secondary">下一週 &gt;</button>
+                    </div>
                 </div>
-            </div>
-        </section>
+                
+                <!-- 星期標頭 -->
+                <div id="schedule-header-container" class="canvas-schedule-header"></div>
 
-        <section id="courses" class="content-section">
-            <div class="page-header">
-                <h1>📚 課程型錄</h1>
-                <div class="filter-controls">
-                    <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
-                </div>
-            </div>
-            <div id="courses-table-container"></div>
-        </section>
+                <!-- 主要畫布網格 -->
+                <div id="schedule-canvas-grid" class="schedule-canvas-grid">
+                    <!-- 左側時間軸 -->
+                    <div id="time-axis-container" class="time-axis"></div>
 
-        <section id="users" class="content-section">
-            <div class="page-header">
-                <h1>👥 客戶管理</h1>
-                <div class="filter-controls">
-                    <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
-                    <button class="btn btn-success" id="user-search-btn">搜尋</button>
+                    <!-- 每日畫布 (7天) -->
+                    <div id="day-columns-container" style="display: flex; flex-grow: 1;">
+                        <p style="padding: 2rem;">正在載入課表...</p>
+                    </div>
                 </div>
-            </div>
-            <div id="users-table-container"></div>
-        </section>
+            </section>
 
-        <section id="coaches" class="content-section">
-            <div class="page-header">
-                <h1>🏋️ 教練管理</h1>
-                <div class="filter-controls">
-                    <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
+            <section id="courses" class="content-section">
+                <div class="page-header">
+                    <h1>📚 課程型錄</h1>
+                    <div class="filter-controls">
+                        <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
+                    </div>
                 </div>
-            </div>
-            <div id="coaches-table-container"></div>
-        </section>
-    </main>
+                <div id="courses-table-container"></div>
+            </section>
+
+            <section id="users" class="content-section">
+                <div class="page-header">
+                    <h1>👥 客戶管理</h1>
+                    <div class="filter-controls">
+                        <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
+                        <button class="btn btn-success" id="user-search-btn">搜尋</button>
+                    </div>
+                </div>
+                <div id="users-table-container"></div>
+            </section>
+
+            <section id="coaches" class="content-section">
+                <div class="page-header">
+                    <h1>🏋️ 教練管理</h1>
+                    <div class="filter-controls">
+                        <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
+                    </div>
+                </div>
+                <div id="coaches-table-container"></div>
+            </section>
+        </main>
+    </div>
     
     <!-- 新增/編輯課堂的 Modal -->
     <div id="class-modal" class="modal-overlay">
@@ -799,6 +846,56 @@
     </div>
 
     <script>
+        // --- Supabase Auth 相關邏輯 ---
+        const ADMIN_EMAILS = ['junesnow39@gmail.com', 'kaypeng1234@gmail.com'];
+
+        const loginView = document.getElementById('login-view');
+        const mainView = document.getElementById('main-view');
+        const loginBtn = document.getElementById('google-login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        let isAdminAuthenticated = false; // 關鍵：新增一個全域狀態旗標
+
+        // 監聽登入狀態變化
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            // 修正：重構判斷邏輯，使其更穩健
+            // 條件一：是否存在 session 且 session 中有 user 物件
+            if (session?.user) {
+                // 條件二：該使用者的 email 是否在管理者列表中
+                if (ADMIN_EMAILS.includes(session.user.email)) {
+                    console.log(`[Auth] ✅ 管理者已登入: ${session.user.email} (Event: ${event})`);
+                    isAdminAuthenticated = true;
+                    loginView.style.display = 'none';
+                    mainView.style.display = 'flex';
+                    // 關鍵修正：在確認管理者身份後，直接呼叫 handleNavigation 來確保資料載入。
+                    console.log('[Auth] 身份確認，手動呼叫 handleNavigation。');
+                    handleNavigation();
+                } else { // 是已登入使用者，但不是管理者
+                    console.log(`[Auth] ❌ 使用者 ${session.user.email} 已登入，但非管理者。`);
+                    isAdminAuthenticated = false;
+                    mainView.style.display = 'none';
+                    loginView.style.display = 'flex';
+                }
+            } else {
+                console.log(`[Auth] ❌ 使用者未登入。 (Event: ${event})`);
+                isAdminAuthenticated = false;
+                mainView.style.display = 'none';
+                loginView.style.display = 'flex';
+            }
+        });
+
+        // 綁定登入/登出按鈕事件
+        loginBtn.addEventListener('click', () => {
+            supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.href // 關鍵修正：告訴 Supabase 登入後要跳轉回當前頁面
+                }
+            });
+        });
+        logoutBtn.addEventListener('click', () => {
+            supabaseClient.auth.signOut();
+        });
+
         let currentBookings = [];
         let sortState = { column: 'bookingTime', direction: 'desc' };
         let currentCourses = [];
@@ -807,8 +904,11 @@
         let coachSortState = { column: 'coach_id', direction: 'asc' };
         let currentUsers = [];
         let userSortState = { column: 'registration_date', direction: 'desc' };
-
         document.addEventListener('DOMContentLoaded', () => {
+            // 頁面載入時，不需要立即執行 handleNavigation，
+            // onAuthStateChange 會在確認登入狀態後才呼叫它。
+            // 這可以避免在未登入時就嘗試載入資料。
+
             // 1. 監聽 URL hash 變化來處理導覽
             window.addEventListener('hashchange', handleNavigation);
 
@@ -820,9 +920,6 @@
                     applyFilters();
                 }
             });
-
-            // 4. 頁面載入時，根據 URL hash 決定顯示內容
-            handleNavigation();
 
             // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式，並傳入對應的回呼)
             document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule));
@@ -1101,12 +1198,20 @@
 
 
         function handleNavigation() {
+            // 關鍵修正：增加保護機制，如果管理者尚未驗證通過，則不執行任何導覽邏輯。
+            if (!isAdminAuthenticated) {
+                console.log('[Nav] ⚠️ handleNavigation 觸發，但管理者未驗證，已中止。');
+                return;
+            }
+
+            console.log(`[Nav] handleNavigation 觸發，目前 hash: ${window.location.hash}`);
+
             // 如果 URL 沒有 hash，預設導向 #bookings
             if (!window.location.hash) {
+                console.log('[Nav] URL hash 為空，將其設定為 #bookings。');
                 window.location.hash = 'bookings';
                 return; // 設置 hash 後會觸發 hashchange 事件，由該事件處理後續
             }
-
             const targetId = window.location.hash.substring(1);
             
             // 移除所有 active class
@@ -1120,20 +1225,20 @@
             if (activeLink) activeLink.classList.add('active');
             if (activeSection) activeSection.classList.add('active');
 
-            // 優化：使用映射表簡化載入邏輯
+            // 簡化：每次導覽都直接呼叫對應的載入函式。
+            // 函式內部可以自行決定是否要使用快取。
             const dataLoaders = {
-                bookings: { load: loadBookings, isLoaded: () => currentBookings.length > 0 },
-                // 課表比較特殊，每次切換都重新載入以確保是最新資料，所以沒有 isLoaded 條件
-                schedule: { load: loadManagerSchedule, isLoaded: () => false },
-                courses:  { load: loadCourses,  isLoaded: () => currentCourses.length > 0 },
-                coaches:  { load: loadCoaches,  isLoaded: () => currentCoaches.length > 0 },
-                // 第一次點擊 users 分頁時，自動載入所有使用者列表
-                users:    { load: loadUsers,    isLoaded: () => currentUsers.length > 0 }
+                bookings: loadBookings,
+                schedule: loadManagerSchedule,
+                courses:  loadCourses,
+                coaches:  loadCoaches,
+                users:    loadUsers
             };
 
-            const loaderInfo = dataLoaders[targetId];
-            if (loaderInfo && !loaderInfo.isLoaded()) {
-                loaderInfo.load();
+            const loader = dataLoaders[targetId];
+            if (loader) {
+                console.log(`[Nav] 找到對應的載入函式，準備執行 ${loader.name}()。`);
+                loader();
             }
         } // handleNavigation 函式定義結束
 

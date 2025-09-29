@@ -197,31 +197,26 @@
 
             // 異步載入並渲染預約摘要
             try {
+                // 修正：不再直接查詢 bookings 表，改為呼叫安全的 RPC 函式
                 const { data, error } = await supabaseClient
-                    .from('bookings')
-                    .select(`
-                        classes (
-                            class_date,
-                            start_time,
-                            courses ( course_name ),
-                            coaches ( coach_name )
-                        )
-                    `)
-                    .eq('booking_id', bookingId)
-                    .eq('line_user_id', userProfile.userId) // 新增：安全性檢查，確保是本人
+                    .rpc('get_booking_details_for_user', {
+                        p_booking_id: bookingId,
+                        p_user_id: userProfile.userId
+                    })
                     .single();
 
                 if (error) throw error;
 
-                const dateParts = data.classes.class_date.split('-');
+                // 修正：從扁平的 RPC 結果中取得資料
+                const dateParts = data.class_date.split('-');
                 const formattedDate = `${dateParts[1]}/${dateParts[2]}`;
-                const classTime = `${formattedDate} ${data.classes.start_time.substring(0, 5)}`;
+                const classTime = `${formattedDate} ${data.start_time.substring(0, 5)}`;
 
                 document.getElementById('summary-container').innerHTML = `
                     <div class="booking-summary">
                         <div class="summary-item">
                             <span class="material-symbols-outlined summary-icon">school</span>
-                            <span class="label">課程名稱：</span><span class="value">${data.classes.courses.course_name}</span>
+                            <span class="label">課程名稱：</span><span class="value">${data.course_name}</span>
                         </div>
                         <div class="summary-item">
                             <span class="material-symbols-outlined summary-icon">schedule</span>
@@ -229,7 +224,7 @@
                         </div>
                         <div class="summary-item">
                             <span class="material-symbols-outlined summary-icon">person</span>
-                            <span class="label">教練名稱：</span><span class="value">${data.classes.coaches.coach_name}</span>
+                            <span class="label">教練名稱：</span><span class="value">${data.coach_name}</span>
                         </div>
                     </div>
                 `;

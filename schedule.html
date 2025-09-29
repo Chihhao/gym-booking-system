@@ -494,14 +494,16 @@
                 const classIds = classes.map(c => c.class_id);
                 const userBookings = new Map();
                 if (userProfile && userProfile.userId) {
-                    const { data: bookings, error: bookingsError } = await supabaseClient
-                        .from('bookings')
-                        .select('class_id, booking_id')
-                        .eq('line_user_id', userProfile.userId)
-                        .in('class_id', classIds)
-                        .in('status', ['已預約', '已扣款']);
+                    // 修正：不再直接查詢 bookings 表，改為呼叫安全的 RPC 函式
+                    const { data: bookings, error: rpcError } = await supabaseClient.rpc('get_user_bookings', {
+                        p_user_id: userProfile.userId,
+                        p_class_ids: classIds
+                    });
 
-                    if (bookingsError) throw bookingsError;
+                    if (rpcError) {
+                        console.error("呼叫 get_user_bookings 失敗:", rpcError);
+                        throw rpcError;
+                    }
                     
                     bookings.forEach(b => userBookings.set(b.class_id, b.booking_id));
                 }
