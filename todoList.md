@@ -81,9 +81,9 @@
     -   **過程**：嘗試透過前端傳遞使用者 ID (LINE User ID) 給後端 RLS 政策進行驗證。歷經了偽造 JWT、傳遞自訂 HTTP Header 等多種方式。
     -   **結果**：**失敗**。由於前端 (`anon` key 環境) 無法產生一個可被後端 RLS 安全信任的身份證明，導致實作過程極為複雜且最終無法穩定運作。為求系統穩定，已將相關程式碼與資料庫規則恢復至公開讀取狀態。
 -   [ ] **待辦事項：重新實作憑證頁面安全性**
-    -   [ ] **Phase I: UserID Auth 檢核**
-        -   **目標**: 讓使用者只能讀取自己資料
-        -   讓user不需登入supabase。 我要防堵的是，user直接更換url就能讀取別人的憑證。我要的是，在sql裡面加上userid，就這麼簡單。
+    -   [x] **Phase I: UserID Auth 檢核**
+        -   **目標**: 讓使用者只能讀取自己的資料。
+        -   **實作**: 在 `booking-details.html` 和 `booking-complete.html` 中，透過 LIFF 取得 `userId`，並在 Supabase 查詢中加入 `.eq('line_user_id', userId)` 條件，成功防止使用者透過修改 URL 參數查看他人資料。
     -   [ ] **Phase II: Edge Function + ID Token 檢核 (未來規劃)**
         -   **目標**: 建立一個名為 `get-booking-details` 的 Edge Function，由它代替前端來執行資料庫查詢，達到最高安全性。
         -   [ ] **前端修改 (`booking-details.html`)**:
