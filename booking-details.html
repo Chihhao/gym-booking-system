@@ -303,19 +303,28 @@
                 return;
             }
 
+            let userProfile = null;
+
             try {
                 // 新增：初始化 LIFF 並檢查登入狀態
                 await liff.init({ liffId: AppConfig.LIFF_ID_COURSES });
 
                 // 修正：調整判斷順序，優先處理 debug 模式
                 if (debugMode && !liff.isInClient()) {
-                    // 開發模式，不需要做任何事，後續邏輯會繼續執行
+                    // 開發模式，使用假資料
                     console.log('進入開發模式 (非 LINE 環境 + debug=true)');
+                    userProfile = {
+                        userId: 'U_DEV_000000000000000000000000001',
+                        displayName: '開發者AA',
+                    };
                 } else if (!liff.isLoggedIn()) {
                     // 非開發模式且未登入，導向登入頁
                     console.log('未登入，準備導向 LINE 登入頁...');
                     liff.login();
                     return; // liff.login() 會跳轉頁面，此處 return 避免後續程式碼執行
+                } else {
+                    // 已登入，取得使用者資料
+                    userProfile = await liff.getProfile();
                 }
 
                 // TODO (安全性強化): 在這裡加入檢查，確認 liff.getProfile().userId 是否與預約紀錄中的 line_user_id 相符。
@@ -336,7 +345,8 @@
                         ),
                         users ( line_display_name )
                     `)
-                    .eq('booking_id', bookingId)
+                    .eq('booking_id', bookingId) // 條件一：預約編號必須相符
+                    .eq('line_user_id', userProfile.userId) // 條件二：LINE 使用者 ID 必須相符
                     .single(); // .single() 會直接回傳單一物件
 
                 if (error) throw error;
