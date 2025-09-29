@@ -98,9 +98,14 @@ async function handleSaveClass(event, callback) {
     }
 }
 
-async function handleDeleteClass(event, callback) {
+async function handleDeleteClass(event, callback, showConfirmationFunc) {
     const classId = document.getElementById('form-class-id').value;
-    if (!confirm(`您確定要刪除這個課堂嗎？\n此操作無法復原。`)) return;
+    // 修正：使用傳入的 showConfirmation 函式
+    const confirmed = await showConfirmationFunc('您確定要刪除這個課堂嗎？<br>此操作無法復原。', {
+        confirmText: '確認刪除',
+        confirmButtonClass: 'btn-danger'
+    });
+    if (!confirmed) return;
 
     const deleteBtn = document.getElementById('delete-class-btn');
     const originalBtnText = deleteBtn.textContent;
