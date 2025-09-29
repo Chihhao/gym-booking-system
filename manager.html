@@ -857,29 +857,41 @@
 
         // 監聽登入狀態變化
         supabaseClient.auth.onAuthStateChange((event, session) => {
-            // 修正：重構判斷邏輯，使其更穩健
-            // 條件一：是否存在 session 且 session 中有 user 物件
-            if (session?.user) {
-                // 條件二：該使用者的 email 是否在管理者列表中
+            // 只有在登入成功 (SIGNED_IN) 且 session 存在時才執行核心邏輯
+            if (event === 'SIGNED_IN' && session) {
+                // 檢查是否為管理者
                 if (ADMIN_EMAILS.includes(session.user.email)) {
-                    console.log(`[Auth] ✅ 管理者已登入: ${session.user.email} (Event: ${event})`);
-                    isAdminAuthenticated = true;
+                    console.log(`[Auth] ✅ 管理者已登入: ${session.user.email}`);
+                    isAdminAuthenticated = true; // 設定驗證旗標
+
+                    // 關鍵修正：清理 URL 中的 hash，避免與後續的導覽邏輯衝突
+                    // 這會移除 Supabase OAuth 回傳的 #access_token=... 等資訊
+                    window.history.replaceState(null, '', ' ');
+
+                    // 顯示主畫面
                     loginView.style.display = 'none';
                     mainView.style.display = 'flex';
-                    // 關鍵修正：在確認管理者身份後，直接呼叫 handleNavigation 來確保資料載入。
-                    console.log('[Auth] 身份確認，手動呼叫 handleNavigation。');
+
+                    // 觸發導覽，載入預設頁面
                     handleNavigation();
-                } else { // 是已登入使用者，但不是管理者
-                    console.log(`[Auth] ❌ 使用者 ${session.user.email} 已登入，但非管理者。`);
-                    isAdminAuthenticated = false;
-                    mainView.style.display = 'none';
-                    loginView.style.display = 'flex';
+                } else {
+                    // 已登入但非管理者，強制登出並顯示登入頁
+                    console.log(`[Auth] ❌ 使用者 ${session.user.email} 已登入，但非管理者。將強制登出。`);
+                    supabaseClient.auth.signOut({ scope: 'global' });
                 }
-            } else {
-                console.log(`[Auth] ❌ 使用者未登入。 (Event: ${event})`);
+            } else if (event === 'SIGNED_OUT' || !session) {
+                // 處理登出或初始 session 不存在的情況
+                console.log(`[Auth] ❌ 使用者未登入或已登出。 (Event: ${event})`);
                 isAdminAuthenticated = false;
                 mainView.style.display = 'none';
                 loginView.style.display = 'flex';
+                // 關鍵修正：登出時，也需要清理 URL 中的 hash (#bookings 等)，
+                // 確保下一次登入時，redirectTo 的 URL 是乾淨的，
+                // 從而避免雙重 hash 的問題。
+                window.history.replaceState(null, '', ' ');
+            } else {
+                // 處理其他事件，例如 TOKEN_REFRESHED，通常不需要做任何事
+                console.log(`[Auth] 收到事件: ${event}`);
             }
         });
 
@@ -893,7 +905,10 @@
             });
         });
         logoutBtn.addEventListener('click', () => {
-            supabaseClient.auth.signOut();
+            // 修正：登出時，明確指定 scope 為 'global'，
+            // 這會確保使用者同時從 Supabase 和 Google 帳號登出，
+            // 避免了「登出後無法再次登入」的問題。
+            supabaseClient.auth.signOut({ scope: 'global' });
         });
 
         let currentBookings = [];
