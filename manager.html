@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="manager-utils.js"></script>
     <!-- 新增：載入 interact.js 用於畫布課表的拖曳與縮放 -->
+    <!-- 新增：載入 MDI (Material Design Icons) 圖示庫 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
         :root {
@@ -162,8 +164,12 @@
         body.sidebar-collapsed .sidebar-toggle-btn { transform: rotate(180deg); }
         
         .nav-icon {
-            font-size: 1.2rem;
+            /* 修正：調整 MDI 圖示的樣式 */
+            font-size: 1.4rem; /* 稍微放大圖示 */
             margin-right: 0.75rem;
+            width: 1.4rem; /* 固定寬度，確保文字對齊 */
+            text-align: center; /* 圖示置中 */
+            line-height: 1; /* 確保垂直對齊 */
         }
 
         /* 表格樣式 */
@@ -576,24 +582,24 @@
         <nav class="sidebar">
             <h2>Wally Studio</h2>
             <ul class="sidebar-nav">
-                <li><a href="#bookings" class="nav-link" data-target="bookings"><span class="nav-icon">📋</span><span class="nav-text">預約管理</span></a></li>
-                <li><a href="#schedule" class="nav-link" data-target="schedule"><span class="nav-icon">🎨</span><span class="nav-text">課表管理</span></a></li>
-                <li><a href="#courses" class="nav-link" data-target="courses"><span class="nav-icon">📚</span><span class="nav-text">課程型錄</span></a></li>
-                <li><a href="#users" class="nav-link" data-target="users"><span class="nav-icon">👥</span><span class="nav-text">客戶管理</span></a></li>
-                <li><a href="#coaches" class="nav-link" data-target="coaches"><span class="nav-icon">🏋️</span><span class="nav-text">教練管理</span></a></li>
+                <li><a href="#bookings" class="nav-link" data-target="bookings"><i class="nav-icon mdi mdi-clipboard-list-outline"></i><span class="nav-text">預約管理</span></a></li>
+                <li><a href="#schedule" class="nav-link" data-target="schedule"><i class="nav-icon mdi mdi-calendar-month-outline"></i><span class="nav-text">課表管理</span></a></li>
+                <li><a href="#courses" class="nav-link" data-target="courses"><i class="nav-icon mdi mdi-book-open-page-variant-outline"></i><span class="nav-text">課程型錄</span></a></li>
+                <li><a href="#users" class="nav-link" data-target="users"><i class="nav-icon mdi mdi-account-group-outline"></i><span class="nav-text">客戶管理</span></a></li>
+                <li><a href="#coaches" class="nav-link" data-target="coaches"><i class="nav-icon mdi mdi-weight-lifter"></i><span class="nav-text">教練管理</span></a></li>
                 <!-- 新增：登出按鈕 -->
-                <li><a href="#" id="logout-btn"><span class="nav-icon">🚪</span><span class="nav-text">登出</span></a></li>
+                <li><a href="#" id="logout-btn"><i class="nav-icon mdi mdi-logout"></i><span class="nav-text">登出</span></a></li>
             </ul>
             <!-- 側邊欄收合按鈕 -->
             <div class="sidebar-toggle-wrapper">
-                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="收合側邊欄">&laquo;</button>
+                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="收合側邊欄"><i class="mdi mdi-chevron-left"></i></button>
             </div>
         </nav>
 
         <main class="main-content">
             <section id="bookings" class="content-section active">
                 <div class="page-header">
-                    <h1>📋 預約管理</h1>
+                    <h1><i class="mdi mdi-clipboard-list-outline"></i> 預約管理</h1>
                     <div class="filter-controls">
                         <select id="status-filter">
                             <option value="">所有狀態</option>
@@ -613,7 +619,7 @@
             <!-- 整合後的畫布課表 -->
             <section id="schedule" class="content-section" style="padding: 0;">
                 <div class="page-header">
-                    <h1>🎨 課表管理</h1>
+                    <h1><i class="mdi mdi-calendar-month-outline"></i> 課表管理</h1>
                     <div class="filter-controls">
                         <!-- 新增：課程篩選下拉選單 -->
                         <select id="schedule-course-filter" style="min-width: 200px;">
@@ -642,7 +648,7 @@
 
             <section id="courses" class="content-section">
                 <div class="page-header">
-                    <h1>📚 課程型錄</h1>
+                    <h1><i class="mdi mdi-book-open-page-variant-outline"></i> 課程型錄</h1>
                     <div class="filter-controls">
                         <button class="btn btn-success" onclick="openCourseModal()">新增課程</button>
                     </div>
@@ -652,7 +658,7 @@
 
             <section id="users" class="content-section">
                 <div class="page-header">
-                    <h1>👥 客戶管理</h1>
+                    <h1><i class="mdi mdi-account-group-outline"></i> 客戶管理</h1>
                     <div class="filter-controls">
                         <input type="text" id="user-search-input" class="search-input" placeholder="搜尋使用者暱稱或ID...">
                         <button class="btn btn-success" id="user-search-btn">搜尋</button>
@@ -663,7 +669,7 @@
 
             <section id="coaches" class="content-section">
                 <div class="page-header">
-                    <h1>🏋️ 教練管理</h1>
+                    <h1><i class="mdi mdi-weight-lifter"></i> 教練管理</h1>
                     <div class="filter-controls">
                         <button class="btn btn-success" onclick="openCoachModal()">新增教練</button>
                     </div>
