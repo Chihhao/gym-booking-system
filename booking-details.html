@@ -469,6 +469,7 @@
             // --- 新增：綁定底部按鈕事件 ---
             const backBtn = document.getElementById('back-btn');
             const closeBtn = document.getElementById('close-btn');
+            const urlParams = new URLSearchParams(window.location.search);
 
             backBtn.addEventListener('click', () => {
                 window.history.back();
@@ -481,6 +482,11 @@
                 } else {
                     // 如果不在 LIFF 環境，則提供提示
                     alert('此功能僅在 LINE App 中有效。');
+                    // 作為備用，如果 history 中沒有上一頁，可以導向課程頁面
+                    if (window.history.length <= 1) {
+                        const debugParam = urlParams.get('debug') === 'true' ? '?debug=true' : '';
+                        window.location.href = `courses.html${debugParam}`;
+                    }
                 }
             });
         }

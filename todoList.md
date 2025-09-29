@@ -81,12 +81,17 @@
     -   **過程**：嘗試透過前端傳遞使用者 ID (LINE User ID) 給後端 RLS 政策進行驗證。歷經了偽造 JWT、傳遞自訂 HTTP Header 等多種方式。
     -   **結果**：**失敗**。由於前端 (`anon` key 環境) 無法產生一個可被後端 RLS 安全信任的身份證明，導致實作過程極為複雜且最終無法穩定運作。為求系統穩定，已將相關程式碼與資料庫規則恢復至公開讀取狀態。
 -   [ ] **待辦事項：重新實作憑證頁面安全性**
-    -   **方向**：未來應採用更標準、更安全的後端驗證流程。建議方案是建立一個 Supabase Edge Function：
-        1.  前端 (`booking-details.html`) 透過 LIFF 取得 `ID Token`。
-        2.  前端呼叫 Edge Function，並將 `ID Token` 作為驗證憑證。
-        3.  Edge Function 在後端驗證 `ID Token` 的有效性，確認使用者身份。
-        4.  驗證成功後，Edge Function 使用 `service_role_key` 安全地查詢資料庫，並將結果回傳給前端。
-    -   **優點**：此方案能徹底解決前端身份不可信的問題，是實現此類安全需求的最佳實踐。
+    -   [ ] **Phase I: UserID + Supabase Auth 檢核**
+        -   **目標**: 讓使用者只能讀取自己資料
+        -   讓user不需登入supabase。 我要防堵的是，user直接更換url就能讀取別人的憑證。我要的是，在sql裡面加上userid，就這麼簡單。
+    -   [ ] **Phase II: Edge Function + ID Token 檢核 (未來規劃)**
+        -   **目標**: 建立一個名為 `get-booking-details` 的 Edge Function，由它代替前端來執行資料庫查詢，達到最高安全性。
+        -   [ ] **前端修改 (`booking-details.html`)**:
+            -   [ ] 將資料查詢從 `supabaseClient.from(...).select(...)` 改為呼叫 `supabaseClient.functions.invoke('get-booking-details', ...)`。
+            -   [ ] 在呼叫時，將 `bookingId` 和從 LIFF 取得的 `ID Token` 一起作為參數傳遞。
+        -   [ ] **後端開發 (Edge Function)**:
+            -   [ ] 建立一個新的 Edge Function (`/supabase/functions/get-booking-details/index.ts`)。
+            -   [ ] **函式邏輯**: 驗證傳入的 `ID Token`，確認使用者身份後，使用 `service_role_key` 安全地查詢資料庫，並回傳結果。
 
 
 

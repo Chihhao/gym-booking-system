@@ -203,5 +203,16 @@
             <p>新竹市中華路二段 625 號 2 樓</p>
         </div>
     </main>
+
+    <script>
+        // 新增：確保 debug 模式可以被傳遞到下一個頁面
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('debug') === 'true') {
+                const bookingLink = document.querySelector('a.btn-primary');
+                bookingLink.href = 'courses.html?debug=true';
+            }
+        });
+    </script>
 </body>
 </html>

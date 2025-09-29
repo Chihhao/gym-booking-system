@@ -692,7 +692,10 @@
         }
 
         function showBookingDetails(bookingId) {
-            window.location.href = `booking-details.html?id=${bookingId}`;
+            // 新增：確保 debug 模式可以被傳遞到下一個頁面
+            const urlParams = new URLSearchParams(window.location.search);
+            const debugParam = urlParams.get('debug') === 'true' ? `&debug=true` : '';
+            window.location.href = `booking-details.html?id=${bookingId}${debugParam}`;
         }
 
         // --- 新增：切換週次功能 ---
