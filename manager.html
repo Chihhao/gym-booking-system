@@ -851,6 +851,21 @@
         </div>
     </div>
 
+    <!-- 新增：確認對話框 Modal -->
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <h2 id="confirmation-title" style="color: var(--danger-color);">請確認</h2>
+            <div class="form-group">
+                <p id="confirmation-message" style="font-size: 1.1em; line-height: 1.6; margin: 0;"></p>
+            </div>
+            <div class="modal-actions" style="justify-content: center;">
+                <button id="confirmation-cancel-btn" class="btn btn-secondary">取消</button>
+                <button id="confirmation-confirm-btn" class="btn btn-danger">確認</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         // --- Supabase Auth 相關邏輯 ---
         const ADMIN_EMAILS = ['junesnow39@gmail.com', 'kaypeng1234@gmail.com'];
@@ -943,8 +958,8 @@
             });
 
             // 5. 綁定 Modal 內的儲存與刪除按鈕事件 (使用共用函式，並傳入對應的回呼)
-            document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule));
-            document.getElementById('delete-class-btn').addEventListener('click', (event) => handleDeleteClass(event, loadManagerSchedule));
+            document.getElementById('class-form').addEventListener('submit', (event) => handleSaveClass(event, loadManagerSchedule, showConfirmation));
+            document.getElementById('delete-class-btn').addEventListener('click', (event) => handleDeleteClass(event, loadManagerSchedule, showConfirmation));
             // 移除：點擊 Modal 外部區域關閉的功能
 
             // 6. 綁定課程型錄下拉選單的變動事件，以自動填充課堂名稱
@@ -1055,12 +1070,14 @@
             });
             document.getElementById('delete-coach-btn').addEventListener('click', async () => {
                 const coachId = document.getElementById('form-coach-id-hidden').value;
-                if (!coachId) {
-                    showNotification('錯誤：找不到教練 ID。', 'error');
-                    return;
-                }
+                if (!coachId) return;
 
-                if (!confirm(`您確定要刪除這位教練嗎？\n此操作無法復原。`)) {
+                // 修正：使用 showConfirmation 函式
+                const confirmed = await showConfirmation('您確定要刪除這位教練嗎？<br>此操作無法復原。', {
+                    confirmText: '確認刪除',
+                    confirmButtonClass: 'btn-danger'
+                });
+                if (!confirmed) {
                     return;
                 }
 
@@ -1214,6 +1231,49 @@
         // 移除：點擊 Modal 外部區域關閉的功能
         document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
         document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
+
+        // --- 新增：確認對話框函式 (回傳 Promise) ---
+        function showConfirmation(message, options = {}) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmation-modal');
+                const titleEl = document.getElementById('confirmation-title');
+                const messageEl = document.getElementById('confirmation-message');
+                const confirmBtn = document.getElementById('confirmation-confirm-btn');
+                const cancelBtn = document.getElementById('confirmation-cancel-btn');
+
+                // 設定內容
+                titleEl.textContent = options.title || '請確認';
+                messageEl.innerHTML = message; // 使用 innerHTML 以支援 <br>
+                confirmBtn.textContent = options.confirmText || '確認';
+                cancelBtn.textContent = options.cancelText || '取消';
+
+                // 設定確認按鈕樣式
+                confirmBtn.className = 'btn'; // 重設 class
+                confirmBtn.classList.add(options.confirmButtonClass || 'btn-success');
+
+                // 顯示 Modal
+                modal.classList.add('active');
+
+                const close = (result) => {
+                    modal.classList.remove('active');
+                    // 移除事件監聽器，避免重複綁定
+                    confirmBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    modal.onclick = null;
+                    resolve(result);
+                };
+
+                confirmBtn.onclick = () => close(true);
+                cancelBtn.onclick = () => close(false);
+
+                // 點擊背景遮罩等同於取消
+                modal.onclick = (event) => {
+                    if (event.target === modal) {
+                        close(false);
+                    }
+                };
+            });
+        }
 
 
 
@@ -1730,12 +1790,14 @@
         // 佔位函式，為未來實作刪除功能預留
         document.getElementById('delete-course-btn').addEventListener('click', async () => {
             const courseId = document.getElementById('form-course-id-hidden').value;
-            if (!courseId) {
-                showNotification('錯誤：找不到課程 ID。', 'error');
-                return;
-            }
+            if (!courseId) return;
 
-            if (!confirm(`您確定要刪除這個課程型錄嗎？\n此操作無法復原。`)) {
+            // 修正：使用 showConfirmation 函式
+            const confirmed = await showConfirmation('您確定要刪除這個課程型錄嗎？<br>此操作無法復原。', {
+                confirmText: '確認刪除',
+                confirmButtonClass: 'btn-danger'
+            });
+            if (!confirmed) {
                 return;
             }
 
