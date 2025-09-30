@@ -93,6 +93,31 @@
             -   [ ] 建立一個新的 Edge Function (`/supabase/functions/get-booking-details/index.ts`)。
             -   [ ] **函式邏輯**: 驗證傳入的 `ID Token`，確認使用者身份後，使用 `service_role_key` 安全地查詢資料庫，並回傳結果。
 
+---
+
+### 重構 Manager 後台 (Refactoring `manager.html`)
+
+目標：將 `manager.html` 中龐大的 JavaScript 程式碼進行模組化拆分與重構，以提高可維護性、可讀性與擴展性。
+
+-   [ ] **Part 1: 程式碼結構與職責分離 (Code Structure & Separation of Concerns)**
+    -   [ ] **建立專屬的 JavaScript 檔案**：將不同功能的程式碼拆分到獨立的檔案中。
+        -   [ ] `auth.js`: 身份驗證邏輯。
+        -   [ ] `navigation.js`: 頁面導覽與側邊欄邏輯。
+        -   [ ] `manager-bookings.js`: 預約管理功能。
+        -   [ ] `manager-courses.js`: 課程型錄功能。
+        -   [ ] `manager-coaches.js`: 教練管理功能。
+        -   [ ] `manager-users.js`: 客戶管理功能。
+        -   [ ] `manager-schedule-canvas.js`: 畫布課表互動邏輯。
+    -   [ ] **使用 JavaScript 模組 (ESM)**：在 `manager.html` 中改用 `type="module"` 載入主腳本，並在各模組間使用 `import`/`export`。
+
+-   [ ] **Part 2: 資料載入與狀態管理 (Data Loading & State Management)**
+    -   [ ] **建立通用資料載入器**: 建立一個高階函式 `loadTableData` 來處理重複的資料載入、渲染和錯誤處理邏輯。
+    -   [ ] **集中化狀態管理**: 將所有頁面的狀態（如 `currentBookings`, `sortState`）封裝在一個全域狀態物件 `managerState` 中，避免全域變數污染。
+
+-   [ ] **Part 3: 畫布課表邏輯優化 (`manager-schedule-canvas.js`)**
+    -   [ ] **抽象化時間與像素轉換**: 將 `offsetY / canvasPixelsPerMinute` 等計算封裝成獨立的輔助函式（如 `minutesToPixels`, `timeToPixels`）。
+    -   [ ] **分離互動與資料更新**: 將 `interact.js` 的 `end` 事件監聽器職責簡化，只負責計算變更後的資料，並呼叫獨立的 `updateClass` 函式來執行 API 儲存。
+
 
 
 
