@@ -872,17 +872,16 @@
                 return;
             }
 
-            // Fetch class details to display in confirmation modal
-            const { data: classData, error: classError } = await supabaseClient
-                .from('classes_with_details')
-                .select('*')
-                .eq('class_id', scheduleId)
-                .single();
+            // 修正：不再直接查詢 view，改為呼叫安全的 RPC 函式
+            const { data: rpcResult, error: classError } = await supabaseClient.rpc('get_class_details', {
+                p_class_id: scheduleId
+            });
 
             if (classError) {
                 showNotification('無法取得課程資訊，請稍後再試。', 'error');
                 return;
             }
+            const classData = rpcResult[0]; // RPC 回傳的是陣列
 
             const { course_name, class_date, start_time, coach_name } = classData;
 
