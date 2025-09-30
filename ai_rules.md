@@ -3,6 +3,23 @@
 這份文件定義了與 AI 協作開發此專案時應遵循的規則與最佳實踐，旨在確保程式碼品質、可維護性與安全性。
 
 ---
+## 0. 專案架構總覽 (Project Architecture Overview)
+
+為避免混淆，特此明確定義本專案的架構：
+
+*   **前端 (Frontend)**:
+    *   **託管**: **GitHub Pages**。
+    *   **內容**: 所有的 `.html` 檔案（包括學員端和管理者後台）都是靜態檔案，由 GitHub Pages 提供服務。
+
+*   **後端 - 主要 (Primary Backend)**:
+    *   **服務**: **Supabase**。
+    *   **職責**: 負責資料庫 (PostgreSQL)、身份驗證 (Auth)、行級安全 (RLS) 及所有核心業務邏輯 (RPC Functions)。
+
+*   **後端 - Webhook (Webhook Backend)**:
+    *   **服務**: **Google Apps Script (GAS)**。
+    *   **職責**: 其**唯一**職責是作為一個無介面的 (headless) API 端點，接收並處理來自 LINE 平台的 Webhook 事件（例如，使用者點擊圖文選單的 Postback 請求）。**GAS 不負責渲染或提供任何 HTML 頁面**。
+
+---
 ## 0. 基本原則
 * 用繁體中文回覆
 
@@ -251,7 +268,7 @@
 ## 5. 部署流程 (Deployment Process)
 
 *   **5.1. Google Apps Script (GAS) 部署**:
-    *   當 `Code.gs` 或任何 `.html` 檔案有修改時，需要將變更部署到線上環境。
+    *   當後端 Webhook 邏輯 (`Code.gs`) 或其設定檔 (`appsscript.json`) 有修改時，需要將變更部署到線上環境。
     *   請在專案根目錄執行以下指令：
         ```bash
         clasp push && clasp deploy --deploymentId AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G

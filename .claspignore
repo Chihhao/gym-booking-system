@@ -4,4 +4,3 @@
 # 2. 然后，排除我们明确需要推送的档案 (白名单)
 !appsscript.json
 !Code.gs
-!SupabaseClient.gs
