@@ -257,6 +257,24 @@
             *   **解決方案**: 根據錯誤訊息提示，使用 `supabase migration repair --status reverted <MIGRATION_ID>` 指令，將雲端多餘的歷史紀錄逐一標記為無效，然後再重新執行 `supabase db pull`。
 
 ---
+*   **3.6. 資料庫備份 (Database Backup)**
+    *   **備份時機**: 在執行 `supabase db push` 或任何重大資料庫變更後，強烈建議執行一次資料庫備份。
+    *   **備份指令**: 使用 PostgreSQL 內建的 `pg_dump` 工具，只備份我們關心的 `public` schema。
+
+        1.  **取得連線字串**: 前往 Supabase 儀表板 > Project Settings > Database > Connection string，複製 `URI` 格式的連線字串。
+
+        2.  **執行指令**: 在您的本機終端機執行以下指令，並將 `[您的密碼]` 部分替換為您的資料庫密碼。使用者名稱 `postgres.zseddmfljxtcgtzmvove` 已包含您的專案 ID。
+            ```bash
+            pg_dump -n public "postgres://postgres.zseddmfljxtcgtzmvove:[您的密碼]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres" > backup_YYYYMMDD.sql
+            ```
+            *   `-n public`: 代表只備份 `public` 這個 schema，這是推薦的做法，可以讓備份檔更乾淨。
+            *   `"..."`: 包含使用者名稱、專案 ID 和主機位址的完整連線字串。
+            *   `>`: 將備份內容導向到一個 SQL 檔案。
+            *   `backup_YYYYMMDD.sql`: 建議使用日期命名備份檔案，方便管理。
+
+    *   **AI 提醒**: 當您要求推送 (push) SQL 相關變更時，AI 助理應根據此規則提醒您執行備份。
+
+---
 
 ## 4. Google Apps Script (GAS) 維護
 *   **4.1. 職責單一**: `Code.gs` 目前的唯一職責是接收 LINE Webhook 事件 (例如：使用者點擊圖文選單)，並根據事件內容回覆訊息。
