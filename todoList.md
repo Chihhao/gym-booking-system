@@ -85,11 +85,11 @@
         -   [x] **目標**: 讓使用者只能讀取自己的資料。
         -   [x] **實作**: 在 `booking-details.html` 和 `booking-complete.html` 中，透過 LIFF 取得 `userId`，並呼叫安全的 RPC 函式 `get_booking_details_for_user`，由後端進行權限校驗，成功防止使用者透過修改 URL 參數查看他人資料。
     -   [ ] **Phase II: Edge Function + ID Token 檢核 (未來規劃)**
-        -   **目標**: 建立一個名為 `get-booking-details` 的 Edge Function，由它代替前端來執行資料庫查詢，達到最高安全性。
+        -   **目標**: 建立一個名為 `get-booking-details` 的 Edge Function，由它代替前端來執行資料庫查詢，達到比 RPC 更高的安全性。
         -   [ ] **前端修改 (`booking-details.html`)**:
             -   [ ] 將資料查詢從 `supabaseClient.from(...).select(...)` 改為呼叫 `supabaseClient.functions.invoke('get-booking-details', ...)`。
             -   [ ] 在呼叫時，將 `bookingId` 和從 LIFF 取得的 `ID Token` 一起作為參數傳遞。
-        -   [ ] **後端開發 (Edge Function)**:
+        -   [ ] **後端開發 (Edge Function - Deno)**:
             -   [ ] 建立一個新的 Edge Function (`/supabase/functions/get-booking-details/index.ts`)。
             -   [ ] **函式邏輯**: 驗證傳入的 `ID Token`，確認使用者身份後，使用 `service_role_key` 安全地查詢資料庫，並回傳結果。
 
@@ -103,10 +103,10 @@
     -   [ ] **建立專屬的 JavaScript 檔案**：將不同功能的程式碼拆分到獨立的檔案中。
         -   [ ] `auth.js`: 身份驗證邏輯。
         -   [ ] `navigation.js`: 頁面導覽與側邊欄邏輯。
-        -   [ ] `manager-bookings.js`: 預約管理功能。
-        -   [ ] `manager-courses.js`: 課程型錄功能。
-        -   [ ] `manager-coaches.js`: 教練管理功能。
-        -   [ ] `manager-users.js`: 客戶管理功能。
+        -   [ ] `data-loaders/bookings.js`: 預約管理功能。
+        -   [ ] `data-loaders/courses.js`: 課程型錄功能。
+        -   [ ] `data-loaders/coaches.js`: 教練管理功能。
+        -   [ ] `data-loaders/users.js`: 客戶管理功能。
         -   [ ] `manager-schedule-canvas.js`: 畫布課表互動邏輯。
     -   [ ] **使用 JavaScript 模組 (ESM)**：在 `manager.html` 中改用 `type="module"` 載入主腳本，並在各模組間使用 `import`/`export`。
 
@@ -123,17 +123,13 @@
 
 ---
 
-### 到 Supabase 查看系統建議
-
----
-
 ### 為 `manager.html` 實作 Google 登入驗證
 
 目標：只有指定的 Google 帳號可以登入後台，並存取所有管理資料。
 
 #### Part 1: Supabase 後端設定
 
-1.  **啟用 Google 驗證提供者**
+1.  **[x] 啟用 Google 驗證提供者**
     *   [ ] 前往 Supabase 儀表板 > Authentication > Providers。
     *   [x] 啟用 `Google` 提供者。
     *   [x] 依照官方文件指示，前往 Google Cloud Console 建立 OAuth 2.0 Client ID。
@@ -159,13 +155,13 @@
 
 #### Part 3: 前端 `manager.html` 頁面修改
 
-1.  **建立登入畫面**
+1.  **[x] 建立登入畫面**
     *   [x] 在 `<body>` 中建立一個登入畫面的 `<div>` (例如 `#login-view`)，內含一個「使用 Google 登入」的按鈕。
     *   [x] 將原本的主要內容區 (`<nav class="sidebar">` 和 `<main class="main-content">`) 用另一個 `<div>` (例如 `#main-view`) 包起來。
     *   [x] 預設情況下，`#login-view` 顯示，`#main-view` 隱藏。
 
-2.  **修改 JavaScript 邏輯**
-    *   [x] 在 `DOMContentLoaded` 事件中，加入 `supabase.auth.onAuthStateChange` 監聽器。
+2.  **[x] 修改 JavaScript 邏輯**
+    *   [x] 加入 `supabase.auth.onAuthStateChange` 監聽器。
     *   [x] **監聽器邏輯**：
         *   如果 `event` 是 `SIGNED_IN` 且 `session.user.email` 是管理者信箱：
             *   隱藏 `#login-view`，顯示 `#main-view`。
@@ -174,3 +170,14 @@
             *   顯示 `#login-view`，隱藏 `#main-view`。
     *   [x] **登入按鈕**：為「使用 Google 登入」按鈕綁定點擊事件，呼叫 `supabaseClient.auth.signInWithOAuth({ provider: 'google' })`。
     *   [x] **登出功能**：在側邊欄或頁首新增一個「登出」按鈕，綁定點擊事件呼叫 `supabaseClient.auth.signOut()`。
+
+---
+
+### 未來規劃 (Future Plans)
+
+-   [ ] **完成 LINE Bot 整合**
+    -   [ ] 撰寫 Google Apps Script 程式碼，處理來自 LINE 的 Webhook 事件 (例如：使用者點擊圖文選單查詢預約)。
+    -   [ ] 將機密金鑰 (如 `CHANNEL_ACCESS_TOKEN`) 存放在 GAS 的「指令碼屬性」中。
+-   [ ] **部署與文件**
+    -   [ ] 將前端靜態檔案部署至 GitHub Pages。
+    -   [ ] 在 `README.md` 中補充部署流程與環境變數設定說明。
