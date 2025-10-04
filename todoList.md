@@ -3,11 +3,11 @@
 -   [x] **大挑戰：課程時間改為 15 分鐘單位**：完成後端資料庫、管理後台（畫布課表、拖曳互動）、學員介面（互動式展開）的全面改造。
 -   [x] **為 `manager.html` 實作 Google 登入驗證**：整合 Supabase Auth，並透過 RLS 政策確保只有授權管理者能存取後台資料。
 -   [x] **優化預約憑證頁面 (Phase I)**: 採用票券式設計，並透過安全的 RPC 函式 `get_booking_details_for_user` 實現了「僅限本人查看」的權限控管。
--   [x] **架構遷移 (Phase I)**：將 Webhook 核心邏輯與圖文選單管理腳本從 GAS 遷移至 Supabase Edge Functions，並更新了相關文件。
+-   [x] **架構遷移：從 Google Apps Script 到 Supabase**：將 Webhook 核心邏輯與圖文選單管理腳本從 GAS 遷移至 Supabase Edge Functions，統一了後端技術棧。
 
 ---
 
-### 進行中任務 (In Progress)
+### 進行中與未來規劃 (In Progress & Future Plans)
 
 ### 重構 Manager 後台 (Refactoring `manager.html`)
 
@@ -33,18 +33,10 @@
     -   [ ] **分離互動與資料更新**: 將 `interact.js` 的 `end` 事件監聽器職責簡化，只負責計算變更後的資料，並呼叫獨立的 `updateClass` 函式來執行 API 儲存。
 
 
+
+
 ---
 
 ### 未來規劃 (Future Plans)
 
-#### 架構遷移 (Phase II - Final Cleanup)
-目標：將所有後端輔助功能從 Google Apps Script (GAS) 完全遷移至 Supabase，以統一技術棧並簡化維護。
-
--   [ ] **專案清理**
-    -   [ ] 從專案中移除 `Code.gs` 和 `appsscript.json` 檔案。
-    -   [x] 更新 `config.js`，移除不再使用的 `GAS_URL` 變數。
-
-#### 部署與文件
-
--   [ ] **部署至 GitHub Pages**：將前端靜態檔案部署至 GitHub Pages。
--   [ ] **完善 `README.md`**：在 `README.md` 中補充完整的部署流程與環境變數設定說明。
+-   [ ] **部署與文件**：將前端靜態檔案部署至 GitHub Pages，並在 `README.md` 中補充完整的部署流程與環境變數設定說明。
