@@ -46,13 +46,19 @@ Deno.serve(async (req) => {
       handlePostback(event)
     } else if (event && event.type === 'message' && event.message.type === 'text') {
       // 新增：處理來自圖文選單的文字訊息事件，例如 "聯絡資訊"
-      if (event.message.text === '聯絡資訊') {
+      // 修正：判斷文字需與圖文選單設定的 `[聯絡資訊]` 一致
+      if (event.message.text === '[聯絡資訊]') {
         const contactMessage = `您好！歡迎聯繫 Wally Studio！\n\n` +
                                `營業時間：週一至週五 09:00 - 21:00\n` +
-                               `聯絡電話：02-1234-5678\n` +
-                               `工作室地址：台北市信義區市府路1號`
+                               `聯絡電話：0937-402-893\n` + // 更新為真實聯絡資訊
+                               `工作室地址：新竹市中華路二段 625 號 2 樓` // 更新為真實聯絡資訊
         // 修正：改為使用 Reply API 回覆，更即時
         replyMessage(event.replyToken, contactMessage)
+      }
+      // 新增：處理 [確認/取消] 按鈕的點擊事件
+      else if (event.message.text === '[確認/取消]') {
+        const cancelMessage = `您好！若要確認或取消您的預約，請點擊下方圖文選單的「個人記錄」按鈕，找到對應的預約憑證後即可進行操作。`
+        replyMessage(event.replyToken, cancelMessage)
       }
     }
 
