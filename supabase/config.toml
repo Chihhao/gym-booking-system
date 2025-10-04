@@ -17,6 +17,11 @@ extra_search_path = ["public", "extensions"]
 # for accidental or malicious requests.
 max_rows = 1000
 
+# Per-function configuration for "line-webhook"
+[functions.line-webhook]
+# Set to false to allow the function to be called without a valid JWT, which is required for LINE Webhooks.
+verify_jwt = false
+
 [api.tls]
 # Enable HTTPS endpoints locally using a self-signed certificate.
 enabled = false

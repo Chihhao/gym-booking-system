@@ -2,7 +2,7 @@
 
 這是一個為健身房或自由教練工作室設計的預約系統。它結合了 LINE LIFF 應用程式，讓學員可以方便地瀏覽課程、預約時段；同時提供一個功能完整的網頁後台，供管理者處理預約、排課與客戶管理。
 
-後端採用 Supabase 進行資料庫與業務邏輯處理，並透過 Google Apps Script 接收 LINE Bot 的 Webhook 事件。
+後端完全採用 Supabase 進行資料庫、核心業務邏輯，以及 LINE Webhook 事件的接收與處理。
 
 ---
 
@@ -25,6 +25,6 @@
 ## 技術棧 (Tech Stack)
 
 *   **後端**: Supabase (PostgreSQL, Auth, RLS, RPC Functions)
+*   **Webhook 服務**: Supabase Edge Functions
 *   **前端**: HTML, CSS, JavaScript, LIFF SDK
-*   **Webhook 服務**: Google Apps Script
-*   **部署**: `clasp` (for Google Apps Script), Supabase CLI (for database migrations)
+*   **部署**: Supabase CLI (for database migrations & edge functions)

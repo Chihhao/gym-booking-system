@@ -11,13 +11,10 @@
     *   **託管**: **GitHub Pages**。
     *   **內容**: 所有的 `.html` 檔案（包括學員端和管理者後台）都是靜態檔案，由 GitHub Pages 提供服務。
 
-*   **後端 - 主要 (Primary Backend)**:
+*   **後端 (Backend)**:
     *   **服務**: **Supabase**。
     *   **職責**: 負責資料庫 (PostgreSQL)、身份驗證 (Auth)、行級安全 (RLS) 及所有核心業務邏輯 (RPC Functions)。
-
-*   **後端 - Webhook (Webhook Backend)**:
-    *   **服務**: **Google Apps Script (GAS)**。
-    *   **職責**: 其**唯一**職責是作為一個無介面的 (headless) API 端點，接收並處理來自 LINE 平台的 Webhook 事件（例如，使用者點擊圖文選單的 Postback 請求）。**GAS 不負責渲染或提供任何 HTML 頁面**。
+    *   **Webhook 服務**: 使用 **Supabase Edge Functions** 接收並處理來自 LINE 平台的 Webhook 事件。
 
 ---
 ## 0. 基本原則
@@ -33,12 +30,12 @@
         *   **權限控管依賴 RLS**：資料的讀取權限完全由 Supabase 的 **RLS (Row Level Security)** 政策來控制。這確保了使用者即使擁有 `anon` 金鑰，也只能存取到他們被授權的資料。
         *   **寫入操作透過 RPC**：所有需要更高權限的寫入、修改、刪除操作，都不是由前端直接執行，而是透過呼叫安全的後端 **RPC (Remote Procedure Call)** 函式 (`SECURITY DEFINER` function) 來完成。這避免了在前端洩漏任何具有寫入權限的金鑰。
         *   **設定檔集中管理**：所有的前端設定（如 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `LIFF_ID`）都統一存放在 `config.js` 檔案中，避免了在多個檔案中硬編碼 (hardcode)，方便統一管理與更換。
-    *   **後端金鑰管理 (Backend Key Management - Google Apps Script)**
-        *   **嚴禁在程式碼中存放金鑰**：高度機密的金鑰，如 **`CHANNEL_ACCESS_TOKEN`** (LINE Bot 的完整權限金鑰) 和 **`SUPABASE_SERVICE_KEY`** (Supabase 的後台管理員金鑰)，**絕對不會**直接寫在 `.gs` 程式碼檔案中。
-        *   **使用指令碼屬性 (Script Properties)**：所有機密金鑰皆存放在 Google Apps Script 提供的「**指令碼屬性 (Script Properties)**」中。
-            *   這是一個與 Apps Script 專案綁定的安全鍵值儲存區。
-            *   儲存在此處的資料**不會**被包含在原始碼檔案裡。
-            *   因此，即使將專案程式碼推送到公開的 GitHub 儲存庫，這些機密金鑰也**不會外洩**。
+    *   **後端金鑰管理 (Backend Key Management - Supabase Edge Functions)**
+        *   **嚴禁在程式碼中存放金鑰**：高度機密的金鑰，如 **`LINE_CHANNEL_ACCESS_TOKEN`** (LINE Bot 的完整權限金鑰)，**絕對不會**直接寫在 Edge Function 的程式碼檔案 (`index.ts`) 中。
+        *   **使用環境變數 (Environment Variables)**：所有機密金鑰皆透過 Supabase CLI 設定為 Edge Function 的「**環境變數 (Secrets)**」。
+            *   指令：`supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=...`
+            *   在程式碼中，透過 `Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN')` 來安全地存取。
+            *   儲存在此處的資料**不會**被包含在原始碼檔案裡，因此即使將專案程式碼推送到公開的 GitHub 儲存庫，這些機密金鑰也**不會外洩**。
 *   **1.4. 程式碼即文件 (Code as Documentation)**: 撰寫清晰、可讀性高的程式碼。使用有意義的變數和函式命名，並在複雜的邏輯區塊加上簡要註解。
 
 ---
@@ -275,21 +272,35 @@
     *   **AI 提醒**: 當您要求推送 (push) SQL 相關變更時，AI 助理應根據此規則提醒您執行備份。
 
 ---
+*   **3.7. Supabase CLI 維護 (CLI Maintenance)**
+    *   **更新提醒**: 當 AI 助理從終端機輸出中偵測到有新版的 Supabase CLI 可用時 (例如 `A new version of Supabase CLI is available...`)，應主動提醒使用者執行以下指令進行更新。
+    *   **更新指令 (macOS with Homebrew)**:
+        ```bash
+        brew upgrade supabase
+        ```
+    *   **重要性**: 保持 CLI 在最新版本有助於獲得新功能、錯誤修正與更好的開發體驗。
 
-## 4. Google Apps Script (GAS) 維護
-*   **4.1. 職責單一**: `Code.gs` 目前的唯一職責是接收 LINE Webhook 事件 (例如：使用者點擊圖文選單)，並根據事件內容回覆訊息。
-*   **4.2. 避免新邏輯**: 除非與 LINE Webhook 直接相關，否則應避免在 `Code.gs` 中添加新的業務邏輯。所有資料庫相關操作應在 Supabase 中完成。
-*   **4.3. 金鑰管理**: 再次強調，所有機密金鑰（如 `CHANNEL_ACCESS_TOKEN`）必須儲存在「指令碼屬性」中，絕不能硬編碼在程式碼裡。
+---
+
+## 4. Supabase Edge Function 維護 (Webhook)
+*   **4.1. 職責單一**: `line-webhook` 這個 Edge Function 的唯一職責是接收 LINE Webhook 事件，並根據事件內容觸發後續操作。
+*   **4.2. 立即回應，非同步處理 (Respond Immediately, Process Asynchronously)**:
+    *   為了符合 LINE 平台對 Webhook 的要求並提供最佳使用者體驗，Edge Function 在收到請求後，應**立即回傳 `200 OK`**。
+    *   所有耗時的操作（如查詢資料庫、呼叫 LINE Push API）都應在背景**非同步執行**，不應阻塞主回應流程。
+*   **4.3. 金鑰管理**: 再次強調，所有機密金鑰（如 `LINE_CHANNEL_ACCESS_TOKEN`）必須儲存在 Supabase 的環境變數中，絕不能硬編碼在程式碼裡。
 
 ---
 
 ## 5. 部署流程 (Deployment Process)
 
-*   **5.1. Google Apps Script (GAS) 部署**:
-    *   當後端 Webhook 邏輯 (`Code.gs`) 或其設定檔 (`appsscript.json`) 有修改時，需要將變更部署到線上環境。
-    *   請在專案根目錄執行以下指令：
+*   **5.1. Supabase Edge Function 部署**:
+    *   當後端 Webhook 邏輯 (`supabase/functions/line-webhook/index.ts`) 有修改時，需要將變更部署到線上環境。
+    *   在部署前，請確保已透過 `supabase secrets set` 設定好所有必要的環境變數。
+    *   請在專案根目錄執行部署特定函式的指令：
         ```bash
-        clasp push && clasp deploy --deploymentId AKfycbzsR-H8MM9LLrAxeHPK97qJtLNL-YweksnKpA6Io14RyOrZ8NENTQ7uZ3Bd2ng6Ht3G
+        supabase functions deploy line-webhook --no-verify-jwt
         ```
-    *   `clasp push`：將本地的程式碼檔案上傳到 Google Apps Script 專案。
-    *   `clasp deploy ...`：將上傳的程式碼更新到指定的線上版本 (Deployment)。
+    *   `--no-verify-jwt`：因為這個 Webhook 是由 LINE 平台直接呼叫，而非攜帶 Supabase JWT 的使用者，所以需要加上此旗標。
+
+*   **5.2. Supabase 資料庫變更部署**:
+    *   當資料庫結構 (Tables, RLS, RPC) 有變更時，請遵循 **3.4. 資料庫變更流程 (Migration Workflow)** 中的步驟，使用 `supabase db push` 進行部署。

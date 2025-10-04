@@ -430,7 +430,7 @@ function createRichMenu() {
         "bounds": { "x": 1667, "y": 0, "width": 833, "height": 843 },
         "action": {
           "type": "message",
-          "text": "請問有什麼可以為您服務的嗎？"
+          "text": "聯絡資訊" // 點擊後，使用者會送出 "聯絡資訊" 文字訊息
         }
       }
     ]
