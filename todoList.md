@@ -4,6 +4,12 @@
 -   [x] **為 `manager.html` 實作 Google 登入驗證**：整合 Supabase Auth，並透過 RLS 政策確保只有授權管理者能存取後台資料。
 -   [x] **優化預約憑證頁面 (Phase I)**: 採用票券式設計，並透過安全的 RPC 函式 `get_booking_details_for_user` 實現了「僅限本人查看」的權限控管。
 -   [x] **架構遷移：從 Google Apps Script 到 Supabase**：將 Webhook 核心邏輯與圖文選單管理腳本從 GAS 遷移至 Supabase Edge Functions，統一了後端技術棧。
+    -   **[註] 更新圖文選單**: 當 `manage-rich-menu/index.ts` 內容有修改時，需部署 (`supabase functions deploy manage-rich-menu`) 並執行以下指令來更新線上的圖文選單：
+        ```bash
+        curl -X POST 'https://zseddmfljxtcgtzmvove.supabase.co/functions/v1/manage-rich-menu' \
+        -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U' \
+        -H 'Content-Type: application/json'
+        ```
 
 ---
 
@@ -37,6 +43,74 @@
 
 ---
 
+### 為 `manager.html` 實作 Google 登入驗證
+
+目標：只有指定的 Google 帳號可以登入後台，並存取所有管理資料。
+
+#### Part 1: Supabase 後端設定
+
+1.  **[x] 啟用 Google 驗證提供者**
+    *   [ ] 前往 Supabase 儀表板 > Authentication > Providers。
+    *   [x] 啟用 `Google` 提供者。
+    *   [x] 依照官方文件指示，前往 Google Cloud Console 建立 OAuth 2.0 Client ID。
+    *   [x] 將 Google Cloud Console 提供的 `Client ID` 和 `Client Secret` 填回 Supabase。
+    *   [x] **重要**：將 Supabase 提供的 `Redirect URI` 複製並貼到 Google Cloud Console 的「已授權的重新導向 URI」欄位中。
+
+#### Part 2: 強化 RLS (Row Level Security) 安全策略
+
+1.  **[x] 刪除臨時的公開讀取策略**
+    *   [x] **(已完成)** 透過 `20251003100000_refine_rls_policies.sql` 移除了所有資料表上過於寬鬆的公開讀取策略。
+
+2.  **[x] 建立僅限管理者存取的策略**
+    *   [x] 執行 SQL，建立新的 RLS 策略，只允許 email 為特定管理者信箱的已登入使用者存取資料。
+        ```sql
+        -- 假設管理者的 email 是 'your.admin.email@gmail.com'
+        CREATE POLICY "Allow managers to read all users" ON public.users FOR SELECT USING (auth.email() = 'your.admin.email@gmail.com');
+        CREATE POLICY "Allow managers to read all coaches" ON public.coaches FOR SELECT USING (auth.email() = 'your.admin.email@gmail.com');
+        ```
+3.  **[x] RLS 策略重構**
+    *   [x] **(已完成)** 透過 `20251004120001_consolidate_admin_rls.sql` 進行了全面的策略清理與重構。
+    *   [x] **結果**: 刪除了所有舊的、分散的管理者策略，並為所有核心資料表 (`bookings`, `classes`, `courses`, `coaches`, `users`) 建立了一組乾淨、統一的 `FOR ALL` (CRUD) 策略。
+    *   [x] **標準化**: 所有新的管理者策略都明確授權給 `authenticated` 角色，確保只有透過 Google 登入的管理者才能觸發。
+
+#### Part 3: 前端 `manager.html` 頁面修改
+
+1.  **[x] 建立登入畫面**
+    *   [x] 在 `<body>` 中建立一個登入畫面的 `<div>` (例如 `#login-view`)，內含一個「使用 Google 登入」的按鈕。
+    *   [x] 將原本的主要內容區 (`<nav class="sidebar">` 和 `<main class="main-content">`) 用另一個 `<div>` (例如 `#main-view`) 包起來。
+    *   [x] 預設情況下，`#login-view` 顯示，`#main-view` 隱藏。
+
+2.  **[x] 修改 JavaScript 邏輯**
+    *   [x] 加入 `supabase.auth.onAuthStateChange` 監聽器。
+    *   [x] **監聽器邏輯**：
+        *   如果 `event` 是 `SIGNED_IN` 且 `session.user.email` 是管理者信箱：
+            *   隱藏 `#login-view`，顯示 `#main-view`。
+            *   執行 `handleNavigation()` 來載入預設頁面資料。
+        *   如果 `event` 是 `SIGNED_OUT` 或使用者不是管理者：
+            *   顯示 `#login-view`，隱藏 `#main-view`。
+    *   [x] **登入按鈕**：為「使用 Google 登入」按鈕綁定點擊事件，呼叫 `supabaseClient.auth.signInWithOAuth({ provider: 'google' })`。
+    *   [x] **登出功能**：在側邊欄或頁首新增一個「登出」按鈕，綁定點擊事件呼叫 `supabaseClient.auth.signOut()`。
+
+---
+
 ### 未來規劃 (Future Plans)
+
+目標：將所有後端輔助功能從 Google Apps Script (GAS) 完全遷移至 Supabase Edge Functions，以統一技術棧並簡化維護。
+
+-   [x] **Webhook 核心邏輯遷移**
+    -   [x] 建立 Supabase Edge Function `line-webhook`，用 TypeScript 重新實現接收 LINE Postback 事件的邏輯。
+    -   [x] 在 Edge Function 中實現非同步處理，立即回應 LINE 平台，並在背景查詢資料庫與推送訊息。
+    -   [x] 更新 `README.md` 和 `ai_rules.md`，反映新的 Webhook 架構。
+    -   [x] 將 LINE Developer 後台的 Webhook URL 從 GAS 更新為 Supabase Edge Function 的 URL。
+-   [x] **管理腳本遷移**
+    -   [x] 建立 Supabase Edge Function `manage-rich-menu`，用 TypeScript 重新實現建立 LINE 圖文選單的功能。
+    -   [x] **(已完成)** `migrateDataToSupabase` 函式已完成其一次性資料遷移任務。
+-   [ ] **專案清理 (Final Cleanup)**
+    -   [ ] 從專案中移除 `Code.gs` 和 `appsscript.json` 檔案。
+    -   [ ] 更新 `config.js`，移除不再使用的 `GAS_URL` 變數。
+
+---
+
+### 未來規劃
 
 -   [ ] **部署與文件**：將前端靜態檔案部署至 GitHub Pages，並在 `README.md` 中補充完整的部署流程與環境變數設定說明。

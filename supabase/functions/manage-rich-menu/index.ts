@@ -12,38 +12,47 @@ const LIFF_ID_COURSES = '2008135811-vNO5bYyx';
 const richMenuObject = {
   size: {
     width: 2500,
-    height: 843, // 如果您的圖片是 1686，請修改這裡
+    height: 1686, // 圖片高度更新為 1686px
   },
   selected: true,
   name: 'Gym Booking Main Menu',
   chatBarText: '查看更多功能',
   areas: [
     {
-      // 按鈕一：查看/預約課程 (左邊 1/3)
-      // 寬度約為 2500 / 3 = 833
-      bounds: { x: 0, y: 0, width: 833, height: 843 },
+      // 按鈕 (a): 上方大按鈕 - 預約課程
+      // 高度為 1686 - 734 = 952
+      bounds: { x: 0, y: 0, width: 2500, height: 952 },
       action: {
         type: 'uri',
         uri: `https://liff.line.me/${LIFF_ID_COURSES}`,
       },
     },
     {
-      // 按鈕二：我的預約紀錄 (中間 1/3)
-      // x 從 833 開始，寬度為 834 (833+834+833 = 2500)
-      bounds: { x: 833, y: 0, width: 834, height: 843 },
+      // 按鈕 (b): 左下角按鈕 - 確認/取消
+      // y 從 952 開始
+      bounds: { x: 0, y: 952, width: 833, height: 734 },
       action: {
-        type: 'postback',
-        data: 'action=show_history',
-        displayText: '查詢我的預約紀錄',
+        type: 'message',
+        text: '[確認/取消]',
       },
     },
     {
-      // 按鈕三：聯絡我們 (右邊 1/3)
+      // 按鈕 (c): 中間下方按鈕 - 個人記錄
+      // x 從 833 開始
+      bounds: { x: 833, y: 952, width: 834, height: 734 },
+      action: {
+        type: 'postback',
+        data: 'action=show_history',
+        displayText: '[個人記錄]', // 讓使用者點擊後看到的文字
+      },
+    },
+    {
+      // 按鈕 (d): 右下角按鈕 - 聯絡資訊
       // x 從 833 + 834 = 1667 開始
-      bounds: { x: 1667, y: 0, width: 833, height: 843 },
+      bounds: { x: 1667, y: 952, width: 833, height: 734 },
       action: {
         type: 'message',
-        text: '聯絡資訊', // 點擊後，使用者會送出 "聯絡資訊" 文字訊息
+        text: '[聯絡資訊]',
       },
     },
   ],
@@ -85,7 +94,7 @@ serve(async (req) => {
 
     // 3. 從 GitHub URL 讀取圖片並上傳
     console.log('Step 2: Fetching and uploading rich menu image...')
-    const imageUrl = "https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/richmenu-compact.png";
+    const imageUrl = "https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/KAY-GYM-MENU.jpg";
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
       throw new Error(`Failed to fetch image from URL: ${imageUrl}`);
@@ -96,7 +105,7 @@ serve(async (req) => {
     const uploadImageResponse = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'image/png',
+        'Content-Type': 'image/jpeg', // 圖片格式改為 jpeg
         'Authorization': `Bearer ${channelAccessToken}`,
       },
       body: imageContent,
