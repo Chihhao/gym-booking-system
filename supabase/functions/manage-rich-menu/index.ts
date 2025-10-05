@@ -41,9 +41,8 @@ const richMenuObject = {
       // x 從 833 開始
       bounds: { x: 833, y: 952, width: 834, height: 734 },
       action: {
-        type: 'postback',
-        data: 'action=show_history',
-        displayText: '[個人記錄]', // 讓使用者點擊後看到的文字
+        type: 'message',
+        text: '[個人記錄]',
       },
     },
     {

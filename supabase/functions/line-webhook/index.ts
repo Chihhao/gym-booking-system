@@ -41,20 +41,16 @@ Deno.serve(async (req) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     // 2. 根據事件類型處理
-    if (event && event.type === 'postback') {
-      // 修正：移除 await，讓 handlePostback 在背景執行，立即回傳 OK
-      handlePostback(event)
-    } else if (event && event.type === 'message' && event.message.type === 'text') {
-      // 新增：處理來自圖文選單的文字訊息事件，例如 "聯絡資訊"
-      // 修正：判斷文字需與圖文選單設定的 `[聯絡資訊]` 一致
+    if (event && event.type === 'message' && event.message.type === 'text') {
       if (event.message.text === '[聯絡資訊]') {        
-        // 修正：只發送 Flex Message
         replyMessage(event.replyToken, createContactFlexMessage());
       }
-      // 新增：處理 [確認/取消] 按鈕的點擊事件
       else if (event.message.text === '[確認/取消]') {
-        const cancelMessage = `您好！若要確認或取消您的預約，請點擊下方圖文選單的「個人記錄」按鈕，找到對應的預約憑證後即可進行操作。`
-        replyMessage(event.replyToken, cancelMessage)
+        getBookingHistoryAndPush(event.source.userId)
+      }
+      else if (event.message.text === '[個人記錄]') {        
+        replyMessage(event.replyToken, `正在為您查詢個人記錄，請稍候...`)
+        replyMessage(event.replyToken, `「開發中」`)
       }
     }
 
@@ -69,23 +65,6 @@ Deno.serve(async (req) => {
 })
 
 /**
- * 處理 Postback 事件的核心函式
- */
-async function handlePostback(event: any) {
-  const postbackData = event.postback.data
-  const action = new URLSearchParams(postbackData).get('action')
-
-  switch (action) {
-    case 'show_history':
-      // 直接在背景執行，不需等待
-      getBookingHistoryAndPush(event.source.userId)
-      break
-    default:
-      console.log(`收到未知的 postback action: ${action}`)
-  }
-}
-
-/**
  * 查詢預約紀錄並推送給使用者
  */
 async function getBookingHistoryAndPush(userId: string) {
@@ -96,18 +75,24 @@ async function getBookingHistoryAndPush(userId: string) {
     // 建立一個 Supabase client 來查詢資料
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+    // 新增：取得今天的日期字串 (YYYY-MM-DD)，用於篩選
+    const today = new Date();
+    const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
     // 查詢使用者所有預約，並關聯課堂、課程、教練資訊
     const { data, error } = await supabaseClient
       .from('bookings')
       .select(`
         status,
-        classes (
+        classes!inner (
           class_date,
           start_time,
           courses ( course_name ),
           coaches ( coach_name )
         )
       `)
+      // 新增：只查詢上課日期為今天或未來的預約
+      .gte('classes.class_date', todayString)
       .eq('line_user_id', userId)
       .order('booking_time', { ascending: false })
 
@@ -177,7 +162,12 @@ async function pushMessage(userId: string, text: string) {
  */
 async function replyMessage(replyToken: string, messages: any | any[]) {
   // 確保 messages 永遠是陣列格式
-  const messagesArray = Array.isArray(messages) ? messages : [messages];
+  let messagesArray = Array.isArray(messages) ? messages : [messages];
+
+  // 修正：如果陣列中的元素是純文字字串，將其轉換為 LINE 的文字訊息物件格式
+  messagesArray = messagesArray.map(msg => 
+    typeof msg === 'string' ? { type: 'text', text: msg } : msg
+  );
   const body = {
     replyToken: replyToken,
     messages: messagesArray,
