@@ -47,13 +47,9 @@ Deno.serve(async (req) => {
     } else if (event && event.type === 'message' && event.message.type === 'text') {
       // 新增：處理來自圖文選單的文字訊息事件，例如 "聯絡資訊"
       // 修正：判斷文字需與圖文選單設定的 `[聯絡資訊]` 一致
-      if (event.message.text === '[聯絡資訊]') {
-        const contactMessage = `您好！歡迎聯繫 Wally Studio！\n\n` +
-                               `營業時間：週一至週五 09:00 - 21:00\n` +
-                               `聯絡電話：0937-402-893\n` + // 更新為真實聯絡資訊
-                               `工作室地址：新竹市中華路二段 625 號 2 樓` // 更新為真實聯絡資訊
-        // 修正：改為使用 Reply API 回覆，更即時
-        replyMessage(event.replyToken, contactMessage)
+      if (event.message.text === '[聯絡資訊]') {        
+        // 修正：只發送 Flex Message
+        replyMessage(event.replyToken, createContactFlexMessage());
       }
       // 新增：處理 [確認/取消] 按鈕的點擊事件
       else if (event.message.text === '[確認/取消]') {
@@ -146,12 +142,15 @@ async function getBookingHistoryAndPush(userId: string) {
 }
 
 /**
- * 輔助函式：主動推送訊息給 LINE
+ * 輔助函式：主動推送一則文字訊息給 LINE
  */
 async function pushMessage(userId: string, text: string) {
+  // 將單一文字訊息包裝成 LINE API 要求的陣列格式
+  const messages = [{ type: 'text', text }];
+
   const body = {
     to: userId,
-    messages: [{ type: 'text', text }],
+    messages: messages,
   }
   // 修正：將重複的 fetch 呼叫合併，並加入完整的錯誤處理
   try {
@@ -174,12 +173,14 @@ async function pushMessage(userId: string, text: string) {
 }
 
 /**
- * 新增：輔助函式，使用 Reply API 回覆訊息
+ * 輔助函式：使用 Reply API 回覆訊息 (可回覆單一或多則訊息)
  */
-async function replyMessage(replyToken: string, text: string) {
+async function replyMessage(replyToken: string, messages: any | any[]) {
+  // 確保 messages 永遠是陣列格式
+  const messagesArray = Array.isArray(messages) ? messages : [messages];
   const body = {
     replyToken: replyToken,
-    messages: [{ type: 'text', text }],
+    messages: messagesArray,
   }
 
   try {
@@ -199,4 +200,141 @@ async function replyMessage(replyToken: string, text: string) {
   } catch (error) {
     console.error('Failed to call LINE Reply API:', error);
   }
+}
+
+/**
+ * 新增：建立聯絡資訊的 Flex Message JSON 物件
+ */
+function createContactFlexMessage() {
+  return {
+    type: 'flex',
+    altText: 'Wally Studio 聯絡資訊',
+    // 根據您提供的 JSON 結構進行更新
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'Wally 自由教練工作室',
+            size: 'lg',
+            color: '#fcc419',
+            offsetStart: 'none',
+            align: 'center'
+          }
+        ],
+        backgroundColor: '#404040',
+        paddingAll: 'lg',
+        offsetStart: 'none'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'text',
+                text: '🕒',
+                flex: 0,
+                size: 'lg',
+                gravity: 'center',
+              },
+              {
+                type: 'text',
+                text: '09:00~21:00 (週一至週五)',
+                wrap: true,
+                margin: 'md',
+                size: 'md',
+              }
+            ],
+            alignItems: 'center',
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'text',
+                text: '📞',
+                flex: 0,
+                size: 'lg',
+                gravity: 'center',
+              },
+              {
+                type: 'text',
+                text: '0937-402-893',
+                wrap: true,
+                margin: 'md',
+                size: 'md',
+              }
+            ],
+            margin: 'lg',
+            alignItems: 'center',
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'text',
+                text: '📍',
+                flex: 0,
+                size: 'lg',
+                gravity: 'center',
+              },
+              {
+                type: 'text',
+                text: '新竹市中華路二段 625 號 2 樓',
+                wrap: true,
+                margin: 'md',
+                size: 'md',
+              }
+            ],
+            margin: 'lg',
+            alignItems: 'flex-start',
+          }
+        ],
+        spacing: 'md',
+        paddingAll: 'lg',
+        backgroundColor: '#EEEEEE',
+        borderWidth: 'none',
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '查看地圖',
+              // 修正：將 URI 中的中文字元進行 URL 編碼，避免 "Invalid action URI" 錯誤
+              uri: 'https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E7%AB%B9%E5%B8%82%E4%B8%AD%E8%8F%AF%E8%B7%AF%E4%BA%8C%E6%AE%B5625%E8%99%9F2%E6%A8%93'
+            },
+            color: '#fcc419'
+          },
+          {
+            type: 'separator'
+          },
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '撥打電話',
+              // 修正：將 URI 改為 tel: 協議
+              uri: 'tel:0937402893'
+            },
+            color: '#fcc419'
+          }
+        ],
+        paddingAll: 'none',
+        backgroundColor: '#404040'
+      }
+    }
+  };
 }
