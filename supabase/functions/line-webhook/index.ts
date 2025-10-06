@@ -46,7 +46,9 @@ Deno.serve(async (req) => {
         replyMessage(event.replyToken, createContactFlexMessage());
       }
       else if (event.message.text === '[確認/取消]') {
-        getBookingHistoryAndPush(event.source.userId)
+        // 修正：改為取得訊息後，使用免費的 replyMessage 回覆
+        const message = await getBookingHistoryMessage(event.source.userId);
+        await replyMessage(event.replyToken, message);
       }
       else if (event.message.text === '[個人記錄]') {        
         replyMessage(event.replyToken, `正在為您查詢個人記錄，請稍候...`)
@@ -65,12 +67,10 @@ Deno.serve(async (req) => {
 })
 
 /**
- * 查詢預約紀錄並推送給使用者
+ * 修正：查詢預約紀錄並「回傳」訊息物件，而不是直接推送
  */
-async function getBookingHistoryAndPush(userId: string) {
-  // 修正：改用 Push API 發送提示訊息，讓使用者知道系統正在處理
-  await pushMessage(userId, '正在為您查詢預約紀錄，請稍候...')
-
+async function getBookingHistoryMessage(userId: string): Promise<any> {
+  // 由於 Reply API 速度很快，可以移除「查詢中」的提示
   try {
     // 建立一個 Supabase client 來查詢資料
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -83,6 +83,7 @@ async function getBookingHistoryAndPush(userId: string) {
     const { data, error } = await supabaseClient
       .from('bookings')
       .select(`
+        booking_id,
         status,
         classes!inner (
           class_date,
@@ -98,44 +99,147 @@ async function getBookingHistoryAndPush(userId: string) {
 
     if (error) throw error
 
-    // 組合訊息
-    let message: string
     if (!data || data.length === 0) {
-      message = '您目前沒有任何預約紀錄喔！'
+      // 如果沒有預約，回傳純文字訊息
+      return '您目前沒有任何預約紀錄喔！';
     } else {
-      message = '您的預約紀錄如下：\n----------\n'
-      message += data.map(record => {
-        const cls = record.classes as any; // 型別斷言
-        let classInfo = '未知課程'
-        if (cls) {
-          const courseName = cls.courses?.course_name || '課程'
-          const coachName = cls.coaches?.coach_name || '教練'
-          const classTime = `${cls.class_date} ${cls.start_time.substring(0, 5)}`
-          classInfo = `${courseName}\n時間：${classTime}\n教練：${coachName}`
-        }
-        return `課程：${classInfo}\n狀態：${record.status}\n----------`
-      }).join('\n')
+      // 新增：建立 Flex Message Carousel
+      const flexMessage = {
+        type: 'flex',
+        altText: '您的預約紀錄',
+        contents: {
+          type: 'carousel',
+          // 將每個預約紀錄轉換成一個 Bubble 卡片
+          contents: data.map(record => createBookingCard(record)),
+        },
+      };
+      // 回傳組合好的 Flex Message
+      return flexMessage;
     }
-
-    // 使用 Push API 將最終結果推送給使用者
-    await pushMessage(userId, message.trim())
 
   } catch (error) {
     console.error('查詢或推送歷史紀錄時發生錯誤:', error)
-    await pushMessage(userId, '查詢預約紀錄時發生錯誤，請稍後再試。')
+    return '查詢預約紀錄時發生錯誤，請稍後再試。';
   }
 }
 
 /**
- * 輔助函式：主動推送一則文字訊息給 LINE
+ * 新增：根據單一預約紀錄建立 Flex Message Bubble
  */
-async function pushMessage(userId: string, text: string) {
-  // 將單一文字訊息包裝成 LINE API 要求的陣列格式
-  const messages = [{ type: 'text', text }];
+function createBookingCard(record: any): any {
+  const cls = record.classes as any; // 型別斷言
+
+  // 處理可能的 null 值，提供預設文字
+  const courseName = cls?.courses?.course_name || '未知課程';
+  const coachName = cls?.coaches?.coach_name || '未知教練';
+  const classDate = cls?.class_date || '未知日期';
+  const startTime = cls?.start_time?.substring(0, 5) || '未知時間';
+  const bookingId = record.booking_id || 'NO_ID';
+  const status = record.status || '未知狀態';
+
+  return {
+    type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: courseName,
+          weight: 'bold',
+          size: 'xl',
+          color: '#FFFFFF',
+        },
+      ],
+      backgroundColor: '#404040',
+      paddingAll: 'lg',
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '📅 日期', color: '#aaaaaa', size: 'sm', flex: 2 },
+            { type: 'text', text: classDate, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '🕒 時間', color: '#aaaaaa', size: 'sm', flex: 2 },
+            { type: 'text', text: startTime, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '🏋️ 教練', color: '#aaaaaa', size: 'sm', flex: 2 },
+            { type: 'text', text: coachName, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '📝 狀態', color: '#aaaaaa', size: 'sm', flex: 2 },
+            { type: 'text', text: status, wrap: true, color: '#fcc419', size: 'sm', flex: 5, weight: 'bold' },
+          ],
+        },
+      ],
+      spacing: 'md',
+      paddingAll: 'lg',
+      backgroundColor: '#212529',
+    },
+    footer: {
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'none', // 修正：移除按鈕間的預設間距
+      contents: [
+        {
+          type: 'button',
+          style: 'link',
+          height: 'sm',
+          action: { type: 'message', label: '查看憑證', text: `[功能開發中] 查看憑證 ${bookingId}` },
+          color: '#fcc419',
+        },
+        {
+          type: 'button',
+          style: 'link',
+          height: 'sm',
+          action: { type: 'message', label: '取消預約', text: `[功能開發中] 取消預約 ${bookingId}` },
+          color: '#dc3545',
+        },
+      ],
+      flex: 0,
+      backgroundColor: '#404040',
+    },
+  };
+}
+
+/**
+ * 輔助函式：主動推送訊息給 LINE (支援文字或 Flex Message)
+ */
+async function pushMessage(userId: string, message: any) {
+  // 確保 messages 永遠是陣列格式
+  let messagesArray = Array.isArray(message) ? message : [message];
+
+  // 如果陣列中的元素是純文字字串，將其轉換為 LINE 的文字訊息物件格式
+  messagesArray = messagesArray.map(msg => 
+    typeof msg === 'string' ? { type: 'text', text: msg } : msg
+  );
 
   const body = {
     to: userId,
-    messages: messages,
+    messages: messagesArray,
   }
   // 修正：將重複的 fetch 呼叫合併，並加入完整的錯誤處理
   try {
