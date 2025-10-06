@@ -219,6 +219,8 @@
          * 3. 如果不存在 liff.state，則正常顯示首頁，並根據環境 (LINE App 或外部瀏覽器) 設定「立即預約」按鈕的正確連結。
          */
         document.addEventListener('DOMContentLoaded', async () => {
+            console.log('version: 2025-10-06a');
+            
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             const bookingLink = document.querySelector('a.btn-primary');
@@ -264,10 +266,14 @@
 
             // 新增：將設定連結的邏輯封裝成一個函式
             function setBookingLinkHref(forceExternal = false) {
+                // 終極解決方案：將路徑字串拆分，避免 LIFF SDK 在初始化時進行靜態掃描並產生誤判。
+                // 透過變數組合，'courses.html' 這個完整的字串只會在函式執行時才被組合出來。
+                const pageName = 'courses';
+                const fileExtension = '.html';
                 if (!forceExternal && liff.isInClient()) {
-                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/courses.html${debugQuery}`;
+                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/${pageName}${fileExtension}${debugQuery}`;
                 } else {
-                    bookingLink.href = `courses.html${debugQuery}`;
+                    bookingLink.href = `${pageName}${fileExtension}${debugQuery}`;
                 }
             }
         });
