@@ -66,9 +66,10 @@
 
             try {
                 // 步驟 1: 無論如何都先初始化 LIFF
-                // 關鍵修正：加入 withLogin: false，以避免在跳轉到下一頁 (coaches.html) 時產生 URL 不匹配的警告。
-                // 這會將此頁面設為新的基準 URL。
-                await liff.init({ liffId: AppConfig.LIFF_ID, withLogin: false });
+                // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
+                // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
+                // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
+                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
                 console.log('LIFF initialized');
 
                 // 修正：將 userProfile 的宣告移至此處

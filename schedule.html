@@ -353,8 +353,9 @@
                 renderHeaderAndFooter();
 
                 // 步驟 1: 無論如何都先初始化 LIFF
-                // 關鍵修正：加入 withLogin: false，以避免在多頁面跳轉時產生 URL 不匹配的警告。
-                await liff.init({ liffId: AppConfig.LIFF_ID, withLogin: false });
+                // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
+                // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
+                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
                 console.log('LIFF initialized');
 
                 // 步驟 2: 判斷是否登入 (修正：調整判斷順序，優先處理 debug 模式)
