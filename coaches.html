@@ -67,7 +67,11 @@
             }
 
             try {
-                await liff.init({ liffId: AppConfig.LIFF_ID }); // 暫時共用課程的 LIFF ID
+                // 關鍵修正：加入 withLogin: false。
+                // 這會強制 LIFF SDK 以當前頁面 (coaches.html) 的 URL 作為新的基準，
+                // 覆蓋掉從上一頁 (courses.html) 記憶的舊路徑，從而消除警告。
+                // 這並不會影響後續 liff.isLoggedIn() 的判斷。
+                await liff.init({ liffId: AppConfig.LIFF_ID, withLogin: false });
 
                 // 修正：調整判斷順序，優先處理 debug 模式
                 if (debugMode && !liff.isInClient()) {
