@@ -128,14 +128,21 @@ async function getBookingHistoryMessage(userId: string): Promise<any> {
  */
 function createBookingCard(record: any): any {
   const cls = record.classes as any; // 型別斷言
-
-  // 處理可能的 null 值，提供預設文字
-  const courseName = cls?.courses?.course_name || '未知課程';
   const coachName = cls?.coaches?.coach_name || '未知教練';
   const classDate = cls?.class_date || '未知日期';
   const startTime = cls?.start_time?.substring(0, 5) || '未知時間';
   const bookingId = record.booking_id || 'NO_ID';
   const status = record.status || '未知狀態';
+
+  // 新增：格式化日期與時間作為標題
+  let title = '預約資訊';
+  if (classDate !== '未知日期') {
+    const dateParts = classDate.split('-');
+    const formattedDate = `${dateParts[1]}/${dateParts[2]}`;
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+    const dayOfWeek = weekDays[new Date(classDate).getDay()];   
+    title = `${formattedDate}(${dayOfWeek}) ${startTime}`;
+  }
 
   return {
     type: 'bubble',
@@ -145,19 +152,29 @@ function createBookingCard(record: any): any {
       contents: [
         {
           type: 'text',
-          text: courseName,
+          text: title,
           weight: 'bold',
-          size: 'xl',
-          color: '#FFFFFF',
+          size: 'lg',
+          color: '#fcc419',
+          align: 'center',
         },
       ],
-      backgroundColor: '#404040',
+      backgroundColor: '#212529',
       paddingAll: 'lg',
     },
     body: {
       type: 'box',
       layout: 'vertical',
       contents: [
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '📚 課程', color: '#aaaaaa', size: 'sm', flex: 2 },
+            { type: 'text', text: cls?.courses?.course_name || '未知課程', wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
+          ],
+        },
         {
           type: 'box',
           layout: 'baseline',
@@ -316,10 +333,11 @@ function createContactFlexMessage() {
             size: 'lg',
             color: '#fcc419',
             offsetStart: 'none',
-            align: 'center'
+            align: 'center',
+            weight: 'bold'
           }
         ],
-        backgroundColor: '#404040',
+        backgroundColor: '#212529',
         paddingAll: 'lg',
         offsetStart: 'none'
       },
