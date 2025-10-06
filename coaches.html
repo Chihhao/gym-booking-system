@@ -49,32 +49,15 @@
         document.addEventListener('DOMContentLoaded', main);
 
         async function main() {
+            console.log('ver: 0.0.1');
+
             const headerContainer = document.getElementById('header-container');
             const contentContainer = document.getElementById('content-container');
 
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             courseId = urlParams.get('courseId');
-            courseName = urlParams.get('courseName'); // 這裡的 courseName 仍然是編碼過的
-
-            // --- 根本性解決方案：URL 標準化 ---
-            // 1. 從 URL 取得所有需要的參數。
-            // 2. 建立一個不含任何參數的「乾淨」URL。
-            const cleanUrl = `${window.location.origin}${window.location.pathname}`;
-            // 3. 將參數重新組合，並確保 courseName 是解碼後再重新編碼，避免雙重編碼問題。
-            const newParams = new URLSearchParams({
-                courseId: courseId,
-                courseName: decodeURIComponent(courseName) // 先解碼
-            });
-            if (debugMode) {
-                newParams.append('debug', 'true');
-            }
-            const finalUrl = `${cleanUrl}?${newParams.toString()}`;
-
-            // 4. 使用 history.replaceState() 將瀏覽器的 URL 替換為標準化後的 URL。
-            //    這不會觸發頁面重載，但能確保 LIFF 初始化時看到的是一個「穩定」的 URL，
-            //    從而消除因前一頁跳轉帶來的 "not related to endpoint" 警告。
-            window.history.replaceState({}, document.title, finalUrl);
+            courseName = urlParams.get('courseName'); // 讓 courseName 保持編碼狀態
 
             // 渲染共用的頁首和頁尾
             renderHeaderAndFooter();
@@ -86,18 +69,15 @@
             }
 
             try {
-                // --- 終極解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
-                // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面 (endpointUrl)。
-                // 當從 courses.html 跳轉過來時，它記得的是 courses.html，
-                // 與當前的 coaches.html 不符，因此產生警告。
-                // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為 coaches.html 就是這次的起點。
+                // --- 根本性解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
+                // 這個操作可以解決在「線上環境」(GitHub Pages) 中，因從 courses.html 跳轉而產生的 LIFF 警告。
+                // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面。
+                // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為當前頁面就是這次的起點。
                 const liffSettingsKey = `liff-sdk:${AppConfig.LIFF_ID}:settings`;
                 localStorage.removeItem(liffSettingsKey);
 
-                // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
-                // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
-                // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
-                // 由於我們已經在上面用 replaceState 標準化了 URL，這裡的 redirectUri 會是乾淨的 URL。
+                // 初始化 LIFF。對於「本地開發」，由於網域不符，警告仍會出現，這是正常且可預期的。
+                // 對於「線上環境」，由於上一步清除了 localStorage，此處不會再有警告。
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
 
                 // 修正：調整判斷順序，優先處理 debug 模式
@@ -218,9 +198,7 @@
             const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
             
             // 導向到 schedule.html，並傳遞所有需要的參數
-            // 修正：從全域變數 courseName 取值時，它可能尚未被 decode，
-            // 為了保險起見，我們先 decode 再 encode，確保 URL 的一致性。
-            window.location.href = `schedule.html?courseId=${courseId}&courseName=${encodeURIComponent(decodeURIComponent(courseName))}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
+            window.location.href = `schedule.html?courseId=${courseId}&courseName=${courseName}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
         }
 
         /**
