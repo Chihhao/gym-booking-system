@@ -217,12 +217,12 @@
 
             try {
                 // 使用 config.js 中定義的 LIFF ID 初始化
-                await liff.init({ liffId: AppConfig.LIFF_ID_INDEX });
+                await liff.init({ liffId: AppConfig.LIFF_ID });
 
                 // 根據是否在 LIFF 環境中，決定按鈕的連結
                 if (liff.isInClient()) {
                     // 在 LINE App 中，使用 LIFF 連結來開啟 courses.html
-                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID_COURSES}/courses.html${debugMode ? '?debug=true' : ''}`;
+                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/courses.html${debugMode ? '?debug=true' : ''}`;
                 } else {
                     // 在外部瀏覽器中，使用普通連結
                     bookingLink.href = `courses.html${debugMode ? '?debug=true' : ''}`;

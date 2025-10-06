@@ -129,7 +129,7 @@
 
             try {
                 // 初始化 LIFF
-                await liff.init({ liffId: AppConfig.LIFF_ID_SCHEDULE }); // 可共用 schedule 的 LIFF ID
+                await liff.init({ liffId: AppConfig.LIFF_ID }); // 可共用 schedule 的 LIFF ID
 
                 if (debugMode && !liff.isInClient()) {
                     // 開發模式，使用假資料

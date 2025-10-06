@@ -1,12 +1,12 @@
 // supabase/functions/manage-rich-menu/index.ts
 
+// 上傳指令：supabase functions deploy manage-rich-menu
+// 觸發指令：curl -X POST 'https://zseddmfljxtcgtzmvove.supabase.co/functions/v1/manage-rich-menu' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U' -H 'Content-Type: application/json'
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// 從 config.js 取得 LIFF ID，確保與前端一致
-// 注意：Edge Function 無法直接讀取前端 JS 檔案，
-// 這裡我們手動保持同步，或未來可考慮從資料庫讀取設定。
-const LIFF_ID_COURSES = '2008135811-vNO5bYyx';
+const LIFF_ID = '2008135811-vNO5bYyx';
 
 // 圖文選單的定義
 const richMenuObject = {
@@ -24,7 +24,7 @@ const richMenuObject = {
       bounds: { x: 0, y: 0, width: 2500, height: 952 },
       action: {
         type: 'uri',
-        uri: `https://liff.line.me/${LIFF_ID_COURSES}/courses.html`,
+        uri: `https://liff.line.me/${LIFF_ID}`,
       },
     },
     {
