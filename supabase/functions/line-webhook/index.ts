@@ -268,9 +268,9 @@ function createBookingCard(record: any): any {
                     "style": "link",
                     "height": "sm",
                     "action": {
-                        "type": "message",
+                        "type": "uri",
                         "label": "查看憑證",
-                        "text": `[功能開發中] 查看憑證 ${bookingId}`
+                        "uri": `https://chihhao.github.io/gym-booking-system/booking-details.html?id=${bookingId}`
                     },
                     "color": "#fcc419"
                 }

@@ -76,7 +76,7 @@
                 } else if (!liff.isLoggedIn()) {
                     // 非開發模式且未登入，導向登入頁
                     console.log('未登入，準備導向 LINE 登入頁...');
-                    liff.login();
+                    liff.login({ redirectUri: window.location.href });
                     return;
                 }
 
