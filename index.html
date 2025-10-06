@@ -219,45 +219,23 @@
          * 3. 如果不存在 liff.state，則正常顯示首頁，並根據環境 (LINE App 或外部瀏覽器) 設定「立即預約」按鈕的正確連結。
          */
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('version: 2025-10-06a');
+            console.log('version: 2025-10-07b');
             
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             const bookingLink = document.querySelector('a.btn-primary');
-
+        
             // 根據 debug 模式組合查詢字串
             const debugQuery = debugMode ? '?debug=true' : '';
             const debugQueryWithAnd = debugMode ? '&debug=true' : '';
-
+        
             try {
-                // --- 診斷日誌：在 init 之前 ---
-                console.log('[Liff-Diag] --- Before liff.init() ---');
-                console.log(`[Liff-Diag] window.location.href: ${window.location.href}`);
-                console.log(`[Liff-Diag] LIFF ID: ${AppConfig.LIFF_ID}`);
-                // 檢查 LIFF SDK 物件本身是否存在，以及是否有任何可疑的初始狀態
-                console.log('[Liff-Diag] liff object:', liff);
-                console.log(`[Liff-Diag] liff.state before init: ${liff.state}`);
-
-                // 終極解決方案：在 index.html 中，為 liff.init() 加上 withLogin: false。
-                // 這會強制 LIFF SDK 重新驗證當前的 URL (根路徑)，並用它來覆蓋 localStorage 中
-                // 記憶的舊路徑 (例如 /courses.html)，從而從根本上消除警告。
-                // 這並不會強制使用者登入，只是觸發了 SDK 內部的路徑重置邏輯。
-                await liff.init({
-                    liffId: AppConfig.LIFF_ID,
-                    withLogin: false
-                });
-
-                // --- 診斷日誌：在 init 之後 ---
-                console.log('[Liff-Diag] --- After liff.init() ---');
-                console.log(`[Liff-Diag] liff.getOS(): ${liff.getOS()}`);
-                console.log(`[Liff-Diag] liff.isInClient(): ${liff.isInClient()}`);
-                console.log(`[Liff-Diag] liff.isLoggedIn(): ${liff.isLoggedIn()}`);
-                console.log(`[Liff-Diag] liff.state after init: ${liff.state}`);
-
+                // 關鍵變更：直接讀取 liff.state，無需等待 liff.init()。
+                // liff.state 是 LIFF SDK 在頁面載入初期就設定好的。
                 // 檢查 liff.state，這通常來自於從 LINE Bot 點擊的 LIFF URL
                 // 例如：liff.line.me/LIFF_ID?liff.state=/booking-details.html?id=...
                 const path = liff.state; // liff.state 只有在透過 liff.line.me/... 帶參數進來時才會有值
-
+        
                 if (path) {
                     // --- 情況 1: 有 liff.state，執行跳轉 ---
                     console.log(`LIFF state detected: ${path}. Redirecting...`);
@@ -266,30 +244,30 @@
                     const finalPath = path.includes('?') 
                                     ? `${path}${debugQueryWithAnd}` // 如果有，用 & 附加 debug 參數
                                     : `${path}${debugQuery}`;      // 如果沒有，用 ? 附加 debug 參數
-
+        
                     window.location.replace(baseUrl + finalPath);
                     // 因為即將跳轉，後續程式碼不會執行
                 } else {
                     // --- 情況 2: 沒有 liff.state，設定按鈕連結 ---
-                    // 關鍵修正：將 href 的設定邏輯移到這個 else 區塊，確保只有在不需要跳轉時才設定。
-                    setBookingLinkHref();
-                    // 註：按鈕連結已在 liff.init() 後設定，此處僅保留日誌
-                    console.log('No LIFF state. Setting up index page button.');
+                    // 由於我們移除了 liff.init()，無法再使用 liff.isInClient()。
+                    // 我們可以透過檢查 User Agent 來做一個合理的判斷。
+                    const isInLine = /Line/i.test(navigator.userAgent);
+                    console.log(`No LIFF state. Is in LINE app: ${isInLine}. Setting up button link.`);
+                    setBookingLinkHref(isInLine);
                 }
             } catch (error) {
-                console.error('LIFF initialization failed on index.html:', error);
-                // 即使 LIFF 初始化失敗，也要確保按鈕有備用連結
-                // 由於 liff.init() 失敗，我們無法判斷 liff.isInClient()，因此直接給一個最安全的外部瀏覽器連結。
-                setBookingLinkHref(true); // 傳入 true 表示強制使用外部連結
+                console.error('Error processing LIFF state on index.html:', error);
+                // 如果發生任何錯誤，都退回最安全的外部瀏覽器連結模式。
+                setBookingLinkHref(false);
             }
-
-            // 新增：將設定連結的邏輯封裝成一個函式
-            function setBookingLinkHref(forceExternal = false) {
+        
+            // 簡化：將設定連結的邏輯封裝成一個函式
+            function setBookingLinkHref(isInLineApp = false) {
                 // 終極解決方案：將路徑字串拆分，避免 LIFF SDK 在初始化時進行靜態掃描並產生誤判。
                 // 透過變數組合，'courses.html' 這個完整的字串只會在函式執行時才被組合出來。
                 const pageName = 'courses';
                 const fileExtension = '.html';
-                if (!forceExternal && liff.isInClient()) {
+                if (isInLineApp) {
                     bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/${pageName}${fileExtension}${debugQuery}`;
                 } else {
                     bookingLink.href = `${pageName}${fileExtension}${debugQuery}`;
