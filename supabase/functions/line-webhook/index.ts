@@ -1,3 +1,6 @@
+
+// 上傳命令：supabase functions deploy line-webhook --no-verify-jwt
+
 import { createClient } from '@supabase/supabase-js'
 
 // 這些機密資訊將從 Supabase 儀表板的環境變數中讀取，非常安全
@@ -11,10 +14,7 @@ if (!CHANNEL_ACCESS_TOKEN || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing required environment variables (LINE_CHANNEL_ACCESS_TOKEN, SB_URL, SB_ANON_KEY). Please check your Supabase function settings.');
 }
 
-// Edge Function 的主處理函式
-// 修正：使用 Deno.serve 替換已被棄用的 std/http serve
 Deno.serve(async (req) => {
-  // 1. 確認請求方法是 POST
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
   }
@@ -29,18 +29,14 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const event = body.events[0]
 
-    // 新增：印出收到的完整事件，方便偵錯
     console.log('Received event:', JSON.stringify(event, null, 2))
-    // 修正：更精確的事件檢查與日誌記錄
     if (!event) {
       console.log('Received a request without an event (likely a test from LINE).');
       return new Response('OK: No event', { status: 200 });
     }
 
-    // 只有在事件存在時才印出
     console.log('Received event:', JSON.stringify(event, null, 2));
 
-    // 2. 根據事件類型處理
     if (event && event.type === 'message' && event.message.type === 'text') {
       if (event.message.text === '[聯絡資訊]') {        
         replyMessage(event.replyToken, createContactFlexMessage());
@@ -51,7 +47,6 @@ Deno.serve(async (req) => {
         await replyMessage(event.replyToken, message);
       }
       else if (event.message.text === '[個人記錄]') {        
-        replyMessage(event.replyToken, `正在為您查詢個人記錄，請稍候...`)
         replyMessage(event.replyToken, `「開發中」`)
       }
     }
@@ -66,16 +61,10 @@ Deno.serve(async (req) => {
   }
 })
 
-/**
- * 修正：查詢預約紀錄並「回傳」訊息物件，而不是直接推送
- */
 async function getBookingHistoryMessage(userId: string): Promise<any> {
-  // 由於 Reply API 速度很快，可以移除「查詢中」的提示
   try {
-    // 建立一個 Supabase client 來查詢資料
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-    // 新增：取得今天的日期字串 (YYYY-MM-DD)，用於篩選
     const today = new Date();
     const todayString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
@@ -118,14 +107,11 @@ async function getBookingHistoryMessage(userId: string): Promise<any> {
     }
 
   } catch (error) {
-    console.error('查詢或推送歷史紀錄時發生錯誤:', error)
+    console.error('發生錯誤：查詢預約紀錄時發生錯誤，請稍後再試。', error)
     return '查詢預約紀錄時發生錯誤，請稍後再試。';
   }
 }
 
-/**
- * 新增：根據單一預約紀錄建立 Flex Message Bubble
- */
 function createBookingCard(record: any): any {
   const cls = record.classes as any; // 型別斷言
   const coachName = cls?.coaches?.coach_name || '未知教練';
@@ -270,7 +256,7 @@ function createBookingCard(record: any): any {
                     "action": {
                         "type": "uri",
                         "label": "查看憑證",
-                        "uri": `https://liff.line.me/2008135811-vNO5bYyx/booking-details.html?id=${bookingId}`
+                        "uri": `https://liff.line.me/2008135811-vNO5bYyx?liff.state=/booking-details.html?id=${bookingId}`
                     },
                     "color": "#fcc419"
                 }
@@ -296,45 +282,6 @@ function createBookingCard(record: any): any {
     };
 }
 
-/**
- * 輔助函式：主動推送訊息給 LINE (支援文字或 Flex Message)
- */
-async function pushMessage(userId: string, message: any) {
-  // 確保 messages 永遠是陣列格式
-  let messagesArray = Array.isArray(message) ? message : [message];
-
-  // 如果陣列中的元素是純文字字串，將其轉換為 LINE 的文字訊息物件格式
-  messagesArray = messagesArray.map(msg => 
-    typeof msg === 'string' ? { type: 'text', text: msg } : msg
-  );
-
-  const body = {
-    to: userId,
-    messages: messagesArray,
-  }
-  // 修正：將重複的 fetch 呼叫合併，並加入完整的錯誤處理
-  try {
-    const response = await fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-    // 檢查 API 回應，如果不是 200 OK，就印出錯誤訊息
-    if (!response.ok) {
-      console.error('LINE Push API Error:', await response.text());
-    }
-  } catch (error) {
-    console.error('Failed to call LINE Push API:', error);
-  }
-}
-
-/**
- * 輔助函式：使用 Reply API 回覆訊息 (可回覆單一或多則訊息)
- */
 async function replyMessage(replyToken: string, messages: any | any[]) {
   // 確保 messages 永遠是陣列格式
   let messagesArray = Array.isArray(messages) ? messages : [messages];
@@ -367,9 +314,6 @@ async function replyMessage(replyToken: string, messages: any | any[]) {
   }
 }
 
-/**
- * 新增：建立聯絡資訊的 Flex Message JSON 物件
- */
 function createContactFlexMessage() {
     return {
         type: 'flex',

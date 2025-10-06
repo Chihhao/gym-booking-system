@@ -210,29 +210,53 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script>
         // 關鍵變更：在首頁也進行 LIFF 初始化
-        document.addEventListener('DOMContentLoaded', async () => {
+        async function initializeLiffAndRoute() {
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             const bookingLink = document.querySelector('a.btn-primary');
+            const debugQuery = debugMode ? '?debug=true' : '';
+            const debugQueryWithAnd = debugMode ? '&debug=true' : '';
 
             try {
                 // 使用 config.js 中定義的 LIFF ID 初始化
                 await liff.init({ liffId: AppConfig.LIFF_ID });
+        
+                // --- LIFF 路由器邏輯 ---
+                // liff.state 會包含像 /booking-details.html?id=... 這樣的路徑
+                const path = liff.state;
+        
+                if (path) {
+                    // 情況 1: 有 liff.state，需要跳轉
+                    console.log(`LIFF state detected: ${path}. Redirecting...`);
+                    // 組合基礎 URL (例如: https://chihhao.github.io/gym-booking-system)
+                    const baseUrl = window.location.origin + window.location.pathname.replace(/index\.html$/, '');
+                    
+                    // 檢查 liff.state 是否已經有查詢參數
+                    const finalPath = path.includes('?') 
+                                    ? `${path}${debugQueryWithAnd}` // 如果有，用 & 附加 debug 參數
+                                    : `${path}${debugQuery}`;      // 如果沒有，用 ? 附加 debug 參數
 
-                // 根據是否在 LIFF 環境中，決定按鈕的連結
-                if (liff.isInClient()) {
-                    // 在 LINE App 中，使用 LIFF 連結來開啟 courses.html
-                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/courses.html${debugMode ? '?debug=true' : ''}`;
+                    window.location.replace(baseUrl + finalPath);
                 } else {
-                    // 在外部瀏覽器中，使用普通連結
-                    bookingLink.href = `courses.html${debugMode ? '?debug=true' : ''}`;
+                    // 情況 2: 沒有 liff.state，正常顯示首頁並設定按鈕連結
+                    console.log('No LIFF state. Setting up index page button.');
+                    if (liff.isInClient()) {
+                        // 在 LINE App 中，使用 LIFF 連結來開啟 courses.html
+                        bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID}/courses.html${debugQuery}`;
+                    } else {
+                        // 在外部瀏覽器中，使用普通連結
+                        bookingLink.href = `courses.html${debugQuery}`;
+                    }
                 }
+        
             } catch (error) {
                 console.error('LIFF initialization failed on index.html:', error);
                 // 即使 LIFF 初始化失敗，也提供一個備用連結
-                bookingLink.href = `courses.html${debugMode ? '?debug=true' : ''}`;
+                bookingLink.href = `courses.html${debugQuery}`;
             }
-        });
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeLiffAndRoute);
     </script>
 </body>
 </html>
