@@ -86,6 +86,14 @@
             }
 
             try {
+                // --- 終極解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
+                // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面 (endpointUrl)。
+                // 當從 courses.html 跳轉過來時，它記得的是 courses.html，
+                // 與當前的 coaches.html 不符，因此產生警告。
+                // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為 coaches.html 就是這次的起點。
+                const liffSettingsKey = `liff-sdk:${AppConfig.LIFF_ID}:settings`;
+                localStorage.removeItem(liffSettingsKey);
+
                 // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
                 // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
                 // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
