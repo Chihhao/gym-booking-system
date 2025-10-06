@@ -270,7 +270,7 @@ function createBookingCard(record: any): any {
                     "action": {
                         "type": "uri",
                         "label": "查看憑證",
-                        "uri": `https://chihhao.github.io/gym-booking-system/booking-details.html?id=${bookingId}`
+                        "uri": `https://liff.line.me/2008135811-vNO5bYyx/booking-details.html?id=${bookingId}`
                     },
                     "color": "#fcc419"
                 }

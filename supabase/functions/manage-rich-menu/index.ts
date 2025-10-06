@@ -24,7 +24,7 @@ const richMenuObject = {
       bounds: { x: 0, y: 0, width: 2500, height: 952 },
       action: {
         type: 'uri',
-        uri: `https://liff.line.me/${LIFF_ID_COURSES}`,
+        uri: `https://liff.line.me/${LIFF_ID_COURSES}/courses.html`,
       },
     },
     {

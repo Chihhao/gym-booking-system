@@ -204,13 +204,33 @@
         </div>
     </main>
 
+    <!-- 載入共用設定檔 -->
+    <script src="config.js"></script>
+    <!-- 載入 LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script>
-        // 新增：確保 debug 模式可以被傳遞到下一個頁面
-        document.addEventListener('DOMContentLoaded', () => {
+        // 關鍵變更：在首頁也進行 LIFF 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('debug') === 'true') {
-                const bookingLink = document.querySelector('a.btn-primary');
-                bookingLink.href = 'courses.html?debug=true';
+            const debugMode = urlParams.get('debug') === 'true';
+            const bookingLink = document.querySelector('a.btn-primary');
+
+            try {
+                // 使用 config.js 中定義的 LIFF ID 初始化
+                await liff.init({ liffId: AppConfig.LIFF_ID_INDEX });
+
+                // 根據是否在 LIFF 環境中，決定按鈕的連結
+                if (liff.isInClient()) {
+                    // 在 LINE App 中，使用 LIFF 連結來開啟 courses.html
+                    bookingLink.href = `https://liff.line.me/${AppConfig.LIFF_ID_COURSES}/courses.html${debugMode ? '?debug=true' : ''}`;
+                } else {
+                    // 在外部瀏覽器中，使用普通連結
+                    bookingLink.href = `courses.html${debugMode ? '?debug=true' : ''}`;
+                }
+            } catch (error) {
+                console.error('LIFF initialization failed on index.html:', error);
+                // 即使 LIFF 初始化失敗，也提供一個備用連結
+                bookingLink.href = `courses.html${debugMode ? '?debug=true' : ''}`;
             }
         });
     </script>
