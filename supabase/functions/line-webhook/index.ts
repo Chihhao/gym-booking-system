@@ -144,102 +144,156 @@ function createBookingCard(record: any): any {
     title = `${formattedDate}(${dayOfWeek}) ${startTime}`;
   }
 
-  return {
-    type: 'bubble',
-    header: {
-      type: 'box',
-      layout: 'vertical',
-      contents: [
-        {
-          type: 'text',
-          text: title,
-          weight: 'bold',
-          size: 'lg',
-          color: '#fcc419',
-          align: 'center',
+    return {
+        "type": "bubble",
+        "size": "micro",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": title,
+                    "weight": "bold",
+                    "size": "md",
+                    "align": "center",
+                    "color": "#fcc419"
+                }
+            ],
+            "paddingAll": "md",
+            "justifyContent": "center",
+            "offsetTop": "none"
         },
-      ],
-      backgroundColor: '#212529',
-      paddingAll: 'lg',
-    },
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      contents: [
-        {
-          type: 'box',
-          layout: 'baseline',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: '📚 課程', color: '#aaaaaa', size: 'sm', flex: 2 },
-            { type: 'text', text: cls?.courses?.course_name || '未知課程', wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
-          ],
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "baseline",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "課程",
+                            "color": "#aaaaaa",
+                            "size": "sm",
+                            "flex": 2
+                        },
+                        {
+                            "type": "text",
+                            "text": cls?.courses?.course_name || '未知課程',
+                            "wrap": true,
+                            "color": "#FFFFFF",
+                            "size": "sm",
+                            "flex": 5
+                        }
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "baseline",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "教練",
+                            "color": "#aaaaaa",
+                            "size": "sm",
+                            "flex": 2
+                        },
+                        {
+                            "type": "text",
+                            "text": coachName,
+                            "wrap": true,
+                            "color": "#FFFFFF",
+                            "size": "sm",
+                            "flex": 5
+                        }
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "baseline",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "狀態",
+                            "color": "#aaaaaa",
+                            "size": "sm",
+                            "flex": 2
+                        },
+                        {
+                            "type": "text",
+                            "text": status,
+                            "wrap": true,
+                            "color": "#fcc419",
+                            "size": "sm",
+                            "flex": 5
+                        }
+                    ]
+                }
+            ],
+            "spacing": "md",
+            "paddingAll": "lg",
+            "backgroundColor": "#212529",
+            "offsetStart": "none",
+            "paddingStart": "xl",
+            "paddingEnd": "xl"
         },
-        {
-          type: 'box',
-          layout: 'baseline',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: '📅 日期', color: '#aaaaaa', size: 'sm', flex: 2 },
-            { type: 'text', text: classDate, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
-          ],
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "none",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "link",
+                    "action": {
+                        "type": "message",
+                        "label": "取消預約",
+                        "text": `[功能開發中] 取消預約 ${bookingId}`
+                    },
+                    "color": "#dc3545",
+                    "height": "sm"
+                },
+                {
+                    "type": "separator",
+                    "color": "#555555",
+                    "margin": "none"
+                },
+                {
+                    "type": "button",
+                    "style": "link",
+                    "height": "sm",
+                    "action": {
+                        "type": "message",
+                        "label": "查看憑證",
+                        "text": `[功能開發中] 查看憑證 ${bookingId}`
+                    },
+                    "color": "#fcc419"
+                }
+            ],
+            "flex": 0,
+            "backgroundColor": "#404040",
+            "paddingAll": "none"
         },
-        {
-          type: 'box',
-          layout: 'baseline',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: '🕒 時間', color: '#aaaaaa', size: 'sm', flex: 2 },
-            { type: 'text', text: startTime, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'baseline',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: '🏋️ 教練', color: '#aaaaaa', size: 'sm', flex: 2 },
-            { type: 'text', text: coachName, wrap: true, color: '#FFFFFF', size: 'sm', flex: 5 },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'baseline',
-          spacing: 'sm',
-          contents: [
-            { type: 'text', text: '📝 狀態', color: '#aaaaaa', size: 'sm', flex: 2 },
-            { type: 'text', text: status, wrap: true, color: '#fcc419', size: 'sm', flex: 5, weight: 'bold' },
-          ],
-        },
-      ],
-      spacing: 'md',
-      paddingAll: 'lg',
-      backgroundColor: '#212529',
-    },
-    footer: {
-      type: 'box',
-      layout: 'horizontal',
-      spacing: 'none', // 修正：移除按鈕間的預設間距
-      contents: [
-        {
-          type: 'button',
-          style: 'link',
-          height: 'sm',
-          action: { type: 'message', label: '查看憑證', text: `[功能開發中] 查看憑證 ${bookingId}` },
-          color: '#fcc419',
-        },
-        {
-          type: 'button',
-          style: 'link',
-          height: 'sm',
-          action: { type: 'message', label: '取消預約', text: `[功能開發中] 取消預約 ${bookingId}` },
-          color: '#dc3545',
-        },
-      ],
-      flex: 0,
-      backgroundColor: '#404040',
-    },
-  };
+        "styles": {
+            "header": {
+                "backgroundColor": "#212529"
+            },
+            "body": {
+                "separator": true,
+                "separatorColor": "#fcc419",
+                "backgroundColor": "#212529"
+            },
+            "footer": {
+                "separator": true,
+                "separatorColor": "#fcc419"
+            }
+        }
+    };
 }
 
 /**
@@ -317,136 +371,188 @@ async function replyMessage(replyToken: string, messages: any | any[]) {
  * 新增：建立聯絡資訊的 Flex Message JSON 物件
  */
 function createContactFlexMessage() {
-  return {
-    type: 'flex',
-    altText: 'Wally Studio 聯絡資訊',
-    // 根據您提供的 JSON 結構進行更新
-    contents: {
-      type: 'bubble',
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: 'Wally 自由教練工作室',
-            size: 'lg',
-            color: '#fcc419',
-            offsetStart: 'none',
-            align: 'center',
-            weight: 'bold'
-          }
-        ],
-        backgroundColor: '#212529',
-        paddingAll: 'lg',
-        offsetStart: 'none'
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [
-              {
-                type: 'text',
-                text: '🕒',
-                flex: 0,
-                size: 'lg',
-                gravity: 'center',
-              },
-              {
-                type: 'text',
-                text: '09:00~21:00 (週一至週五)',
-                wrap: true,
-                margin: 'md',
-                size: 'md',
-              }
-            ],
-            alignItems: 'center',
-          },
-          {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [
-              {
-                type: 'text',
-                text: '📞',
-                flex: 0,
-                size: 'lg',
-                gravity: 'center',
-              },
-              {
-                type: 'text',
-                text: '0937-402-893',
-                wrap: true,
-                margin: 'md',
-                size: 'md',
-              }
-            ],
-            margin: 'lg',
-            alignItems: 'center',
-          },
-          {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [
-              {
-                type: 'text',
-                text: '📍',
-                flex: 0,
-                size: 'lg',
-                gravity: 'center',
-              },
-              {
-                type: 'text',
-                text: '新竹市中華路二段 625 號 2 樓',
-                wrap: true,
-                margin: 'md',
-                size: 'md',
-              }
-            ],
-            margin: 'lg',
-            alignItems: 'flex-start',
-          }
-        ],
-        spacing: 'md',
-        paddingAll: 'lg',
-        backgroundColor: '#EEEEEE',
-        borderWidth: 'none',
-      },
-      footer: {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          {
-            type: 'button',
-            action: {
-              type: 'uri',
-              label: '查看地圖',
-              // 修正：將 URI 中的中文字元進行 URL 編碼，避免 "Invalid action URI" 錯誤
-              uri: 'https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E7%AB%B9%E5%B8%82%E4%B8%AD%E8%8F%AF%E8%B7%AF%E4%BA%8C%E6%AE%B5625%E8%99%9F2%E6%A8%93'
+    return {
+        type: 'flex',
+        altText: 'Wally Studio 聯絡資訊',
+        contents: {
+            "type": "bubble",
+            "hero": {
+                "type": "image",
+                "url": "https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/card_cover.png",
+                "size": "full",
+                "action": {
+                    "type": "uri",
+                    "uri": "https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E7%AB%B9%E5%B8%82%E4%B8%AD%E8%8F%AF%E8%B7%AF%E4%BA%8C%E6%AE%B5625%E8%99%9F2%E6%A8%93"
+                },
+                "aspectRatio": "21:9",
+                "aspectMode": "cover"
             },
-            color: '#fcc419'
-          },
-          {
-            type: 'separator'
-          },
-          {
-            type: 'button',
-            action: {
-              type: 'uri',
-              label: '撥打電話',
-              // 修正：將 URI 改為 tel: 協議
-              uri: 'tel:0937402893'
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "Wally 自由訓練工作室",
+                        "weight": "bold",
+                        "size": "lg",
+                        "color": "#fcc419"
+                    },
+                    {
+                        "type": "box",
+                        "layout": "baseline",
+                        "margin": "md",
+                        "contents": [
+                            {
+                                "type": "icon",
+                                "size": "sm",
+                                "url": "https://developers-resource.landpress.line.me/fx/img/review_gold_star_28.png"
+                            },
+                            {
+                                "type": "icon",
+                                "size": "sm",
+                                "url": "https://developers-resource.landpress.line.me/fx/img/review_gold_star_28.png"
+                            },
+                            {
+                                "type": "icon",
+                                "size": "sm",
+                                "url": "https://developers-resource.landpress.line.me/fx/img/review_gold_star_28.png"
+                            },
+                            {
+                                "type": "icon",
+                                "size": "sm",
+                                "url": "https://developers-resource.landpress.line.me/fx/img/review_gold_star_28.png"
+                            },
+                            {
+                                "type": "icon",
+                                "size": "sm",
+                                "url": "https://developers-resource.landpress.line.me/fx/img/review_gold_star_28.png"
+                            },
+                            {
+                                "type": "text",
+                                "text": "4.9",
+                                "size": "sm",
+                                "color": "#999999",
+                                "margin": "md",
+                                "flex": 0
+                            }
+                        ]
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "margin": "lg",
+                        "spacing": "sm",
+                        "contents": [
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "spacing": "sm",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "營業時間",
+                                        "color": "#aaaaaa",
+                                        "size": "sm",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "09:00~21:00 (週一到週五)",
+                                        "wrap": true,
+                                        "color": "#666666",
+                                        "size": "sm",
+                                        "flex": 3
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "spacing": "sm",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "地址",
+                                        "color": "#aaaaaa",
+                                        "size": "sm",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "新竹市中華路二段 625 號 2 樓",
+                                        "wrap": true,
+                                        "color": "#666666",
+                                        "size": "sm",
+                                        "flex": 3
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "box",
+                                "layout": "baseline",
+                                "spacing": "sm",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "預約專線",
+                                        "color": "#aaaaaa",
+                                        "size": "sm",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "0937-402-893",
+                                        "wrap": true,
+                                        "color": "#666666",
+                                        "size": "sm",
+                                        "flex": 3
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "paddingTop": "lg"
             },
-            color: '#fcc419'
-          }
-        ],
-        paddingAll: 'none',
-        backgroundColor: '#404040'
-      }
-    }
-  };
+            "footer": {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "none",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "link",
+                        "height": "sm",
+                        "action": {
+                            "type": "uri",
+                            "label": "撥打電話",
+                            "uri": "tel:0937402893"
+                        },
+                        "color": "#fcc419"
+                    },
+                    {
+                        "type": "button",
+                        "style": "link",
+                        "height": "sm",
+                        "action": {
+                            "type": "uri",
+                            "label": "查看地圖",
+                            "uri": "https://www.google.com/maps/search/?api=1&query=%E6%96%B0%E7%AB%B9%E5%B8%82%E4%B8%AD%E8%8F%AF%E8%B7%AF%E4%BA%8C%E6%AE%B5625%E8%99%9F2%E6%A8%93"
+                        },
+                        "color": "#fcc419"
+                    }
+                ],
+                "flex": 0
+            },
+            "styles": {
+                "body": {
+                    "backgroundColor": "#212529"
+                },
+                "footer": {
+                    "backgroundColor": "#212529"
+                }
+            }
+        }
+    };
 }
