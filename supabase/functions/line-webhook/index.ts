@@ -256,7 +256,11 @@ function createBookingCard(record: any): any {
                     "action": {
                         "type": "uri",
                         "label": "查看憑證",
-                        "uri": `https://liff.line.me/2008135811-vNO5bYyx?liff.state=/booking-details.html?id=${bookingId}`
+                        // 關鍵修正：liff.state 的值只應包含路徑，其他參數應透過 & 附加在後面。
+                        // 錯誤範例: ?liff.state=/path?param=value
+                        // 正確範例: ?liff.state=/path&param=value
+                        // LIFF SDK 會自動將 liff.state 以外的參數附加到目標路徑上。
+                        "uri": `https://liff.line.me/2008135811-vNO5bYyx?liff.state=/booking-details.html&id=${bookingId}`
                     },
                     "color": "#fcc419"
                 }

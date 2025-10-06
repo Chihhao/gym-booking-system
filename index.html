@@ -234,16 +234,22 @@
                 // liff.state 是 LIFF SDK 在頁面載入初期就設定好的。
                 // 檢查 liff.state，這通常來自於從 LINE Bot 點擊的 LIFF URL
                 // 例如：liff.line.me/LIFF_ID?liff.state=/booking-details.html?id=...
-                const path = liff.state; // liff.state 只有在透過 liff.line.me/... 帶參數進來時才會有值
+                const liffStatePath = liff.state; // liff.state 只有在透過 liff.line.me/... 帶參數進來時才會有值
         
-                if (path) {
+                if (liffStatePath) {
                     // --- 情況 1: 有 liff.state，執行跳轉 ---
-                    console.log(`LIFF state detected: ${path}. Redirecting...`);
+                    console.log(`LIFF state detected: ${liffStatePath}. Redirecting...`);
                     
                     const baseUrl = window.location.origin + window.location.pathname.replace(/index\.html$/, '');
-                    const finalPath = path.includes('?') 
-                                    ? `${path}${debugQueryWithAnd}` // 如果有，用 & 附加 debug 參數
-                                    : `${path}${debugQuery}`;      // 如果沒有，用 ? 附加 debug 參數
+                    
+                    // 關鍵修正：
+                    // LIFF SDK 會自動從 URL 中移除 liff.state 參數，但保留其他參數。
+                    // 我們需要將 liff.state 的路徑與 URL 中剩下的其他參數（如 id=...）重新組合。
+                    const remainingParams = window.location.search; // 此時的 search 可能是 "?id=BK..."
+                    const separator = remainingParams ? '&' : '?';
+                    
+                    // 組合最終路徑：目標路徑 + 剩餘參數 + debug 參數
+                    const finalPath = `${liffStatePath}${remainingParams}${remainingParams ? debugQueryWithAnd : debugQuery}`;
         
                     window.location.replace(baseUrl + finalPath);
                     // 因為即將跳轉，後續程式碼不會執行
