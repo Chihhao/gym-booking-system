@@ -230,16 +230,27 @@
             const debugQueryWithAnd = debugMode ? '&debug=true' : '';
 
             try {
+                // --- 診斷日誌：在 init 之前 ---
+                console.log('[Liff-Diag] --- Before liff.init() ---');
+                console.log(`[Liff-Diag] window.location.href: ${window.location.href}`);
+                console.log(`[Liff-Diag] LIFF ID: ${AppConfig.LIFF_ID}`);
+                // 檢查 LIFF SDK 物件本身是否存在，以及是否有任何可疑的初始狀態
+                console.log('[Liff-Diag] liff object:', liff);
+                console.log(`[Liff-Diag] liff.state before init: ${liff.state}`);
+
                 // 使用 config.js 中定義的 LIFF ID 初始化
                 await liff.init({ liffId: AppConfig.LIFF_ID });
 
-                // 關鍵修正：將 href 的設定邏輯，從 liff.init() 之前，移動到 liff.init() 成功之後。
-                // 這樣可以確保 LIFF SDK 在初始化時不會偵測到任何可能引起混淆的路徑。
-                setBookingLinkHref();
+                // --- 診斷日誌：在 init 之後 ---
+                console.log('[Liff-Diag] --- After liff.init() ---');
+                console.log(`[Liff-Diag] liff.getOS(): ${liff.getOS()}`);
+                console.log(`[Liff-Diag] liff.isInClient(): ${liff.isInClient()}`);
+                console.log(`[Liff-Diag] liff.isLoggedIn(): ${liff.isLoggedIn()}`);
+                console.log(`[Liff-Diag] liff.state after init: ${liff.state}`);
 
                 // 檢查 liff.state，這通常來自於從 LINE Bot 點擊的 LIFF URL
                 // 例如：liff.line.me/LIFF_ID?liff.state=/booking-details.html?id=...
-                const path = liff.state;
+                const path = liff.state; // liff.state 只有在透過 liff.line.me/... 帶參數進來時才會有值
 
                 if (path) {
                     // --- 情況 1: 有 liff.state，執行跳轉 ---
@@ -254,6 +265,8 @@
                     // 因為即將跳轉，後續程式碼不會執行
                 } else {
                     // --- 情況 2: 沒有 liff.state，設定按鈕連結 ---
+                    // 關鍵修正：將 href 的設定邏輯移到這個 else 區塊，確保只有在不需要跳轉時才設定。
+                    setBookingLinkHref();
                     // 註：按鈕連結已在 liff.init() 後設定，此處僅保留日誌
                     console.log('No LIFF state. Setting up index page button.');
                 }
