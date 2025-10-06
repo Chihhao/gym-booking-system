@@ -238,8 +238,14 @@
                 console.log('[Liff-Diag] liff object:', liff);
                 console.log(`[Liff-Diag] liff.state before init: ${liff.state}`);
 
-                // 使用 config.js 中定義的 LIFF ID 初始化
-                await liff.init({ liffId: AppConfig.LIFF_ID });
+                // 終極解決方案：在 index.html 中，為 liff.init() 加上 withLogin: false。
+                // 這會強制 LIFF SDK 重新驗證當前的 URL (根路徑)，並用它來覆蓋 localStorage 中
+                // 記憶的舊路徑 (例如 /courses.html)，從而從根本上消除警告。
+                // 這並不會強制使用者登入，只是觸發了 SDK 內部的路徑重置邏輯。
+                await liff.init({
+                    liffId: AppConfig.LIFF_ID,
+                    withLogin: false
+                });
 
                 // --- 診斷日誌：在 init 之後 ---
                 console.log('[Liff-Diag] --- After liff.init() ---');
