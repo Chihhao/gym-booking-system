@@ -219,8 +219,6 @@
          * 3. 如果不存在 liff.state，則正常顯示首頁，並根據環境 (LINE App 或外部瀏覽器) 設定「立即預約」按鈕的正確連結。
          */
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('version: 2025-10-08a');
-            
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             const bookingLink = document.querySelector('a.btn-primary');
@@ -230,27 +228,15 @@
             const debugQueryWithAnd = debugMode ? '&debug=true' : '';
         
             try {
-                // --- 終極除錯方案：手動解析 liff.state ---
-                // 問題：在某些情況下，LIFF SDK 可能無法正確解析 liff.state，導致其值為 null。
-                // 解決方案：我們不再依賴 liff.state 屬性，而是直接從 URL 的查詢參數中手動解析。
-                
-                console.log('[Router-Debug] 1. 頁面載入時的完整 URL:', window.location.href);
-                console.log('[Router-Debug] 2. 瀏覽器解析的 URL 參數:', urlParams.toString());
-                console.log('[Router-Debug] 3. LIFF SDK 提供的 liff.state:', liff.state);
-
                 // 手動從 URL 參數中取得 liff.state 的值
                 const manualLiffState = urlParams.get('liff.state');
-                console.log('[Router-Debug] 4. 手動解析的 liff.state:', manualLiffState);
         
                 if (manualLiffState) {
                     // --- 情況 1: 有 liff.state，執行跳轉 ---
-                    console.log(`[Router-Debug] 5. 偵測到手動解析的 liff.state，準備跳轉...`);
-                    
                     const baseUrl = window.location.origin + window.location.pathname.replace(/index\.html$/, '');
                     
                     // 從 liff.state 的值中分離出路徑和它自帶的參數
                     const [path, paramsInState] = manualLiffState.split('?');
-                    console.log(`[Router-Debug] 6. 解析出的路徑: ${path}, 內部參數: ${paramsInState}`);
                     
                     // 重新組合所有參數
                     const allParams = new URLSearchParams();
@@ -265,16 +251,11 @@
                     });
 
                     const finalQueryString = allParams.toString();
-                    console.log(`[Router-Debug] 7. 組合後的最終查詢字串: ${finalQueryString}`);
-
                     const finalPath = `${path}?${finalQueryString}${finalQueryString ? debugQueryWithAnd : debugQuery}`;
-                    console.log(`[Router-Debug] 8. 最終跳轉路徑: ${baseUrl}${finalPath}`);
-        
                     window.location.replace(baseUrl + finalPath);
                 } else {
                     // --- 情況 2: 沒有 liff.state，設定按鈕連結 ---
                     const isInLine = /Line/i.test(navigator.userAgent);
-                    console.log(`No LIFF state. Is in LINE app: ${isInLine}. Setting up button link.`);
                     setBookingLinkHref(isInLine);
                 }
             } catch (error) {
