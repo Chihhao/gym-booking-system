@@ -55,7 +55,26 @@
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
             courseId = urlParams.get('courseId');
-            courseName = urlParams.get('courseName');
+            courseName = urlParams.get('courseName'); // 這裡的 courseName 仍然是編碼過的
+
+            // --- 根本性解決方案：URL 標準化 ---
+            // 1. 從 URL 取得所有需要的參數。
+            // 2. 建立一個不含任何參數的「乾淨」URL。
+            const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+            // 3. 將參數重新組合，並確保 courseName 是解碼後再重新編碼，避免雙重編碼問題。
+            const newParams = new URLSearchParams({
+                courseId: courseId,
+                courseName: decodeURIComponent(courseName) // 先解碼
+            });
+            if (debugMode) {
+                newParams.append('debug', 'true');
+            }
+            const finalUrl = `${cleanUrl}?${newParams.toString()}`;
+
+            // 4. 使用 history.replaceState() 將瀏覽器的 URL 替換為標準化後的 URL。
+            //    這不會觸發頁面重載，但能確保 LIFF 初始化時看到的是一個「穩定」的 URL，
+            //    從而消除因前一頁跳轉帶來的 "not related to endpoint" 警告。
+            window.history.replaceState({}, document.title, finalUrl);
 
             // 渲染共用的頁首和頁尾
             renderHeaderAndFooter();
@@ -67,25 +86,11 @@
             }
 
             try {
-                // --- 深度除錯日誌：在 init 之前 ---
-                console.log('[Liff-Debug] --- Before liff.init() on coaches.html ---');
-                console.log(`[Liff-Debug] 1. window.location.href: ${window.location.href}`);
-                
-                // 關鍵：讀取 LIFF SDK 在 localStorage 中儲存的設定，觀察它記憶的 endpointUrl 是什麼
-                const liffSettingsKey = `liff-sdk:${AppConfig.LIFF_ID}:settings`;
-                const liffSettingsBefore = localStorage.getItem(liffSettingsKey);
-                console.log(`[Liff-Debug] 2. localStorage [${liffSettingsKey}] before init:`, liffSettingsBefore ? JSON.parse(liffSettingsBefore) : 'Not found');
-
-                const initConfig = { liffId: AppConfig.LIFF_ID, redirectUri: window.location.href };
-                console.log('[Liff-Debug] 3. Calling liff.init() with config:', initConfig);
-
                 // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
                 // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
                 // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
-                await liff.init(initConfig);
-
-                const liffSettingsAfter = localStorage.getItem(liffSettingsKey);
-                console.log(`[Liff-Debug] 4. localStorage [${liffSettingsKey}] after init:`, liffSettingsAfter ? JSON.parse(liffSettingsAfter) : 'Not found');
+                // 由於我們已經在上面用 replaceState 標準化了 URL，這裡的 redirectUri 會是乾淨的 URL。
+                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
 
                 // 修正：調整判斷順序，優先處理 debug 模式
                 if (debugMode && !liff.isInClient()) {
@@ -205,7 +210,9 @@
             const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
             
             // 導向到 schedule.html，並傳遞所有需要的參數
-            window.location.href = `schedule.html?courseId=${courseId}&courseName=${encodeURIComponent(courseName)}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
+            // 修正：從全域變數 courseName 取值時，它可能尚未被 decode，
+            // 為了保險起見，我們先 decode 再 encode，確保 URL 的一致性。
+            window.location.href = `schedule.html?courseId=${courseId}&courseName=${encodeURIComponent(decodeURIComponent(courseName))}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
         }
 
         /**
