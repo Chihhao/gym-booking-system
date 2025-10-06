@@ -67,10 +67,25 @@
             }
 
             try {
+                // --- 深度除錯日誌：在 init 之前 ---
+                console.log('[Liff-Debug] --- Before liff.init() on coaches.html ---');
+                console.log(`[Liff-Debug] 1. window.location.href: ${window.location.href}`);
+                
+                // 關鍵：讀取 LIFF SDK 在 localStorage 中儲存的設定，觀察它記憶的 endpointUrl 是什麼
+                const liffSettingsKey = `liff-sdk:${AppConfig.LIFF_ID}:settings`;
+                const liffSettingsBefore = localStorage.getItem(liffSettingsKey);
+                console.log(`[Liff-Debug] 2. localStorage [${liffSettingsKey}] before init:`, liffSettingsBefore ? JSON.parse(liffSettingsBefore) : 'Not found');
+
+                const initConfig = { liffId: AppConfig.LIFF_ID, redirectUri: window.location.href };
+                console.log('[Liff-Debug] 3. Calling liff.init() with config:', initConfig);
+
                 // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
                 // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
                 // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
-                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
+                await liff.init(initConfig);
+
+                const liffSettingsAfter = localStorage.getItem(liffSettingsKey);
+                console.log(`[Liff-Debug] 4. localStorage [${liffSettingsKey}] after init:`, liffSettingsAfter ? JSON.parse(liffSettingsAfter) : 'Not found');
 
                 // 修正：調整判斷順序，優先處理 debug 模式
                 if (debugMode && !liff.isInClient()) {
