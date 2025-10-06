@@ -205,7 +205,7 @@
             const debugParam = urlParams.get('debug') === 'true' ? '&debug=true' : '';
             
             // 導向到 schedule.html，並傳遞所有需要的參數
-            window.location.href = `schedule.html?courseId=${courseId}&courseName=${courseName}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
+            window.location.href = `schedule.html?courseId=${courseId}&courseName=${encodeURIComponent(courseName)}&coachId=${coachId}&coachName=${encodedCoachName}${debugParam}`;
         }
 
         /**
