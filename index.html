@@ -219,15 +219,13 @@
          * 3. 如果不存在 liff.state，則正常顯示首頁，並根據環境 (LINE App 或外部瀏覽器) 設定「立即預約」按鈕的正確連結。
          */
         document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const debugMode = urlParams.get('debug') === 'true';
+            const bookingLink = document.querySelector('a.btn-primary');
+
             try {
-                // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
-                // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
                 console.log('LIFF initialized on index.html');
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const debugMode = urlParams.get('debug') === 'true';
-                const bookingLink = document.querySelector('a.btn-primary');
 
                 // 手動從 URL 參數中取得 liff.state 的值
                 const manualLiffState = urlParams.get('liff.state');
@@ -252,7 +250,16 @@
                     const finalPath = `${path}?${finalQueryString}${debugQuery}`;
                     window.location.replace(baseUrl + finalPath);
                 } else {
-                    // --- 情況 2: 沒有 liff.state，設定按鈕連結 ---
+                    // --- 情況 2: 沒有 liff.state，正常處理首頁邏輯 ---
+
+                    // 檢查 URL 是否包含 'code'，這表示剛從 LINE OAuth 登入跳轉回來
+                    if (urlParams.has('code') && liff.isLoggedIn()) {
+                        console.log('Logged in on callback, redirecting to courses.html');
+                        const coursesPageUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, '')}courses.html${debugMode ? '?debug=true' : ''}`;
+                        window.location.href = coursesPageUrl;
+                        return; // 中斷後續執行
+                    }
+
                     // 綁定按鈕點擊事件，在點擊時才執行登入或跳轉
                     bookingLink.addEventListener('click', (e) => {
                         e.preventDefault(); // 防止預設的跳轉行為
@@ -261,8 +268,7 @@
                 }
             } catch (error) {
                 console.error('Error processing LIFF state on index.html:', error);
-                // 如果初始化失敗，至少讓按鈕在外部瀏覽器中能用
-                const debugQuery = urlParams.get('debug') === 'true' ? '?debug=true' : '';
+                const debugQuery = debugMode ? '?debug=true' : '';
                 bookingLink.href = `courses.html${debugQuery}`;
             }
 
@@ -272,8 +278,11 @@
 
                 if (!liff.isLoggedIn()) {
                     // 如果未登入，呼叫 liff.login() 並將 courses.html 設為最終的 redirectUri
+                    // 關鍵修正：在 PC 端，redirectUri 應該是當前頁面 (index.html)，
+                    // LIFF 會使用 liff.state 來記住最終要跳轉的目的地。
+                    const loginRedirectUri = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, '')}`;
                     console.log('User not logged in. Redirecting to login with courses.html as final destination.');
-                    liff.login({ redirectUri: coursesPageUrl });
+                    liff.login({ redirectUri: loginRedirectUri });
                 } else {
                     // 如果已登入，直接跳轉到 courses.html
                     console.log('User already logged in. Redirecting to courses.html.');
