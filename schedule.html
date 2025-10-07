@@ -10,13 +10,13 @@
     <script src="config.js"></script>
     <!-- 方案一：載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 新增：載入共用樣式表 -->
+    <!-- 載入共用樣式表 -->
     <link rel="stylesheet" href="common.css">
-    <!-- 新增：載入共用 UI 元件 -->
+    <!-- 載入共用 UI 元件 -->
     <script src="ui-components.js"></script>
-    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <!-- 載入 Google Material Symbols 圖示庫 -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
-    <!-- 新增：載入 Material Design Icons (MDI) 圖示庫 -->
+    <!-- 載入 Material Design Icons (MDI) 圖示庫 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
     <style>
         /* --- 1. 暗色主題 --- */
@@ -32,7 +32,7 @@
         .header h1 { margin: 0; font-size: 1.5em; color: #ffffff; }
         .header p { margin: 5px 0 0; color: #b0b0b0; }
 
-        /* --- 新增：課表上方的資訊列 --- */
+        /* --- 課表上方的資訊列 --- */
         .schedule-info-bar {
             display: flex; /* 改為 flex 佈局 */
             justify-content: space-between; /* 讓內容兩端對齊 */
@@ -45,10 +45,10 @@
             width: 100%; /* 寬度與父容器相同 */
             padding: 0 10px; /* 增加左右內距，避免按鈕貼邊 */
             box-sizing: border-box;
-            margin-bottom: 3px; /* 新增：與下方表格的間距 */
+            margin-bottom: 3px; /* 與下方表格的間距 */
         }
-        /* 新增：下方資訊列的樣式調整 */
-        /* 新增：無時段提示的樣式 */
+        /* 下方資訊列的樣式調整 */
+        /* 無時段提示的樣式 */
         .no-slots-message {
             text-align: center;
             padding: 4rem 0 !important; /* 增加上下間距，讓提示更突出 */
@@ -77,7 +77,7 @@
         .schedule-wrapper {
             padding: 0px;
             overflow-x: auto; /* 允許表格水平滾動 */
-            overflow-y: hidden; /* 新增：明確禁止垂直捲動，避免出現不必要的捲軸 */
+            overflow-y: hidden; /* 明確禁止垂直捲動，避免出現不必要的捲軸 */
         }
 
         .schedule-grid {
@@ -127,7 +127,7 @@
             /* 移除 font-size，改為直接控制圖示大小 */
             cursor: default;
         }
-        /* 新增：MDI 圖示的通用樣式 */
+        /* MDI 圖示的通用樣式 */
         .slot .mdi {
             font-size: 1.6em; /* 調整圖示大小 */
             vertical-align: middle;
@@ -150,7 +150,7 @@
             color: #dc3545; /* 紅色，表示禁止 */
         }
 
-        /* --- 新增：可展開儲存格的樣式 --- */
+        /* --- 可展開儲存格的樣式 --- */
         .expandable {
             cursor: pointer; /* 讓整個儲存格都顯示可點擊的鼠標 */
         }
@@ -164,7 +164,7 @@
             color: #ffc107; /* 滑鼠懸停時變為黃色 */
         }
 
-        /* --- 新增：展開後的子橫列樣式 --- */
+        /* --- 展開後的子橫列樣式 --- */
         .sub-row td {
             background-color: #3c4248; /* 暗黃色/灰色背景 */
             transition: background-color 0.2s; /* 將樣式應用到 td 而不是 tr */
@@ -183,7 +183,7 @@
         .slot.processing {
             color: #ffc107; /* 橘黃色 */
             cursor: wait;
-            /* 新增：處理中狀態使用旋轉動畫 */
+            /* 處理中狀態使用旋轉動畫 */
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
@@ -203,7 +203,7 @@
         .loader, .error { text-align: center; font-size: 1.1em; color: #6c757d; padding: 2em; }
         .error { color: #dc3545; }
 
-        /* --- 新增：通用 Modal 樣式 (從 manager.html 借鑒並簡化) --- */
+        /* --- 通用 Modal 樣式 (從 manager.html 借鑒並簡化) --- */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -251,7 +251,7 @@
             padding: 0 1.5rem;
         }
 
-        /* --- 新增：通用按鈕樣式 (從 manager.html 借鑒) --- */
+        /* --- 通用按鈕樣式 (從 manager.html 借鑒) --- */
         .btn {
             border: none;
             border-radius: 8px;
@@ -273,7 +273,7 @@
         .btn-secondary { background-color: #495057; color: #ffffff; }
         .btn-secondary:hover { background-color: #5a6268; }
 
-        /* 新增：按鈕容器樣式 */
+        /* 按鈕容器樣式 */
         .btn-container {
             text-align: center;
             margin: 1.5rem 0;
@@ -282,7 +282,7 @@
 </head>
 <body>
 
-    <!-- 新增：使用通用容器包裹所有內容 -->
+    <!-- 使用通用容器包裹所有內容 -->
     <div class="main-container">
         <div id="header-container"></div>
 
@@ -292,16 +292,16 @@
             <div id="schedule-container">
                 <p class="loader">正在載入時段資料...</p>
             </div>
-            <!-- 新增：在表格下方也加上資訊列 -->
+            <!-- 在表格下方也加上資訊列 -->
             <div id="schedule-info-bar-container-bottom"></div>
         </div>
-        <!-- 新增：回到上一頁按鈕的容器 -->
+        <!-- 回到上一頁按鈕的容器 -->
         <div id="back-button-container" class="btn-container" style="display: none;">
             <button class="btn btn-secondary" onclick="goBackToCoachSelection()">重新選擇教練</button>
         </div>
     </div>
 
-    <!-- 新增：卡片式通知 Modal -->
+    <!-- 卡片式通知 Modal -->
     <div id="notification-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="notification-title">通知</h2>
@@ -315,7 +315,7 @@
     <!-- 沿用 booking-details.html 的部分樣式，簡化通知卡片 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
-    <!-- 新增：確認對話框 Modal -->
+    <!-- 確認對話框 Modal -->
     <div id="confirmation-modal" class="modal-overlay" style="z-index: 2001;">
         <div class="modal-content">
             <h2 id="confirmation-title" style="color: #ffc107;">請確認</h2>
@@ -328,7 +328,6 @@
     </div>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
-
     <script>
         // --- 從 config.js 讀取設定 ---
         const { createClient } = supabase;
@@ -338,8 +337,8 @@
 
         // 全域變數，用來存放使用者資訊
         let userProfile = null;
-        let currentScheduleDate = new Date(); // 新增：用於追蹤目前課表顯示的週次
-        let scheduleData = {}; // 新增：將 scheduleData 提升為全域變數
+        let currentScheduleDate = new Date(); // 用於追蹤目前課表顯示的週次
+        let scheduleData = {}; // 將 scheduleData 提升為全域變數
 
         window.addEventListener('DOMContentLoaded', main);
 
@@ -347,7 +346,6 @@
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const debugMode = urlParams.get('debug') === 'true';
-                console.log('Debug mode:', debugMode);
 
                 // 渲染共用的頁首和頁尾
                 renderHeaderAndFooter();
@@ -359,7 +357,7 @@
                 console.log('LIFF initialized');
 
                 // 步驟 2: 判斷是否登入 (修正：調整判斷順序，優先處理 debug 模式)
-                if (debugMode && !liff.isInClient()) {
+                if (debugMode && !liff.isInClient()) {                    
                     // 優先處理開發模式：無論 LIFF 是否登入，都使用開發者假資料
                     userProfile = {
                         userId: 'U_DEV_000000000000000000000000001',
@@ -369,7 +367,7 @@
                 } else if (liff.isLoggedIn()) {
                     // 已登入，取得使用者資料
                     userProfile = await liff.getProfile();
-                    console.log('LIFF 登入成功，使用者:', userProfile.displayName);
+                    console.log('登入成功，使用者:', userProfile.displayName);
                 } else {
                     // 未登入，且非開發模式，導向登入頁
                     console.log('未登入，準備導向 LINE 登入頁...');
@@ -426,7 +424,7 @@
 
                 await fetchSchedule(courseId, coachId, currentScheduleDate);
 
-                // 新增：綁定上下週按鈕事件
+                // 綁定上下週按鈕事件
                 bindWeekChangeButtons(courseId, coachId);
 
             } catch (err) {
@@ -627,8 +625,8 @@
                         let slotContent = '';
                         let onClickAction = '';
                         let titleAttribute = ''; // 用於存放 tooltip 文字
-                        let tdClass = ''; // 新增：用於存放 <td> 的 class
-                        let tdDataAttributes = ''; // 新增：用於存放 data-* 屬性
+                        let tdClass = ''; // 用於存放 <td> 的 class
+                        let tdDataAttributes = ''; // 用於存放 data-* 屬性
 
                         // 修正：將 mainIcon 的宣告移到 if/else 之外，確保在所有路徑下都已定義
                         let mainIcon = '';
@@ -691,18 +689,18 @@
                 grid.querySelector('tbody').innerHTML = bodyHtml;
             }
             
-            // 新增：顯示返回按鈕
+            // 顯示返回按鈕
             document.getElementById('back-button-container').style.display = 'block';
         }
 
         function showBookingDetails(bookingId) {
-            // 新增：確保 debug 模式可以被傳遞到下一個頁面
+            // 確保 debug 模式可以被傳遞到下一個頁面
             const urlParams = new URLSearchParams(window.location.search);
             const debugParam = urlParams.get('debug') === 'true' ? `&debug=true` : '';
             window.location.href = `booking-details.html?id=${bookingId}${debugParam}`;
         }
 
-        // --- 新增：切換週次功能 ---
+        // --- 切換週次功能 ---
         function bindWeekChangeButtons(courseId, coachId) {
             // 為上下兩個資訊列的按鈕都綁定事件
             document.querySelectorAll('.week-nav-btn').forEach(btn => {
@@ -720,7 +718,7 @@
         }
 
         /**
-         * 新增：返回教練選擇頁面
+         * 返回教練選擇頁面
          * 這個函式會從當前 URL 讀取課程資訊，並建立一個明確的 URL 返回到教練選擇頁，
          * 比 window.history.back() 更為可靠。
          */
@@ -946,7 +944,7 @@
             }
         }
 
-        // --- 新增：確認對話框函式 (回傳 Promise) ---
+        // --- 確認對話框函式 (回傳 Promise) ---
         function showConfirmation(message, options = {}) {
             return new Promise((resolve) => {
                 const modal = document.getElementById('confirmation-modal');
@@ -982,7 +980,7 @@
             });
         }
 
-        // --- 新增：卡片式通知函式 ---
+        // --- 卡片式通知函式 ---
         function showNotification(message, options = {}) {
             const modal = document.getElementById('notification-modal');
             const titleEl = document.getElementById('notification-title');

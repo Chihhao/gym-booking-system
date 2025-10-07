@@ -24,7 +24,7 @@ function renderHeaderAndFooter() {
 
     // 2. 定義共用元件的 CSS 樣式
     const styles = `
-        /* 新增：為主要內容容器加上統一的上下間距 */
+        /* 為主要內容容器加上統一的上下間距 */
         .main-container {
             padding-top: 20px;
             padding-bottom: 30px;

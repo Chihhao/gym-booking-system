@@ -10,11 +10,11 @@
     <script src="config.js"></script>
     <!-- 方案一：載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 新增：載入共用樣式表 -->
+    <!-- 載入共用樣式表 -->
     <link rel="stylesheet" href="common.css">
-    <!-- 新增：載入共用 UI 元件 -->
+    <!-- 載入共用 UI 元件 -->
     <script src="ui-components.js"></script>
-    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <!-- 載入 Google Material Symbols 圖示庫 -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
         body { 
@@ -33,7 +33,7 @@
     </style>
 </head>
 <body>
-    <!-- 新增：使用通用容器包裹所有內容 -->
+    <!-- 使用通用容器包裹所有內容 -->
     <div class="main-container">
         <div id="header-container"></div>
         <div id="content-container"><p class="loader">正在初始化並載入課程資料...</p></div>
@@ -59,13 +59,12 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             const debugMode = urlParams.get('debug') === 'true';
-            console.log('Debug mode:', debugMode);
+            
 
             // 渲染共用的頁首和頁尾
             renderHeaderAndFooter();
 
             try {
-                // --- 根本性解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
                 // 這個操作可以解決在「線上環境」(GitHub Pages) 中，因從 index.html 跳轉而產生的 LIFF 警告。
                 // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面。
                 // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為當前頁面就是這次的起點。
@@ -75,7 +74,7 @@
                 // 初始化 LIFF。對於「本地開發」，由於網域不符，警告仍會出現，這是正常且可預期的。
                 // 對於「線上環境」，由於上一步清除了 localStorage，此處不會再有警告。
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
-                console.log('LIFF initialized');
+                // console.log('LIFF initialized');
 
                 // 修正：將 userProfile 的宣告移至此處
                 userProfile = null;
@@ -91,7 +90,7 @@
                 } else if (liff.isLoggedIn()) {
                     // 已登入，取得使用者資料
                     userProfile = await liff.getProfile();
-                    console.log('LIFF 登入成功，使用者:', userProfile.displayName);
+                    console.log('登入成功，使用者:', userProfile.displayName);
                 } else {
                     // 未登入，且非開發模式，導向登入頁
                     console.log('未登入，準備導向 LINE 登入頁...');
@@ -131,27 +130,27 @@
          async function fetchCourses() {
             const container = document.getElementById('content-container');
             container.innerHTML = '<p class="loader">課程資料載入中...</p>';
-            console.log('開始 fetchCourses...');
+            // console.log('開始 fetchCourses...');
 
             try {                
                 // --- 方案一：直接從 Supabase 讀取資料 ---
-                console.log('正在從 Supabase 查詢 active courses...');
+                // console.log('正在從 Supabase 查詢 active courses...');
              const { data, error } = await supabaseClient
                     .from('courses') // 注意：資料表名稱是小寫
                     .select('*')
                     .eq('status', 'Active')
-                    .order('course_id', { ascending: true }); // 新增：依照 course_id 升序排列
+                    .order('course_id', { ascending: true }); // 依照 course_id 升序排列
 
                 if (error) {
                     console.error('Supabase 查詢錯誤:', error);
                     throw error;
                 }
-                console.log('成功從 Supabase 取得資料:', data);
+                // console.log('成功從 Supabase 取得資料:', data);
                 
                 if (data && data.length > 0) {
                     renderCourses(data);
                 } else {
-                    console.log('Supabase 回傳成功，但沒有 active 的課程。');
+                    // console.log('Supabase 回傳成功，但沒有 active 的課程。');
                     container.innerHTML = '<p>目前沒有可用的課程。</p>';
                 }
             } catch (error) {

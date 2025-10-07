@@ -10,11 +10,11 @@
     <script src="config.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 新增：載入共用樣式表 -->
+    <!-- 載入共用樣式表 -->
     <link rel="stylesheet" href="common.css">
-    <!-- 新增：載入共用 UI 元件 -->
+    <!-- 載入共用 UI 元件 -->
     <script src="ui-components.js"></script>
-    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <!-- 載入 Google Material Symbols 圖示庫 -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
         body { 
@@ -32,7 +32,7 @@
     </style>
 </head>
 <body>
-    <!-- 新增：使用通用容器包裹所有內容 -->
+    <!-- 使用通用容器包裹所有內容 -->
     <div class="main-container">
         <div id="header-container"></div>
         <div id="content-container"><p class="loader">正在初始化並載入教練資料...</p></div>
@@ -49,7 +49,6 @@
         document.addEventListener('DOMContentLoaded', main);
 
         async function main() {
-            console.log('ver: 0.0.1');
 
             const headerContainer = document.getElementById('header-container');
             const contentContainer = document.getElementById('content-container');
@@ -69,7 +68,6 @@
             }
 
             try {
-                // --- 根本性解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
                 // 這個操作可以解決在「線上環境」(GitHub Pages) 中，因從 courses.html 跳轉而產生的 LIFF 警告。
                 // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面。
                 // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為當前頁面就是這次的起點。
@@ -185,7 +183,7 @@
                 `;
             });
             html += '</div>';
-            // 新增：在卡片列表下方加入「回到上一頁」的按鈕
+            // 在卡片列表下方加入「回到上一頁」的按鈕
             html += `
                 <div class="btn-container">
                     <button class="btn btn-secondary" onclick="goBackToCoursesPage()">重新選擇課程</button>
@@ -202,7 +200,7 @@
         }
 
         /**
-         * 新增：返回課程選擇頁面
+         * 返回課程選擇頁面
          * 這個函式會建立一個明確的 URL 返回到課程選擇頁，比 window.history.back() 更可靠。
          */
         function goBackToCoursesPage() {

@@ -9,8 +9,8 @@
     <!-- 修正：必須先載入 Supabase 主函式庫，再載入使用它的工具函式 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="manager-utils.js"></script>
-    <!-- 新增：載入 interact.js 用於畫布課表的拖曳與縮放 -->
-    <!-- 新增：載入 MDI (Material Design Icons) 圖示庫 -->
+    <!-- 載入 interact.js 用於畫布課表的拖曳與縮放 -->
+    <!-- 載入 MDI (Material Design Icons) 圖示庫 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <style>
@@ -29,16 +29,16 @@
             --danger-hover: #c82333;
             --secondary-color: #6c757d;
             --secondary-hover: #5a6268;
-            /* 新增：狀態標籤專用顏色 */
+            /* 狀態標籤專用顏色 */
             --success-bg-light: #d1e7dd; /* 加深淡綠色背景 */
             --success-text-dark: #1d643b;
             --secondary-bg-light: #e1e2e4;
-            --secondary-text-dark: #383d41; /* 新增：搭配淡灰背景的深灰文字 */
-            /* 新增：預約狀態專用顏色 */
+            --secondary-text-dark: #383d41; /* 搭配淡灰背景的深灰文字 */
+            /* 預約狀態專用顏色 */
             --info-bg-light: #cce5ff;
             --info-text-dark: #004085;
         }
-        /* 新增：畫布課表專用 CSS 變數 */
+        /* 畫布課表專用 CSS 變數 */
         :root {
             --hour-line-color: #e9ecef;
             --time-axis-width: 60px; /* 調整：時間軸寬度 */
@@ -118,7 +118,7 @@
             justify-content: space-between;
             align-items: center;
             margin-top: 0; /* 移除：分隔線與相關間距 */
-            margin-bottom: 1rem; /* 新增：補上與下方內容的間距 */
+            margin-bottom: 1rem; /* 補上與下方內容的間距 */
         }
 
         .page-header h1 {
@@ -227,7 +227,7 @@
             gap: 0.5rem; /* 增加按鈕間距 */
         }
 
-        /* 新增：用於設定緊湊欄位的樣式 */
+        /* 用於設定緊湊欄位的樣式 */
         .col-tight {
             width: 1%;
             white-space: nowrap;
@@ -241,7 +241,7 @@
             background-color: #e9ecef;
         }
 
-        /* --- 新增：顏色選擇器樣式 --- */
+        /* --- 顏色選擇器樣式 --- */
         .color-picker-container {
             display: flex;
             flex-wrap: wrap;
@@ -392,13 +392,13 @@
             background-color: var(--secondary-bg-light);
         }
 
-        /* --- 新增：畫布課表專用樣式 (從 manager-schedule.html 整合) --- */
+        /* --- 畫布課表專用樣式 (從 manager-schedule.html 整合) --- */
         .canvas-schedule-header {
             display: flex;
             margin-left: var(--time-axis-width); /* 與下方時間軸對齊 */
-            border-top: 1px solid var(--border-color); /* 新增：補上頂部邊框 */
+            border-top: 1px solid var(--border-color); /* 補上頂部邊框 */
             border-bottom: 2px solid var(--border-color);
-            border-right: 1px solid var(--border-color); /* 新增：補上右側邊框，與下方表格對齊 */
+            border-right: 1px solid var(--border-color); /* 補上右側邊框，與下方表格對齊 */
         }
 
         .day-header {
@@ -420,7 +420,7 @@
             position: relative;
             overflow-y: auto;
             height: calc(13 * var(--hour-height)); 
-            border-right: 1px solid var(--border-color); /* 新增：為整個畫布加上右邊框 */
+            border-right: 1px solid var(--border-color); /* 為整個畫布加上右邊框 */
         }
 
         .time-axis {
@@ -435,7 +435,7 @@
             transform: translateY(-50%); /* 預設：垂直置中 */
             font-size: 1.3rem; /* 調整：再次放大字體 */
             color: #6c757d;
-            text-align: right; /* 新增：確保文字靠右對齊 */
+            text-align: right; /* 確保文字靠右對齊 */
         }
 
         .day-column {
@@ -486,7 +486,7 @@
             cursor: pointer;
         }
 
-        /* 關鍵新增：只有當卡片是並排中的最後一個時，才套用留白 */
+        /* 關鍵只有當卡片是並排中的最後一個時，才套用留白 */
         .class-item.is-last-in-group {
             width: calc(var(--item-width, 100%) - 8px);
         }
@@ -527,7 +527,7 @@
             pointer-events: none;
         }
 
-        /* --- 新增：登入畫面樣式 --- */
+        /* --- 登入畫面樣式 --- */
         #login-view {
             display: flex;
             flex-direction: column;
@@ -567,7 +567,7 @@
 </head>
 <body>
 
-    <!-- 新增：登入畫面 -->
+    <!-- 登入畫面 -->
     <div id="login-view" style="display: none;">
         <h1>Wally Studio</h1>
         <p>管理後台</p>
@@ -577,7 +577,7 @@
         </button>
     </div>
 
-    <!-- 新增：將主要內容包裹起來 -->
+    <!-- 將主要內容包裹起來 -->
     <div id="main-view" style="display: none; width: 100%; height: 100%; display: flex;">
         <nav class="sidebar">
             <h2>Wally Studio</h2>
@@ -587,7 +587,7 @@
                 <li><a href="#courses" class="nav-link" data-target="courses"><i class="nav-icon mdi mdi-book-open-page-variant-outline"></i><span class="nav-text">課程型錄</span></a></li>
                 <li><a href="#users" class="nav-link" data-target="users"><i class="nav-icon mdi mdi-account-group-outline"></i><span class="nav-text">客戶管理</span></a></li>
                 <li><a href="#coaches" class="nav-link" data-target="coaches"><i class="nav-icon mdi mdi-weight-lifter"></i><span class="nav-text">教練管理</span></a></li>
-                <!-- 新增：登出按鈕 -->
+                <!-- 登出按鈕 -->
                 <li><a href="#" id="logout-btn"><i class="nav-icon mdi mdi-logout"></i><span class="nav-text">登出</span></a></li>
             </ul>
             <!-- 側邊欄收合按鈕 -->
@@ -621,7 +621,7 @@
                 <div class="page-header">
                     <h1><i class="mdi mdi-calendar-month-outline"></i> 課表管理</h1>
                     <div class="filter-controls">
-                        <!-- 新增：課程篩選下拉選單 -->
+                        <!-- 課程篩選下拉選單 -->
                         <select id="schedule-course-filter" style="min-width: 200px;">
                             <option value="">所有課程</option>
                             <!-- JS 會動態填入選項 -->
@@ -837,7 +837,7 @@
         </div>
     </div>
 
-    <!-- 新增：卡片式通知 Modal -->
+    <!-- 卡片式通知 Modal -->
     <div id="notification-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px;">
             <button id="notification-close-icon" class="modal-close-btn">&times;</button>
@@ -851,7 +851,7 @@
         </div>
     </div>
 
-    <!-- 新增：確認對話框 Modal -->
+    <!-- 確認對話框 Modal -->
     <div id="confirmation-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px;">
             <h2 id="confirmation-title" style="color: var(--danger-color);">請確認</h2>
@@ -1187,7 +1187,7 @@
                 colorPickerContainer.appendChild(swatch);
         });
 
-        // --- 新增：全域鍵盤事件監聽 (ESC 關閉 Modal) ---
+        // --- 全域鍵盤事件監聽 (ESC 關閉 Modal) ---
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 // 檢查是否有任何 active 的 modal，並關閉它
@@ -1224,7 +1224,7 @@
             document.body.classList.add('sidebar-collapsed');
         }
 
-        // --- 新增：全域通知 Modal 關閉事件 ---
+        // --- 全域通知 Modal 關閉事件 ---
         function closeNotificationModal() {
             document.getElementById('notification-modal').classList.remove('active');
         }
@@ -1232,7 +1232,7 @@
         document.getElementById('notification-close-btn').addEventListener('click', closeNotificationModal);
         document.getElementById('notification-close-icon').addEventListener('click', closeNotificationModal);
 
-        // --- 新增：確認對話框函式 (回傳 Promise) ---
+        // --- 確認對話框函式 (回傳 Promise) ---
         function showConfirmation(message, options = {}) {
             return new Promise((resolve) => {
                 const modal = document.getElementById('confirmation-modal');
@@ -2095,7 +2095,7 @@
     </script>
 
     <script>
-        // --- 新增：畫布課表專用 JS (從 manager-schedule.html 整合) ---
+        // --- 畫布課表專用 JS (從 manager-schedule.html 整合) ---
         
         // 全域變數
         const canvasStartHour = 9;
@@ -2132,7 +2132,7 @@
             initDragAndResize();
             isCanvasInitialized = true;
 
-            // 新增：綁定課程篩選器的變動事件
+            // 綁定課程篩選器的變動事件
             document.getElementById('schedule-course-filter').addEventListener('change', () => {
                 loadManagerSchedule();
             });
@@ -2183,13 +2183,13 @@
             // 修正：在載入課表前，先填充篩選器選項
             await populateScheduleFilterDropdowns();
 
-            // 新增：讀取課程篩選器的值
+            // 讀取課程篩選器的值
             const selectedCourseId = document.getElementById('schedule-course-filter').value;
 
             updateDayHeaders(startOfWeek);
 
             try {
-                // 新增：動態建立查詢
+                // 動態建立查詢
                 let query = supabaseClient
                     .from('classes_with_details')
                     .select('*');
@@ -2209,7 +2209,7 @@
         }
 
         /**
-         * 新增：填充課表篩選器的下拉選單
+         * 填充課表篩選器的下拉選單
          */
         async function populateScheduleFilterDropdowns() {
             // 確保課程/教練資料已載入
@@ -2295,7 +2295,7 @@
                     classEl.className = 'class-item';
                     classEl.dataset.classId = cls.class_id;
 
-                    // 關鍵新增：判斷是否為群組中的最後一個，並加上 class
+                    // 關鍵判斷是否為群組中的最後一個，並加上 class
                     if (cls.layout.column + 1 === cls.layout.totalColumns) {
                         classEl.classList.add('is-last-in-group');
                     }

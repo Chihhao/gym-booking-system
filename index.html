@@ -50,7 +50,7 @@
             padding: 2rem;
         }
 
-        /* 新增：使用偽元素來專門處理背景圖和模糊效果 */
+        /* 使用偽元素來專門處理背景圖和模糊效果 */
         .hero::before {
             content: '';
             position: absolute;
@@ -80,7 +80,7 @@
             margin-bottom: 2rem;
         }
 
-        /* 新增：主按鈕下方的社群圖示容器 */
+        /* 主按鈕下方的社群圖示容器 */
         .social-links {
             margin-top: 2.5rem; /* 與上方按鈕的間距 */
             display: flex;
@@ -88,7 +88,7 @@
             align-items: center;
         }
 
-        /* 新增：獨立的分隔線樣式 */
+        /* 獨立的分隔線樣式 */
         .separator {
             width: 1px;
             background-color: rgba(255, 255, 255, 0.5); /* 使用半透明白色 */
@@ -119,7 +119,7 @@
             background-color: var(--theme-yellow-hover); /* 滑鼠懸停時的亮黃色 */
         }
 
-        /* 新增：放在圖片左下角的聯絡資訊 */
+        /* 放在圖片左下角的聯絡資訊 */
         .contact-info {
             position: absolute;
             bottom: 1.5rem;
@@ -194,7 +194,7 @@
                 </svg>
             </a>
             <div class="separator"></div>
-            <!-- 新增：管理者登入圖示 -->
+            <!-- 管理者登入圖示 -->
             <a href="manager.html" class="social-icon" title="管理者後台">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>
@@ -224,13 +224,11 @@
             const bookingLink = document.querySelector('a.btn-primary');
 
             try {
-                // --- 根本性修正：確保 redirectUri 永遠是乾淨的根路徑 ---
                 // 這是解決 PC 端 redirect_uri 不匹配問題的關鍵。
                 // 我們手動組合出不含任何 query string 的 URL。
                 const cleanRedirectUri = `${window.location.origin}${window.location.pathname}`;
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: cleanRedirectUri });
-                console.log(`LIFF initialized on index.html with clean redirectUri: ${cleanRedirectUri}`);
-
+                 console.log(`LIFF initialized on index.html with clean redirectUri: ${cleanRedirectUri}`);
 
                 // 手動從 URL 參數中取得 liff.state 的值
                 const manualLiffState = urlParams.get('liff.state');

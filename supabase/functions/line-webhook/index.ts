@@ -9,7 +9,7 @@ const CHANNEL_ACCESS_TOKEN = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN')
 const SUPABASE_URL = Deno.env.get('SB_URL')
 const SUPABASE_ANON_KEY = Deno.env.get('SB_ANON_KEY')
 
-// 新增：在函式啟動時就檢查必要的環境變數是否存在
+// 在函式啟動時就檢查必要的環境變數是否存在
 if (!CHANNEL_ACCESS_TOKEN || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing required environment variables (LINE_CHANNEL_ACCESS_TOKEN, SB_URL, SB_ANON_KEY). Please check your Supabase function settings.');
 }
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 新增：強健性檢查。如果請求沒有內容 (content-length 為 0 或 null)，
+    // 強健性檢查。如果請求沒有內容 (content-length 為 0 或 null)，
     // 這通常是 LINE 的 "Verify" 測試請求，直接回覆 OK 即可。
     if (!req.headers.get('content-length')) {
       return new Response('OK: No body', { status: 200 });
@@ -81,7 +81,7 @@ async function getBookingHistoryMessage(userId: string): Promise<any> {
           coaches ( coach_name )
         )
       `)
-      // 新增：只查詢上課日期為今天或未來的預約
+      // 只查詢上課日期為今天或未來的預約
       .gte('classes.class_date', todayString)
       .eq('line_user_id', userId)
       .order('booking_time', { ascending: false })
@@ -92,7 +92,7 @@ async function getBookingHistoryMessage(userId: string): Promise<any> {
       // 如果沒有預約，回傳純文字訊息
       return '您目前沒有任何預約紀錄喔！';
     } else {
-      // 新增：建立 Flex Message Carousel
+      // 建立 Flex Message Carousel
       const flexMessage = {
         type: 'flex',
         altText: '您的預約紀錄',
@@ -120,7 +120,7 @@ function createBookingCard(record: any): any {
   const bookingId = record.booking_id || 'NO_ID';
   const status = record.status || '未知狀態';
 
-  // 新增：格式化日期與時間作為標題
+  // 格式化日期與時間作為標題
   let title = '預約資訊';
   if (classDate !== '未知日期') {
     const dateParts = classDate.split('-');

@@ -8,11 +8,11 @@
     <script src="config.js"></script>
     <!-- 載入 Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- 新增：載入 LIFF SDK -->
+    <!-- 載入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <!-- 新增：載入共用 UI 元件 -->
+    <!-- 載入共用 UI 元件 -->
     <script src="ui-components.js"></script>
-    <!-- 新增：載入 Google Material Symbols 圖示庫 -->
+    <!-- 載入 Google Material Symbols 圖示庫 -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <!-- 載入 QRCode.js 函式庫 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -41,7 +41,7 @@
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             margin-bottom: 24px;
-            /* 新增：加粗的上邊框，並設定相對定位 */
+            /* 加粗的上邊框，並設定相對定位 */
             border-top: 40px solid #495057;
             position: relative;
         }
@@ -61,7 +61,7 @@
             width: auto; /* 讓寬度由內容決定 */
             white-space: nowrap; /* 防止文字換行 */
 
-            z-index: 1; /* 新增：確保標題在最上層 */
+            z-index: 1; /* 確保標題在最上層 */
             font-size: 1.25rem;
             font-weight: 600;
             color: #ffffff;
@@ -85,7 +85,7 @@
             margin: 0;
             display: flex;
             align-items: center;
-            /* 新增：控制日期和時間之間的間距 */
+            /* 控制日期和時間之間的間距 */
             gap: 16px; 
         }
 
@@ -96,7 +96,7 @@
             vertical-align: middle; /* 確保圖示與文字垂直對齊 */
         }
 
-        /* 新增：放大日期與時間的字體 */
+        /* 放大日期與時間的字體 */
         .service-details strong {
             font-size: 1.2rem;
             font-weight: 600;
@@ -120,7 +120,7 @@
             background-color: white; /* 讓 QR Code 背景是白色 */
             padding: 8px;
             border-radius: 8px;
-            cursor: pointer; /* 新增：提示可以點擊 */
+            cursor: pointer; /* 提示可以點擊 */
             transition: transform 0.2s;
         }
 
@@ -197,7 +197,7 @@
         }
         .error { color: #dc3545; }
 
-        /* --- 新增：QR Code 放大 Modal 樣式 --- */
+        /* --- QR Code 放大 Modal 樣式 --- */
         .qr-modal-overlay {
             display: none; /* 預設隱藏 */
             position: fixed;
@@ -235,7 +235,7 @@
             word-break: break-all;
         }
 
-        /* --- 新增：按鈕樣式 --- */
+        /* --- 按鈕樣式 --- */
         .btn {
             border: none;
             border-radius: 8px;
@@ -274,7 +274,7 @@
         <p class="loader">正在載入預約憑證...</p>
     </div>
 
-    <!-- 新增：QR Code 放大顯示的 Modal -->
+    <!-- QR Code 放大顯示的 Modal -->
     <div id="qr-modal" class="qr-modal-overlay">
         <div class="qr-modal-content">
             <div id="qrcode-large"></div>
@@ -306,7 +306,7 @@
             let userProfile = null;
 
             try {
-                // 新增：初始化 LIFF 並檢查登入狀態
+                // 初始化 LIFF 並檢查登入狀態
                 // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
                 // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
@@ -355,7 +355,7 @@
         }
 
         /**
-         * 新增：輔助函式，將新的 RPC 回傳結果轉換為舊的巢狀結構，以利 renderDetails 函式重複使用。
+         * 輔助函式，將新的 RPC 回傳結果轉換為舊的巢狀結構，以利 renderDetails 函式重複使用。
          */
         function mapRpcDataToLegacyStructure(rpcData) {
             return {
@@ -461,7 +461,7 @@
                         </div>
                     </div>
 
-                    <!-- 新增：底部按鈕區 -->
+                    <!-- 底部按鈕區 -->
                     <div class="button-group-split">
                         <button id="back-btn" class="btn btn-secondary">
                             <span class="material-symbols-outlined">arrow_back</span>
@@ -485,7 +485,7 @@
                 correctLevel : QRCode.CorrectLevel.H
             });
 
-            // --- 新增：綁定點擊放大 QR Code 的事件 ---
+            // --- 綁定點擊放大 QR Code 的事件 ---
             const qrClickable = document.getElementById('qr-code-clickable');
             const qrModal = document.getElementById('qr-modal');
             
@@ -514,7 +514,7 @@
                 }
             });
 
-            // --- 新增：綁定底部按鈕事件 ---
+            // --- 綁定底部按鈕事件 ---
             const backBtn = document.getElementById('back-btn');
             const closeBtn = document.getElementById('close-btn');
             const urlParams = new URLSearchParams(window.location.search);
