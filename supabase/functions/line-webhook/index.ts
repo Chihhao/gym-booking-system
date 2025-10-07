@@ -51,6 +51,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 新增：處理 Postback 事件
+    if (event && event.type === 'postback') {
+      const postbackData = new URLSearchParams(event.postback.data);
+      const action = postbackData.get('action');
+
+      if (action === 'cannot_cancel_paid') {
+        // 當使用者點擊已扣款課程的取消按鈕時，回覆提示訊息
+        await replyMessage(event.replyToken, '無法取消已扣款的預約，請洽客服。');
+      }
+      // 未來可以在這裡擴充處理 'request_cancel' 等其他 postback 行為
+
+    }
+
     // 3. 無論如何，都立即回傳 200 OK 給 LINE
     return new Response('OK', { status: 200 })
 
@@ -130,6 +143,28 @@ function createBookingCard(record: any): any {
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const dayOfWeek = weekDays[new Date(classDate).getDay()];   
     title = `${formattedDate}(${dayOfWeek}) ${startTime}`;
+  }
+
+  // 1. 根據狀態決定文字顏色
+  const statusColor = status === '已扣款' ? '#28a745' : '#fcc419';
+
+  // 2. 根據狀態決定「取消預約」按鈕的行為
+  let cancelAction;
+  if (status === '已扣款') {
+    // 如果已扣款，按鈕發送提示訊息
+    // 修正：將 type 從 'message' 改為 'postback'，讓後端來回覆訊息
+    cancelAction = {
+      type: 'postback',
+      label: '取消預約',
+      data: `action=cannot_cancel_paid&bookingId=${bookingId}`
+    };
+  } else {
+    // 如果是其他可取消狀態 (如：已預約)，則使用 postback 觸發取消流程
+    cancelAction = {
+      type: 'postback',
+      label: '取消預約',
+      data: `action=request_cancel&bookingId=${bookingId}`
+    };
   }
 
     return {
@@ -216,7 +251,7 @@ function createBookingCard(record: any): any {
                             "type": "text",
                             "text": status,
                             "wrap": true,
-                            "color": "#fcc419",
+                            "color": statusColor, // 使用動態顏色
                             "size": "sm",
                             "flex": 5
                         }
@@ -238,11 +273,7 @@ function createBookingCard(record: any): any {
                 {
                     "type": "button",
                     "style": "link",
-                    "action": {
-                        "type": "message",
-                        "label": "取消預約",
-                        "text": `[功能開發中] 取消預約 ${bookingId}`
-                    },
+                    "action": cancelAction, // 使用動態產生的 action
                     "color": "#dc3545",
                     "height": "sm"
                 },
