@@ -59,8 +59,55 @@ Deno.serve(async (req) => {
       if (action === 'cannot_cancel_paid') {
         // 當使用者點擊已扣款課程的取消按鈕時，回覆提示訊息
         await replyMessage(event.replyToken, '無法取消已扣款的預約，請洽客服。');
+      } else if (action === 'request_cancel') {
+        // 當使用者點擊「已預約」課程的取消按鈕時，先檢查時效性
+        const bookingId = postbackData.get('bookingId');
+        if (bookingId) {
+          const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          const { data: booking, error } = await supabaseClient
+            .from('bookings')
+            .select('classes(class_date, start_time)')
+            .eq('booking_id', bookingId)
+            .single();
+
+          if (error || !booking || !booking.classes) {
+            await replyMessage(event.replyToken, '找不到此預約紀錄，無法取消。');
+            return new Response('OK', { status: 200 });
+          }
+
+          // 組合課程時間
+          const classDateTime = new Date(`${booking.classes.class_date}T${booking.classes.start_time}`);
+          const now = new Date();
+
+          // 檢查課程是否已開始或結束
+          if (classDateTime < now) {
+            await replyMessage(event.replyToken, '此課程已開始或已結束，無法取消。');
+          } else {
+            // 只有在課程尚未開始時，才回覆確認卡片
+            const confirmationMessage = await createCancelConfirmationMessage(bookingId);
+            await replyMessage(event.replyToken, confirmationMessage);
+          }
+        }
+      } else if (action === 'confirm_cancel') {
+        // 當使用者點擊「確認取消」按鈕時，執行真正的取消操作
+        const bookingId = postbackData.get('bookingId');
+        const userId = event.source.userId;
+
+        if (bookingId && userId) {
+          const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          // 呼叫後端 RPC 函式來執行原子操作
+          const { data, error } = await supabaseClient.rpc('cancel_booking_atomic', {
+            p_booking_id: bookingId,
+            p_user_id: userId
+          });
+
+          if (error || !data || data.length === 0) {
+            await replyMessage(event.replyToken, '取消失敗，請稍後再試或聯繫客服。');
+          } else {
+            await replyMessage(event.replyToken, data[0].message);
+          }
+        }
       }
-      // 未來可以在這裡擴充處理 'request_cancel' 等其他 postback 行為
 
     }
 
@@ -315,6 +362,129 @@ function createBookingCard(record: any): any {
             }
         }
     };
+}
+
+/**
+ * 建立一個 Flex Message，用於向使用者確認是否要取消預約
+ * @param bookingId - 要取消的預約 ID
+ * @returns Flex Message 物件或錯誤訊息文字
+ */
+async function createCancelConfirmationMessage(bookingId: string): Promise<any> {
+  try {
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 根據 bookingId 查詢課程詳細資訊
+    const { data, error } = await supabaseClient
+      .from('bookings')
+      .select(`
+        booking_id,
+        classes!inner (
+          class_date,
+          start_time,
+          courses ( course_name ),
+          coaches ( coach_name )
+        )
+      `)
+      .eq('booking_id', bookingId)
+      .single();
+
+    if (error || !data) {
+      throw new Error(error.message || 'Booking not found');
+    }
+
+    // 解構並格式化資料
+    const cls = data.classes as any;
+    const courseName = cls.courses.course_name || '未知課程';
+    const classDate = cls.class_date;
+    const startTime = cls.start_time.substring(0, 5);
+    const dateParts = classDate.split('-');
+    const formattedDate = `${dateParts[1]}/${dateParts[2]}`;
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+    const dayOfWeek = weekDays[new Date(classDate).getDay()];
+
+    // 建立 Flex Message
+    return {
+      type: 'flex',
+      altText: '確認取消預約',
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '您確定要取消嗎？',
+              weight: 'bold',
+              size: 'lg',
+              color: '#FFFFFF'
+            },
+            {
+              type: 'text',
+              text: '取消後將無法復原',
+              size: 'sm',
+              color: '#aaaaaa',
+              margin: 'sm'
+            },
+            {
+              type: 'separator',
+              margin: 'lg',
+              color: '#555555'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'lg',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: courseName, size: 'md', color: '#fcc419', weight: 'bold' },
+                { type: 'text', text: `${formattedDate} (${dayOfWeek}) ${startTime}`, color: '#FFFFFF' }
+              ]
+            }
+          ],
+          backgroundColor: '#212529',
+          paddingAll: 'xl'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'link',
+              height: 'sm',
+              action: {
+                type: 'message',
+                label: '返回',
+                text: '返回'
+              },
+              color: '#aaaaaa'
+            },
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: {
+                type: 'postback',
+                label: '確認取消',
+                data: `action=confirm_cancel&bookingId=${bookingId}`,
+                displayText: `正在取消預約...`
+              },
+              color: '#dc3545'
+            }
+          ],
+          flex: 0,
+          paddingAll: 'md',
+          backgroundColor: '#212529'
+        }
+      }
+    };
+  } catch (error) {
+    console.error('建立取消確認訊息時發生錯誤:', error);
+    return '無法取得預約資料，請稍後再試。';
+  }
 }
 
 async function replyMessage(replyToken: string, messages: any | any[]) {
