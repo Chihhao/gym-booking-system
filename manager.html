@@ -718,7 +718,8 @@
                 </div>
                 <div class="form-group">
                     <label for="form-max-students">人數上限</label>
-                    <input type="number" id="form-max-students" min="1" value="4" required>
+                    <input type="hidden" id="form-max-students" value="2">
+                    <div id="form-max-students-picker" class="color-picker-container"></div>
                 </div>
                 <div class="modal-actions">
                     <button type="button" id="delete-class-btn" class="btn btn-danger">刪除課堂</button>
@@ -1209,6 +1210,38 @@
             });
         });
 
+        /**
+         * 初始化人數上限選擇器
+         * @param {number} selectedValue - 預設要選中的人數
+         */
+        function initializeMaxStudentsPicker(selectedValue = 2) {
+            const maxStudentsPicker = document.getElementById('form-max-students-picker');
+            maxStudentsPicker.innerHTML = ''; // 清空之前的選項
+
+            for (let i = 1; i <= 4; i++) {
+                const studentNum = i;
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = '#f8f9fa'; // 淺灰色背景
+                swatch.style.color = 'black';
+                swatch.style.textAlign = 'center';
+                swatch.style.lineHeight = '28px';
+                swatch.textContent = studentNum;
+                swatch.dataset.studentNum = studentNum;
+
+                swatch.addEventListener('click', () => {
+                    maxStudentsPicker.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                    swatch.classList.add('selected');
+                    document.getElementById('form-max-students').value = studentNum;
+                });
+                maxStudentsPicker.appendChild(swatch);
+                swatch.title = `${studentNum} 人`;
+
+                if (studentNum === selectedValue) {
+                    swatch.click(); // 模擬點擊以選中
+                }
+            }
+        }
         // --- 側邊欄收合功能 ---
         document.getElementById('sidebar-toggle').addEventListener('click', () => {
             document.body.classList.toggle('sidebar-collapsed');
@@ -1569,10 +1602,12 @@
                     document.getElementById('form-start-time').value = d.start_time.substring(0, 5); // "HH:mm"
                     // 如果 end_time 存在，就填入；否則預設為 start_time + 1 小時
                     document.getElementById('form-end-time').value = d.end_time ? d.end_time.substring(0, 5) : (parseInt(d.start_time.substring(0, 2)) + 1).toString().padStart(2, '0') + ':' + d.start_time.substring(3, 5);
-                    document.getElementById('form-course-id').value = d.course_id;
+
                     document.getElementById('form-class-name').value = d.class_name;
                     document.getElementById('form-coach-id').value = d.coach_id;
                     document.getElementById('form-max-students').value = d.max_students;
+                    // 啟動人數按鈕選項
+                    initializeMaxStudentsPicker(d.max_students);
 
                 } catch (error) {
                     showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
@@ -1589,6 +1624,8 @@
                 document.getElementById('form-end-time').value = (parseInt(time.substring(0, 2)) + 1).toString().padStart(2, '0') + ':' + time.substring(3, 5);
 
                 populateFormDropdowns(); // 填充下拉選單
+                // 新增時，預設人數為 4
+                initializeMaxStudentsPicker(4);
             }
 
             modal.classList.add('active');
@@ -1598,34 +1635,6 @@
         // 畫布課表有自己的 openClassModal 邏輯
         // 由於舊課表已移除，此函式不再需要
         // const openClassModal = openClassModal_OLD;
-
-        // 註：handleSaveClass 已移至 manager-utils.js
-        /*
-            const params = {
-                p_class_id: document.getElementById('form-class-id').value,
-                p_class_date: document.getElementById('form-class-date').value,
-                p_start_time: document.getElementById('form-start-time').value,
-                p_end_time: document.getElementById('form-end-time').value,
-                p_course_id: document.getElementById('form-course-id').value,
-                p_class_name: document.getElementById('form-class-name').value,
-                p_coach_id: document.getElementById('form-coach-id').value,
-                p_max_students: parseInt(document.getElementById('form-max-students').value, 10)
-            };
-
-                // --- 方案二：前端直接呼叫 Supabase RPC ---
-                const { data, error } = await supabaseClient.rpc('save_class', params);
-
-                if (error) throw error;
-
-                const result = data[0];
-                showNotification(result.message, result.status);
-
-                if (result.status === 'success') {
-                    closeClassModal();
-                    loadManagerSchedule(); // 重新載入課表
-                }
-
-        */
 
         // 註：handleDeleteClass 已移至 manager-utils.js
         // 註：loadManagerFormData 已移至 manager-utils.js
@@ -2374,6 +2383,8 @@
                 document.getElementById('form-class-name').value = data.class_name;
                 document.getElementById('form-coach-id').value = data.coach_id;
                 document.getElementById('form-max-students').value = data.max_students;
+                // 啟動人數按鈕選項
+                initializeMaxStudentsPicker(data.max_students);
             } catch (error) {
                 showNotification(`載入課堂資料失敗: ${error.message}`, 'error');
                 return;
@@ -2396,6 +2407,8 @@
             endDate.setHours(startH + 1, startM, 0, 0);
             const endTimeString = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
             document.getElementById('form-end-time').value = endTimeString;
+            // 新增時，預設人數為 2
+            initializeMaxStudentsPicker(2);
             modal.classList.add('active');
         }
 
