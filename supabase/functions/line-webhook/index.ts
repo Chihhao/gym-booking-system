@@ -83,6 +83,8 @@ async function getBookingHistoryMessage(userId: string): Promise<any> {
       `)
       // 只查詢上課日期為今天或未來的預約
       .gte('classes.class_date', todayString)
+      // 修正：只顯示未取消的預約
+      .in('status', ['已預約', '已扣款'])
       .eq('line_user_id', userId)
       .order('booking_time', { ascending: false })
 
@@ -256,11 +258,9 @@ function createBookingCard(record: any): any {
                     "action": {
                         "type": "uri",
                         "label": "查看憑證",
-                        // 關鍵修正：liff.state 的值只應包含路徑，其他參數應透過 & 附加在後面。
-                        // 錯誤範例: ?liff.state=/path?param=value
-                        // 正確範例: ?liff.state=/path&param=value
-                        // LIFF SDK 會自動將 liff.state 以外的參數附加到目標路徑上。
-                        "uri": `https://liff.line.me/2008135811-vNO5bYyx?liff.state=/booking-details.html&id=${bookingId}`
+                        // 終極修正：根據 LIFF 規範，所有參數都應附加在 liff.state 的路徑後面，
+                        // 並且需要經過 URL 編碼，以確保參數能被正確解析。
+                        "uri": `https://liff.line.me/2008135811-vNO5bYyx/booking-details.html?id=${bookingId}`
                     },
                     "color": "#fcc419"
                 }
