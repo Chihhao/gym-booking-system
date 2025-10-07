@@ -224,8 +224,13 @@
             const bookingLink = document.querySelector('a.btn-primary');
 
             try {
-                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
-                console.log('LIFF initialized on index.html');
+                // --- 根本性修正：確保 redirectUri 永遠是乾淨的根路徑 ---
+                // 這是解決 PC 端 redirect_uri 不匹配問題的關鍵。
+                // 我們手動組合出不含任何 query string 的 URL。
+                const cleanRedirectUri = `${window.location.origin}${window.location.pathname}`;
+                await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: cleanRedirectUri });
+                console.log(`LIFF initialized on index.html with clean redirectUri: ${cleanRedirectUri}`);
+
 
                 // 手動從 URL 參數中取得 liff.state 的值
                 const manualLiffState = urlParams.get('liff.state');
@@ -279,9 +284,12 @@
                 if (!liff.isLoggedIn()) {
                     // 如果未登入，呼叫 liff.login() 並將 courses.html 設為最終的 redirectUri
                     // 關鍵修正：在 PC 端，redirectUri 應該是當前頁面 (index.html)，
-                    // LIFF 會使用 liff.state 來記住最終要跳轉的目的地。
-                    const loginRedirectUri = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, '')}`;
+                    // 且必須是「乾淨的」URL，與 liff.init 中使用的完全一致。
+                    // LIFF SDK 會自動將目標頁面 (courses.html) 儲存在 liff.state 中。
+                    const loginRedirectUri = `${window.location.origin}${window.location.pathname}`;
                     console.log('User not logged in. Redirecting to login with courses.html as final destination.');
+                    // 修正：liff.login() 不需要傳遞 coursesPageUrl，LIFF 會自動處理。
+                    // 我們只需要確保 redirectUri 是乾淨的 index.html 即可。
                     liff.login({ redirectUri: loginRedirectUri });
                 } else {
                     // 如果已登入，直接跳轉到 courses.html
