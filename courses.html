@@ -65,10 +65,15 @@
             renderHeaderAndFooter();
 
             try {
-                // 步驟 1: 無論如何都先初始化 LIFF
-                // 終極修正：明確提供 redirectUri，強制 LIFF SDK 以當前頁面為基準，
-                // 徹底消除因多頁面跳轉產生的 "not related to the endpoint URL" 警告。
-                // 這會覆蓋 LIFF 在 localStorage 中記憶的舊路徑。
+                // --- 根本性解決方案：在 init 之前清除 LIFF 的 session 記憶 ---
+                // 這個操作可以解決在「線上環境」(GitHub Pages) 中，因從 index.html 跳轉而產生的 LIFF 警告。
+                // LIFF SDK 會在 localStorage 記住它第一次初始化的頁面。
+                // 我們在 init 之前手動清除這個記憶，讓 LIFF 認為當前頁面就是這次的起點。
+                const liffSettingsKey = `liff-sdk:${AppConfig.LIFF_ID}:settings`;
+                localStorage.removeItem(liffSettingsKey);
+
+                // 初始化 LIFF。對於「本地開發」，由於網域不符，警告仍會出現，這是正常且可預期的。
+                // 對於「線上環境」，由於上一步清除了 localStorage，此處不會再有警告。
                 await liff.init({ liffId: AppConfig.LIFF_ID, redirectUri: window.location.href });
                 console.log('LIFF initialized');
 
