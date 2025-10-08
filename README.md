@@ -33,3 +33,9 @@
 *   **Webhook 服務**: Supabase Edge Functions (Deno)
 *   **前端**: HTML, CSS, JavaScript, LINE LIFF SDK
 *   **部署**: Supabase CLI, GitHub Pages
+
+---
+
+# 功能截圖
+
+待補充

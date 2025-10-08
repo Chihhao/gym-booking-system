@@ -1,21 +1,60 @@
-### 已完成的里程碑 (Completed Milestones)
+## 新功能：課堂記錄 (New Feature: Class Records)
 
--   [x] **大挑戰：課程時間改為 15 分鐘單位**：完成後端資料庫、管理後台（畫布課表、拖曳互動）、學員介面（互動式展開）的全面改造。
--   [x] **為 `manager.html` 實作 Google 登入驗證**：整合 Supabase Auth，並透過 RLS 政策確保只有授權管理者能存取後台資料。
--   [x] **優化預約憑證頁面 (Phase I)**: 採用票券式設計，並透過安全的 RPC 函式 `get_booking_details_for_user` 實現了「僅限本人查看」的權限控管。
--   [x] **架構遷移與簡化**
-    -   [x] **Webhook 核心邏輯遷移**: 將 Webhook 核心邏輯從 GAS 遷移至 Supabase Edge Function (`line-webhook`)。
-    -   [x] **圖文選單管理流程簡化**: 不再使用 `manage-rich-menu` Edge Function。圖文選單的建立與設定已移至 LINE Official Account Manager 後台，透過視覺化介面直接管理，大幅簡化流程。
--   [x] **專案清理 (Final Cleanup)**
-    -   [x] 從專案中移除了舊的 `Code.gs` 和 `appsscript.json` 檔案。
-    -   [x] 從專案中移除了 GAS 設定檔 `.clasp.json`。
-    -   [x] 更新 `config.js`，移除了不再使用的 `GAS_URL` 變數。
+目標：實作完整的課堂記錄功能，讓教練可以記錄學員的訓練內容，學員可以查詢自己的進步歷程。
+
+-   [ ] **Part 1: 後端資料庫建置 (Backend Database Setup)**
+    -   [ ] 建立 `class_sessions` 資料表，用於儲存課堂日誌總表 (出席狀態、整體評分、總結等)。
+    -   [ ] 建立 `exercise_logs` 資料表，用於儲存單一課堂中的多筆訓練動作日誌 (動作名稱、重量、次數等)。
+    -   [ ] 建立相關的 RLS (Row Level Security) 政策，確保學員只能讀取自己的記錄。
+    -   [ ] **設計決策**: `class_sessions` 表使用獨立的 `session_id` 作為主鍵，而非直接使用 `booking_id`。
+        -   **理由 1 (職責分離)**: `booking_id` 代表「預約行為」，`session_id` 代表「課堂事件」，兩者概念不同。
+        -   **理由 2 (擴充性)**: 保留未來處理「無預約的現場學員」記錄的可能性。
+        -   **理由 3 (一致性)**: 與專案中其他資料表 (courses, coaches, classes) 的主鍵設計慣例保持一致。
+    -   [ ] 建立後端 RPC 函式 (`upsert_session_and_logs`, `get_my_records`) 以處理資料的寫入與讀取。
+
+-   [ ] **Part 2: 教練端介面 (Coach Interface - LIFF)**
+    -   [ ] 建立新的 LIFF 頁面 `coach-record.html`，專為教練手機操作設計。
+    -   [ ] 實作介面，讓教練能選擇課堂、查看學員列表。
+    -   [ ] 為每位學員實作可動態新增/刪除的「訓練動作日誌」表單 (動作、KG、次數)。
+    -   [ ] 整合星星評分元件與備註輸入框。
+    -   [ ] 串接後端 `upsert_session_and_logs` RPC 函式以儲存記錄。
+
+-   [ ] **Part 3: 學員端介面 (Student Interface - LIFF)**
+    -   [ ] 建立新的 LIFF 頁面 `my-records.html`，用於顯示個人歷史記錄。
+    -   [ ] 實作介面，以卡片列表形式呈現每堂課的記錄，並可展開查看詳細訓練動作。
+    -   [ ] 串接後端 `get_my_records` RPC 函式以讀取資料。
+
+-   [ ] **Part 4: LINE Bot 整合 (LINE Bot Integration)**
+    -   [ ] 在 `line-webhook` 中新增對 `[個人記錄]` 文字訊息的處理。
+    -   [ ] 當收到 `[個人記錄]` 時，回覆一個按鈕，引導使用者開啟 `my-records.html` LIFF 頁面。
+
+-   [ ] **Part 5: 管理者後台整合 (Manager/Admin Integration)**
+    -   [ ] 在 `manager.html` 新增一個「課堂記錄」的導覽頁籤與區塊。
+    -   [ ] 實作一個可篩選、可搜尋的介面，用來列出**所有**的 `class_sessions` 記錄。
+    -   [ ] 建立一個 Modal 或詳情頁面，讓管理者可以查看並**修改**指定的課堂記錄（包含訓練動作日誌）。
+    -   [ ] 確保後端 RLS 政策允許管理者 (`ADMIN_EMAILS`) 擁有對 `class_sessions` 和 `exercise_logs` 的完整讀寫權限。
+
+## 新功能：教練身份綁定 (New Feature: Coach Account Linking)
+
+目標：建立一個簡單流暢的「Bot 輔助綁定」流程，讓系統能將教練的資料與他們的 LINE 帳號 (`line_user_id`) 關聯起來。
+
+-   [ ] **Part 1: 後端建置 (Backend Setup)**
+    -   [ ] 在 `coaches` 資料表新增 `line_user_id` (text) 欄位，並建立唯一索引。
+    -   [ ] 建立 RPC 函式 `send_coach_linking_request(p_coach_id)`，其職責為：
+        -   [ ] 根據 `coach_id` 查到教練的 `line_id` (可搜尋的 ID)。
+        -   [ ] 呼叫 LINE Push API，主動推送一個「確認綁定」的卡片訊息給該教練。
+-   [ ] **Part 2: LINE Webhook 整合 (Webhook Integration)**
+    -   [ ] 在 `line-webhook` 中，新增處理「確認綁定」的 `postback` 事件邏輯，其職責為：
+        -   [ ] 從 `postback` 事件中取得教練的 `line_user_id` 和 `coach_id`。
+        -   [ ] 將 `line_user_id` 更新到 `coaches` 資料表中對應的紀錄。
+        -   [ ] 回覆教練「綁定成功」的訊息。
+-   [ ] **Part 3: 管理者後台介面 (Manager Interface)**
+    -   [ ] 在 `manager.html` 的「教練管理」表格中，新增一欄顯示綁定狀態 (已綁定/未綁定)。
+    -   [ ] 為未綁定的教練新增「傳送綁定邀請」按鈕，並串接 `send_coach_linking_request` RPC 函式。
 
 ---
 
-### 進行中與未來規劃 (In Progress & Future Plans)
-
-### 重構 Manager 後台 (Refactoring `manager.html`)
+## 重構 Manager 後台 (Refactoring `manager.html`)
 
 目標：將 `manager.html` 中龐大的 JavaScript 程式碼進行模組化拆分與重構，以提高可維護性、可讀性與擴展性。
 
@@ -38,66 +77,6 @@
     -   [ ] **抽象化時間與像素轉換**: 將 `offsetY / canvasPixelsPerMinute` 等計算封裝成獨立的輔助函式（如 `minutesToPixels`, `timeToPixels`）。
     -   [ ] **分離互動與資料更新**: 將 `interact.js` 的 `end` 事件監聽器職責簡化，只負責計算變更後的資料，並呼叫獨立的 `updateClass` 函式來執行 API 儲存。
 
-
-
-
 ---
 
-### 為 `manager.html` 實作 Google 登入驗證
-
-目標：只有指定的 Google 帳號可以登入後台，並存取所有管理資料。
-
-#### Part 1: Supabase 後端設定
-
-1.  **[x] 啟用 Google 驗證提供者**
-    *   [ ] 前往 Supabase 儀表板 > Authentication > Providers。
-    *   [x] 啟用 `Google` 提供者。
-    *   [x] 依照官方文件指示，前往 Google Cloud Console 建立 OAuth 2.0 Client ID。
-    *   [x] 將 Google Cloud Console 提供的 `Client ID` 和 `Client Secret` 填回 Supabase。
-    *   [x] **重要**：將 Supabase 提供的 `Redirect URI` 複製並貼到 Google Cloud Console 的「已授權的重新導向 URI」欄位中。
-
-#### Part 2: 強化 RLS (Row Level Security) 安全策略
-
-1.  **[x] 刪除臨時的公開讀取策略**
-    *   [x] **(已完成)** 透過 `20251003100000_refine_rls_policies.sql` 移除了所有資料表上過於寬鬆的公開讀取策略。
-
-2.  **[x] 建立僅限管理者存取的策略**
-    *   [x] 執行 SQL，建立新的 RLS 策略，只允許 email 為特定管理者信箱的已登入使用者存取資料。
-        ```sql
-        -- 假設管理者的 email 是 'your.admin.email@gmail.com'
-        CREATE POLICY "Allow managers to read all users" ON public.users FOR SELECT USING (auth.email() = 'your.admin.email@gmail.com');
-        CREATE POLICY "Allow managers to read all coaches" ON public.coaches FOR SELECT USING (auth.email() = 'your.admin.email@gmail.com');
-        ```
-3.  **[x] RLS 策略重構**
-    *   [x] **(已完成)** 透過 `20251004120001_consolidate_admin_rls.sql` 進行了全面的策略清理與重構。
-    *   [x] **結果**: 刪除了所有舊的、分散的管理者策略，並為所有核心資料表 (`bookings`, `classes`, `courses`, `coaches`, `users`) 建立了一組乾淨、統一的 `FOR ALL` (CRUD) 策略。
-    *   [x] **標準化**: 所有新的管理者策略都明確授權給 `authenticated` 角色，確保只有透過 Google 登入的管理者才能觸發。
-
-#### Part 3: 前端 `manager.html` 頁面修改
-
-1.  **[x] 建立登入畫面**
-    *   [x] 在 `<body>` 中建立一個登入畫面的 `<div>` (例如 `#login-view`)，內含一個「使用 Google 登入」的按鈕。
-    *   [x] 將原本的主要內容區 (`<nav class="sidebar">` 和 `<main class="main-content">`) 用另一個 `<div>` (例如 `#main-view`) 包起來。
-    *   [x] 預設情況下，`#login-view` 顯示，`#main-view` 隱藏。
-
-2.  **[x] 修改 JavaScript 邏輯**
-    *   [x] 加入 `supabase.auth.onAuthStateChange` 監聽器。
-    *   [x] **監聽器邏輯**：
-        *   如果 `event` 是 `SIGNED_IN` 且 `session.user.email` 是管理者信箱：
-            *   隱藏 `#login-view`，顯示 `#main-view`。
-            *   執行 `handleNavigation()` 來載入預設頁面資料。
-        *   如果 `event` 是 `SIGNED_OUT` 或使用者不是管理者：
-            *   顯示 `#login-view`，隱藏 `#main-view`。
-    *   [x] **登入按鈕**：為「使用 Google 登入」按鈕綁定點擊事件，呼叫 `supabaseClient.auth.signInWithOAuth({ provider: 'google' })`。
-    *   [x] **登出功能**：在側邊欄或頁首新增一個「登出」按鈕，綁定點擊事件呼叫 `supabaseClient.auth.signOut()`。
-
----
-
-### 未來規劃 (Future Plans) & 文件
-
--   [ ] **部署與文件 (Deployment & Documentation)**
-    -   [x] **前端部署**: 將前端靜態檔案 (`.html`, `.css`, `.js`) 部署至 GitHub Pages。
-    -   [ ] **撰寫部署與設定文件**: 在 `README.md` 中補充完整的部署與設定流程，包含：
-        -   [ ] 前端 `config.js` 的設定方式。
-        -   [ ] Supabase Edge Functions (`line-webhook`) 所需的環境變數 (Secrets)。
-        -   [ ] 在 LINE Official Account Manager 中設定圖文選單的步驟。
+## 在 readme.md 新增功能截圖
