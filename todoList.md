@@ -3,13 +3,13 @@
 -   [x] **大挑戰：課程時間改為 15 分鐘單位**：完成後端資料庫、管理後台（畫布課表、拖曳互動）、學員介面（互動式展開）的全面改造。
 -   [x] **為 `manager.html` 實作 Google 登入驗證**：整合 Supabase Auth，並透過 RLS 政策確保只有授權管理者能存取後台資料。
 -   [x] **優化預約憑證頁面 (Phase I)**: 採用票券式設計，並透過安全的 RPC 函式 `get_booking_details_for_user` 實現了「僅限本人查看」的權限控管。
--   [x] **架構遷移：從 Google Apps Script 到 Supabase**：將 Webhook 核心邏輯與圖文選單管理腳本從 GAS 遷移至 Supabase Edge Functions，統一了後端技術棧。
-    -   **[註] 更新圖文選單**: 當 `manage-rich-menu/index.ts` 內容有修改時，需部署 (`supabase functions deploy manage-rich-menu`) 並執行以下指令來更新線上的圖文選單：
-        ```bash
-        curl -X POST 'https://zseddmfljxtcgtzmvove.supabase.co/functions/v1/manage-rich-menu' \
-        -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U' \
-        -H 'Content-Type: application/json'
-        ```
+-   [x] **架構遷移與簡化**
+    -   [x] **Webhook 核心邏輯遷移**: 將 Webhook 核心邏輯從 GAS 遷移至 Supabase Edge Function (`line-webhook`)。
+    -   [x] **圖文選單管理流程簡化**: 不再使用 `manage-rich-menu` Edge Function。圖文選單的建立與設定已移至 LINE Official Account Manager 後台，透過視覺化介面直接管理，大幅簡化流程。
+-   [x] **專案清理 (Final Cleanup)**
+    -   [x] 從專案中移除了舊的 `Code.gs` 和 `appsscript.json` 檔案。
+    -   [x] 從專案中移除了 GAS 設定檔 `.clasp.json`。
+    -   [x] 更新 `config.js`，移除了不再使用的 `GAS_URL` 變數。
 
 ---
 
@@ -93,24 +93,11 @@
 
 ---
 
-### 未來規劃 (Future Plans)
+### 未來規劃 (Future Plans) & 文件
 
-目標：將所有後端輔助功能從 Google Apps Script (GAS) 完全遷移至 Supabase Edge Functions，以統一技術棧並簡化維護。
-
--   [x] **Webhook 核心邏輯遷移**
-    -   [x] 建立 Supabase Edge Function `line-webhook`，用 TypeScript 重新實現接收 LINE Postback 事件的邏輯。
-    -   [x] 在 Edge Function 中實現非同步處理，立即回應 LINE 平台，並在背景查詢資料庫與推送訊息。
-    -   [x] 更新 `README.md` 和 `ai_rules.md`，反映新的 Webhook 架構。
-    -   [x] 將 LINE Developer 後台的 Webhook URL 從 GAS 更新為 Supabase Edge Function 的 URL。
--   [x] **管理腳本遷移**
-    -   [x] 建立 Supabase Edge Function `manage-rich-menu`，用 TypeScript 重新實現建立 LINE 圖文選單的功能。
-    -   [x] **(已完成)** `migrateDataToSupabase` 函式已完成其一次性資料遷移任務。
--   [ ] **專案清理 (Final Cleanup)**
-    -   [ ] 從專案中移除 `Code.gs` 和 `appsscript.json` 檔案。
-    -   [ ] 更新 `config.js`，移除不再使用的 `GAS_URL` 變數。
-
----
-
-### 未來規劃
-
--   [ ] **部署與文件**：將前端靜態檔案部署至 GitHub Pages，並在 `README.md` 中補充完整的部署流程與環境變數設定說明。
+-   [ ] **部署與文件 (Deployment & Documentation)**
+    -   [x] **前端部署**: 將前端靜態檔案 (`.html`, `.css`, `.js`) 部署至 GitHub Pages。
+    -   [ ] **撰寫部署與設定文件**: 在 `README.md` 中補充完整的部署與設定流程，包含：
+        -   [ ] 前端 `config.js` 的設定方式。
+        -   [ ] Supabase Edge Functions (`line-webhook`) 所需的環境變數 (Secrets)。
+        -   [ ] 在 LINE Official Account Manager 中設定圖文選單的步驟。
