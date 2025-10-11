@@ -27,11 +27,11 @@
 
 1.  複製 (Clone) 此專案至您的本地電腦：
     ```bash
-    git clone https://github.com/Chihhao/gym-booking-system.git
+    git clone https://github.com/Chihhao/WALLY-STUDIO.git
     ```
 2.  進入專案目錄：
     ```bash
-    cd gym-booking-system
+    cd WALLY-STUDIO
     ```
 
 ### 3. 後端設定 (Supabase)
@@ -117,14 +117,14 @@ supabase functions deploy line-webhook --no-verify-jwt
     const AppConfig = {
         SUPABASE_URL: 'https://<your-project-id>.supabase.co',
         SUPABASE_ANON_KEY: 'YOUR_ANON_KEY',
-        LIFF_ID: 'YOUR_LIFF_ID', // 從 LINE Login Channel 取得
-        IMAGE_BASE_URL: 'https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/gym-booking-system/main/images/'
+        LIFF_ID: 'YOUR_LIFF_ID', // 從 LINE Login Channel 取得,
+        IMAGE_BASE_URL: 'https://raw.githubusercontent.com/<YOUR_GITHUB_USERNAME>/WALLY-STUDIO/main/images/'
     };
     ```
     **注意**: `IMAGE_BASE_URL` 需替換為您自己的 GitHub 使用者名稱。
 
 2.  **部署前端網頁**：
-    這是一個純靜態前端專案，推薦使用 GitHub Pages 進行部署。將您的專案推送到 GitHub 儲存庫後，前往儲存庫的 `Settings > Pages`，選擇 `main` 分支並啟用。
+    這是一個純靜態前端專案，推薦使用 GitHub Pages 進行部署。將您的專案推送到 GitHub 儲存庫後，前往儲存庫的 `Settings > Pages`，選擇 `main` 分支並啟用。您的網址會是 `https://<YOUR_GITHUB_USERNAME>.github.io/WALLY-STUDIO/`。
 
 3.  **設定 LIFF URL**：
-    最後，回到 LINE Developer Console，在您的 LINE Login Channel 的 LIFF 分頁中，將 "Endpoint URL" 設定為您部署好的 GitHub Pages 網址 (例如: `https://<YOUR_GITHUB_USERNAME>.github.io/gym-booking-system/`)。
+    最後，回到 LINE Developer Console，在您的 LINE Login Channel 的 LIFF 分頁中，將 "Endpoint URL" 設定為您部署好的 GitHub Pages 網址 (例如: `https://<YOUR_GITHUB_USERNAME>.github.io/WALLY-STUDIO/`)。

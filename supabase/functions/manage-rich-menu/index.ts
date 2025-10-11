@@ -93,7 +93,7 @@ serve(async (req) => {
 
     // 3. 從 GitHub URL 讀取圖片並上傳
     console.log('Step 2: Fetching and uploading rich menu image...')
-    const imageUrl = "https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/KAY-GYM-MENU.jpg";
+    const imageUrl = "https://raw.githubusercontent.com/Chihhao/WALLY-STUDIO/main/images/KAY-GYM-MENU.jpg";
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
       throw new Error(`Failed to fetch image from URL: ${imageUrl}`);

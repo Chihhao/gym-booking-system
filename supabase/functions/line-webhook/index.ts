@@ -527,7 +527,7 @@ function createContactFlexMessage() {
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://raw.githubusercontent.com/Chihhao/gym-booking-system/main/images/card_cover.png",
+                "url": "https://raw.githubusercontent.com/Chihhao/WALLY-STUDIO/main/images/card_cover.png",
                 "size": "full",
                 "action": {
                     "type": "uri",
