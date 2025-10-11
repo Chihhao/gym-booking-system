@@ -154,7 +154,7 @@ graph TD
 ```
 
 ### Supabase RPC 函式列表
-![Supabase 後台的 RPC 函式列表](images/capture_supabase_rpc.png)
+![Supabase 後台的 RPC 函式列表](images/capture_supabase_rpc.PNG)
 > **設計實踐**：上圖展示了在 Supabase 中建立的部分核心 RPC 函式。前端應用程式（無論是學員端或管理後台）僅需呼叫這些預先定義好的函式，即可完成複雜的資料庫操作。這種架構不僅簡化了前端邏輯，更將所有權限控管與商業規則集中在後端，大幅提升了系統的安全性與可維護性。
 
 ---
