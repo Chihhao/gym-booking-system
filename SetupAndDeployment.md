@@ -1,4 +1,4 @@
-# KAY-GYM-SYSTEM
+# WALLY-STUDIO
 
 ## 專案設定與部署 (Setup and Deployment)
 
@@ -21,7 +21,10 @@
     *   在 Provider 下建立一個 **LINE Login** channel，並在此 channel 中啟用 LIFF (用於前端應用)。
 *   **Google Cloud**:
     *   您需要一個**一般 Google (Gmail) 帳號**作為管理者登入後台使用。
-    *   同時，您需要前往 Google Cloud Console，為這個專案建立一組 **OAuth 2.0 用戶端 ID**。這組 ID 是讓 Supabase 能夠安全地與 Google 溝通、觸發 Google 登入流程的「鑰匙」，是必要的設定步驟。
+    *   前往 [Google Cloud Console](https://console.cloud.google.com/)，為專案建立一組 **OAuth 2.0 用戶端 ID**。
+    *   取得 `用戶端 ID (Client ID)` 和 `用戶端密鑰 (Client Secret)`。
+    *   前往您的 **Supabase 儀表板** > `Authentication` > `Providers` > `Google`。
+    *   將取得的 `Client ID` 和 `Client Secret` 填入對應欄位並儲存。**此步驟為管理者能登入後台的關鍵**。
 
 ### 2. 取得專案
 
@@ -46,7 +49,7 @@
     ```bash
     supabase link --project-ref <project-id>
     ```
-    您可以在 Supabase 專案儀表板的 `Settings` > `General` 中找到 `Project ID`。
+    > 您可以在 Supabase 專案儀表板的 `Settings` > `General` 中找到 `Project ID` (它是一串隨機字元，不是您的專案名稱)。
 
 #### 3.2 資料庫部署
 
