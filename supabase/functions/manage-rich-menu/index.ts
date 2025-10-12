@@ -1,7 +1,8 @@
 // supabase/functions/manage-rich-menu/index.ts
 
 // 上傳指令：supabase functions deploy manage-rich-menu
-// 觸發指令：curl -X POST 'https://zseddmfljxtcgtzmvove.supabase.co/functions/v1/manage-rich-menu' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpzZWRkbWZsanh0Y2d0em12b3ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDY5MjgsImV4cCI6MjA3NDA4MjkyOH0.w4jHbYyTcdsf_fRb1HJ09bAsGWkhJVhpuN30CdFRJ8U' -H 'Content-Type: application/json'
+// 觸發指令 (注意：請將 YOUR_ANON_KEY 替換為您的 Supabase anon key)：
+// curl -X POST 'https://zseddmfljxtcgtzmvove.supabase.co/functions/v1/manage-rich-menu' -H 'Authorization: Bearer YOUR_ANON_KEY' -H 'Content-Type: application/json'
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'

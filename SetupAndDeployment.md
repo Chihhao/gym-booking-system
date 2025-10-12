@@ -66,10 +66,10 @@ supabase db push
     ```env
     # 從 LINE Developer Console 取得
     LINE_CHANNEL_ACCESS_TOKEN="ep..."
-
+ 
     # 從 Supabase 儀表板 -> Settings -> API 取得
     SB_URL="https://<your-project-id>.supabase.co"
-    SB_ANON_KEY="ey..."
+    SB_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
     ```
 
 2.  將這些環境變數設定到遠端的 Supabase 專案中：
